@@ -3,14 +3,22 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
 // Read from environment variables instead of hardcoding tokens
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-  throw new Error('Missing Supabase environment variables. Please check your .env.local file.');
+  // Don't crash the build (e.g. Next.js page-data collection) when env vars are
+  // absent. At runtime the env vars must be set for any Supabase call to work.
+  console.warn(
+    'Missing Supabase environment variables (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY). ' +
+      'Supabase requests will fail until they are configured.'
+  );
 }
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+export const supabase = createClient<Database>(
+  SUPABASE_URL ?? 'https://placeholder.supabase.co',
+  SUPABASE_PUBLISHABLE_KEY ?? 'placeholder-anon-key'
+);
