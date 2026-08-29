@@ -41,21 +41,10 @@ import {
   Save,
   X,
   Edit2,
-  Download,
   Shield,
-  Tag,
-  Upload
+  Tag
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-interface MembershipRecord {
-  id: string;
-  membership_number: string;
-  email: string;
-  full_name: string;
-  is_used: boolean;
-  created_at: string;
-}
 
 export default function AdminPage() {
   const router = useRouter();
@@ -65,17 +54,14 @@ export default function AdminPage() {
   // States
   const [users, setUsers] = useState<any[]>([]);
   const [brands, setBrands] = useState<any[]>([]);
-  const [memberships, setMemberships] = useState<any[]>([]);
   const [newsItems, setNewsItems] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
-  
+
   // Loading states
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  
+
   // Form states
-  const [file, setFile] = useState<File | null>(null);
   const [editingBrand, setEditingBrand] = useState<any>(null);
   const [newBrand, setNewBrand] = useState({
     name: "",
@@ -128,7 +114,6 @@ export default function AdminPage() {
   const loadData = async () => {
     await loadUsers();
     await loadBrands();
-    await loadMemberships();
     await loadNews();
     await loadProducts();
     await loadOrders();
@@ -164,17 +149,6 @@ export default function AdminPage() {
     if (data) setBrands(data);
   };
 
-  const loadMemberships = async () => {
-    const { data, error } = await supabase
-      .from("membership_numbers")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (!error && data) {
-      setMemberships(data);
-    }
-  };
-
   const loadNews = async () => {
     const { data } = await newsService.getAllNews();
     if (data) setNewsItems(data);
@@ -188,101 +162,6 @@ export default function AdminPage() {
   const loadOrders = async () => {
     const { data } = await orderService.getAllOrders();
     if (data) setOrders(data);
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-    }
-  };
-
-  const parseCSV = (text: string): Array<{ email: string; full_name: string; membership_number: string }> => {
-    const lines = text.split("\n").filter(line => line.trim());
-    const records: Array<{ email: string; full_name: string; membership_number: string }> = [];
-
-    // Skip header line
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-
-      const parts = line.includes(";") 
-        ? line.split(";").map(p => p.trim()) 
-        : line.split(",").map(p => p.trim());
-
-      if (parts.length >= 3) {
-        const [email, full_name, membership_number] = parts;
-        
-        if (membership_number && /^\d{8}$/.test(membership_number.trim())) {
-          records.push({
-            email: email.trim(),
-            full_name: full_name.trim(),
-            membership_number: membership_number.trim(),
-          });
-        }
-      }
-    }
-
-    return records;
-  };
-
-  const handleUpload = async () => {
-    if (!file) {
-      toast({ title: "Hata", description: "Lütfen bir dosya seçin", variant: "destructive" });
-      return;
-    }
-
-    setUploading(true);
-
-    try {
-      const text = await file.text();
-      const records = parseCSV(text);
-
-      if (records.length === 0) {
-        toast({
-          title: "Hata",
-          description: "Dosyada geçerli kayıt bulunamadı. Format: Email, Ad Soyad, Üyelik No (8 haneli)",
-          variant: "destructive",
-        });
-        setUploading(false);
-        return;
-      }
-
-      const { error } = await supabase.from("membership_numbers").insert(records);
-
-      if (error) {
-        toast({ title: "Hata", description: `Kayıtlar eklenirken hata: ${error.message}`, variant: "destructive" });
-      } else {
-        toast({ title: "Başarılı", description: `${records.length} kayıt başarıyla eklendi` });
-        setFile(null);
-        loadMemberships();
-      }
-    } catch (error: any) {
-      toast({ title: "Hata", description: `Dosya işlenirken hata: ${error.message}`, variant: "destructive" });
-    }
-
-    setUploading(false);
-  };
-
-  const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("membership_numbers").delete().eq("id", id);
-    if (error) {
-      toast({ title: "Hata", description: "Kayıt silinemedi", variant: "destructive" });
-    } else {
-      toast({ title: "Başarılı", description: "Kayıt silindi" });
-      loadMemberships();
-    }
-  };
-
-  const downloadTemplate = () => {
-    const csvContent = "Email,Full Name,Membership Number\nahmet@example.com,Ahmet Yılmaz,12345678\nayse@example.com,Ayşe Demir,87654321";
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "membership_template.csv";
-    a.click();
-    window.URL.revokeObjectURL(url);
   };
 
   const handleRoleUpdate = async (userId: string, newRole: string) => {
@@ -500,40 +379,6 @@ export default function AdminPage() {
               <h1 className="text-3xl font-heading font-bold">Admin Panel</h1>
             </div>
 
-            {/* Toplu Yükleme Bölümü (Her zaman üstte görünsün) */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Upload className="h-5 w-5" />
-                  Toplu Üyelik Numarası Yükleme
-                </CardTitle>
-                <CardDescription>CSV veya Excel dosyasından üyelik numaralarını toplu yükleyin</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="bg-muted p-4 rounded-lg space-y-2">
-                  <p className="text-sm font-medium">Dosya Formatı:</p>
-                  <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
-                    <li>CSV formatı (virgül veya noktalı virgül ile ayrılmış)</li>
-                    <li>İlk satır başlık: Email, Full Name, Membership Number</li>
-                    <li>Örnek: ahmet@example.com,Ahmet Yılmaz,12345678</li>
-                  </ul>
-                  <Button variant="outline" size="sm" onClick={downloadTemplate} className="mt-2">
-                    <Download className="h-4 w-4 mr-2" /> Örnek Dosya İndir
-                  </Button>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="csv-file">CSV/Excel Dosyası</Label>
-                  <Input id="csv-file" type="file" accept=".csv,.xlsx,.xls" onChange={handleFileChange} />
-                  {file && <p className="text-sm text-muted-foreground">Seçilen dosya: {file.name}</p>}
-                </div>
-
-                <Button onClick={handleUpload} disabled={!file || uploading} className="w-full">
-                  {uploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Yükleniyor...</> : <><Upload className="mr-2 h-4 w-4" /> Dosyayı Yükle</>}
-                </Button>
-              </CardContent>
-            </Card>
-
             {/* SEKMELER */}
             <Tabs defaultValue="users" className="space-y-6">
               <TabsList className="grid grid-cols-3 lg:grid-cols-7 gap-2">
@@ -579,7 +424,7 @@ export default function AdminPage() {
                         <TableRow>
                           <TableHead>Ad Soyad</TableHead>
                           <TableHead>Email</TableHead>
-                          <TableHead>Üyelik No</TableHead>
+                          <TableHead>Durum</TableHead>
                           <TableHead>Kayıt Tarihi</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -588,7 +433,7 @@ export default function AdminPage() {
                           <TableRow key={u.id}>
                             <TableCell className="font-medium">{u.full_name || 'İsimsiz'}</TableCell>
                             <TableCell>{u.email}</TableCell>
-                            <TableCell>{u.membership_number || '-'}</TableCell>
+                            <TableCell>{u.membership_tier === 'dernek_uyesi' ? 'Dernek Üyesi' : 'Mezun Üye'}</TableCell>
                             <TableCell>{new Date(u.created_at).toLocaleDateString('tr-TR')}</TableCell>
                           </TableRow>
                         ))}
