@@ -291,6 +291,27 @@ export type Database = {
           },
         ]
       }
+      fonzip_token_cache: {
+        Row: {
+          access_token: string
+          expires_at: string
+          id: number
+          updated_at: string | null
+        }
+        Insert: {
+          access_token: string
+          expires_at: string
+          id?: number
+          updated_at?: string | null
+        }
+        Update: {
+          access_token?: string
+          expires_at?: string
+          id?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       group_members: {
         Row: {
           group_id: string
