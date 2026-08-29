@@ -112,10 +112,6 @@ export function Navigation() {
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
   };
 
-  if (!user) {
-    return null;
-  }
-
   const aboutItems = [
     { href: "https://eymeder.com/baskanin-mesaji", label: "Başkanın Mesajı", external: true },
     { href: "https://eymeder.com/yonetim-kurulu", label: "Yönetim Kurulu", external: true },
