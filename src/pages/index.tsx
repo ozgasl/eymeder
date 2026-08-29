@@ -97,7 +97,7 @@ export default function Home() {
       iconBg: "bg-orange-100 text-orange-600",
     },
     {
-      title: "Başarılı Mezunlar",
+      title: "Başarı Hikayeleri",
       description: "İlham verici hikayeler",
       icon: Star,
       href: "/testimonials",

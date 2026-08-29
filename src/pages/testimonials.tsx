@@ -110,7 +110,7 @@ export default function TestimonialsPage() {
   return (
     <>
       <Head>
-        <SEO title="Başarılı Mezunlarımız" description="Eyüboğlu mezunlarının başarı hikayeleri" />
+        <SEO title="Başarı Hikayeleri" description="Eyüboğlu mezunlarının başarı hikayeleri" />
       </Head>
       <div className="min-h-screen bg-background">
         <Navigation />
@@ -119,7 +119,7 @@ export default function TestimonialsPage() {
             <div>
               <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
                 <Award className="h-8 w-8" />
-                Başarılı Mezunlarımızın Görüşleri
+                Başarı Hikayeleri
               </h1>
               <p className="text-muted-foreground">Eyüboğlu mezunlarının kariyer hikayeleri ve tavsiyeleri</p>
             </div>
