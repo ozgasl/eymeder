@@ -1,4 +1,3 @@
- 
 export type Json =
   | string
   | number
@@ -8,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   public: {
     Tables: {
       activity_points: {
@@ -699,44 +693,6 @@ export type Database = {
           },
         ]
       }
-      membership_numbers: {
-        Row: {
-          created_at: string | null
-          email: string | null
-          full_name: string | null
-          id: string
-          is_used: boolean | null
-          membership_number: string
-          used_by: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          email?: string | null
-          full_name?: string | null
-          id?: string
-          is_used?: boolean | null
-          membership_number: string
-          used_by?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          email?: string | null
-          full_name?: string | null
-          id?: string
-          is_used?: boolean | null
-          membership_number?: string
-          used_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "membership_numbers_used_by_fkey"
-            columns: ["used_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       mentorship_requests: {
         Row: {
           created_at: string | null
@@ -1022,6 +978,39 @@ export type Database = {
           },
         ]
       }
+      otp_codes: {
+        Row: {
+          attempts: number
+          code_hash: string
+          consumed: boolean
+          created_at: string | null
+          email: string
+          expires_at: string
+          id: string
+          purpose: string
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          consumed?: boolean
+          created_at?: string | null
+          email: string
+          expires_at: string
+          id?: string
+          purpose: string
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          consumed?: boolean
+          created_at?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          purpose?: string
+        }
+        Relationships: []
+      }
       payment_links: {
         Row: {
           amount: number
@@ -1269,11 +1258,12 @@ export type Database = {
           instagram_url: string | null
           is_mentor: boolean | null
           linkedin_url: string | null
-          membership_number: string | null
+          membership_tier: string
           mentor_bio: string | null
           mentorship_areas: string[] | null
           phone: string | null
           profession: string | null
+          school_number: string | null
           twitter_url: string | null
           university: string | null
           university_graduation_year: number | null
@@ -1297,11 +1287,12 @@ export type Database = {
           instagram_url?: string | null
           is_mentor?: boolean | null
           linkedin_url?: string | null
-          membership_number?: string | null
+          membership_tier?: string
           mentor_bio?: string | null
           mentorship_areas?: string[] | null
           phone?: string | null
           profession?: string | null
+          school_number?: string | null
           twitter_url?: string | null
           university?: string | null
           university_graduation_year?: number | null
@@ -1325,26 +1316,19 @@ export type Database = {
           instagram_url?: string | null
           is_mentor?: boolean | null
           linkedin_url?: string | null
-          membership_number?: string | null
+          membership_tier?: string
           mentor_bio?: string | null
           mentorship_areas?: string[] | null
           phone?: string | null
           profession?: string | null
+          school_number?: string | null
           twitter_url?: string | null
           university?: string | null
           university_graduation_year?: number | null
           university_status?: string | null
           updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_membership_number_fkey"
-            columns: ["membership_number"]
-            isOneToOne: true
-            referencedRelation: "membership_numbers"
-            referencedColumns: ["membership_number"]
-          },
-        ]
+        Relationships: []
       }
       roles: {
         Row: {
@@ -1588,3 +1572,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
