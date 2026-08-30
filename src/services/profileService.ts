@@ -9,6 +9,8 @@ export interface Profile {
   bio: string | null;
   graduation_year: number | null;
   high_school_graduation_year: number | null;
+  school_number: string | null;
+  membership_tier: string;
   department: string | null;
   university: string | null;
   university_status: string | null;

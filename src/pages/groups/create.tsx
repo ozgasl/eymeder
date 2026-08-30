@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/router";
 import { SEO } from "@/components/SEO";
 import { Navigation } from "@/components/Navigation";
@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { groupService } from "@/services/groupService";
-import { authService } from "@/services/authService";
+import { useAccessControl } from "@/hooks/useAccessControl";
+import { AccessRestricted } from "@/components/AccessRestricted";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Users } from "lucide-react";
 
@@ -18,14 +19,7 @@ export default function CreateGroupPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [creating, setCreating] = useState(false);
-  const [user, setUser] = useState<any>(null);
-
-  useEffect(() => {
-    authService.getCurrentUser().then((u) => {
-      if (!u) router.push("/auth/login");
-      else setUser(u);
-    });
-  }, [router]);
+  const { loading, user, isDernekUyesi } = useAccessControl();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -63,7 +57,7 @@ export default function CreateGroupPage() {
     setCreating(false);
   };
 
-  if (!user) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -71,13 +65,25 @@ export default function CreateGroupPage() {
     );
   }
 
+  if (!isDernekUyesi) {
+    return (
+      <>
+        <SEO title="Grup Oluştur - Mezunlar Derneği" description="Yeni topluluk grubu oluşturun" />
+        <div className="min-h-screen bg-background">
+          <Navigation />
+          <AccessRestricted featureName="Grup oluşturma" />
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
-      <SEO 
+      <SEO
         title="Grup Oluştur - Mezunlar Derneği"
         description="Yeni topluluk grubu oluşturun"
       />
-      
+
       <div className="min-h-screen bg-background">
         <Navigation />
 

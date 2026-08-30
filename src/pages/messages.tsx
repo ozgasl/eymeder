@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useRouter } from "next/router";
 import { SEO } from "@/components/SEO";
 import { Navigation } from "@/components/Navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,16 +7,16 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { authService } from "@/services/authService";
 import { messageService, type Message, type ConversationPreview } from "@/services/messageService";
+import { useAccessControl } from "@/hooks/useAccessControl";
+import { AccessRestricted } from "@/components/AccessRestricted";
 import { Loader2, Send, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function MessagesPage() {
-  const router = useRouter();
   const { toast } = useToast();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { loading: accessLoading, user, isDernekUyesi } = useAccessControl();
+  const [conversationsLoading, setConversationsLoading] = useState(true);
   const [conversations, setConversations] = useState<ConversationPreview[]>([]);
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -25,8 +24,10 @@ export default function MessagesPage() {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    checkAuth();
-  }, []);
+    if (!accessLoading && isDernekUyesi) {
+      loadConversations();
+    }
+  }, [accessLoading, isDernekUyesi]);
 
   useEffect(() => {
     if (selectedPartnerId) {
@@ -35,20 +36,10 @@ export default function MessagesPage() {
     }
   }, [selectedPartnerId]);
 
-  const checkAuth = async () => {
-    const currentUser = await authService.getCurrentUser();
-    if (!currentUser) {
-      router.push("/auth/login");
-      return;
-    }
-    setUser(currentUser);
-    loadConversations();
-  };
-
   const loadConversations = async () => {
     const { data } = await messageService.getConversations();
     setConversations(data || []);
-    setLoading(false);
+    setConversationsLoading(false);
   };
 
   const loadConversation = async () => {
@@ -94,7 +85,7 @@ export default function MessagesPage() {
 
   const selectedConversation = conversations.find((c) => c.partnerId === selectedPartnerId);
 
-  if (loading) {
+  if (accessLoading || (isDernekUyesi && conversationsLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -102,13 +93,28 @@ export default function MessagesPage() {
     );
   }
 
+  if (!isDernekUyesi) {
+    return (
+      <>
+        <SEO
+          title="Mesajlar - Mezunlar Derneği"
+          description="Mezunlarla sohbet edin"
+        />
+        <div className="min-h-screen bg-background">
+          <Navigation />
+          <AccessRestricted featureName="Mesajlar" />
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
-      <SEO 
+      <SEO
         title="Mesajlar - Mezunlar Derneği"
         description="Mezunlarla sohbet edin"
       />
-      
+
       <div className="min-h-screen bg-background">
         <Navigation />
 

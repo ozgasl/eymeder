@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useRouter } from "next/router";
 import Head from "next/head";
 import { SEO } from "@/components/SEO";
 import { Navigation } from "@/components/Navigation";
@@ -13,41 +12,30 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { authService } from "@/services/authService";
 import { galleryService } from "@/services/galleryService";
+import { useAccessControl } from "@/hooks/useAccessControl";
 import { Upload, Image as ImageIcon, Video, Heart, Loader2, Filter } from "lucide-react";
 
 export default function GalleryPage() {
-  const router = useRouter();
   const { toast } = useToast();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { loading, isStaff } = useAccessControl();
   const [uploading, setUploading] = useState(false);
   const [media, setMedia] = useState<any[]>([]);
-  
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [mediaType, setMediaType] = useState<"photo" | "video">("photo");
   const [year, setYear] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  
+
   const [typeFilter, setTypeFilter] = useState("all");
   const [yearFilter, setYearFilter] = useState("all");
 
   useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    const currentUser = await authService.getCurrentUser();
-    if (!currentUser) {
-      router.push("/auth/login");
-    } else {
-      setUser(currentUser);
+    if (!loading) {
       loadMedia();
-      setLoading(false);
     }
-  };
+  }, [loading]);
 
   const loadMedia = async () => {
     const { data, error } = await galleryService.getAllMedia();
@@ -136,80 +124,82 @@ export default function GalleryPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <div className="lg:col-span-1 space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Upload className="h-5 w-5" />
-                    Medya Yükle
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="media-type">Tip</Label>
-                    <Select value={mediaType} onValueChange={(v: "photo" | "video") => setMediaType(v)}>
-                      <SelectTrigger id="media-type">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="photo">Fotoğraf</SelectItem>
-                        <SelectItem value="video">Video</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+              {isStaff && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Upload className="h-5 w-5" />
+                      Medya Yükle
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="media-type">Tip</Label>
+                      <Select value={mediaType} onValueChange={(v: "photo" | "video") => setMediaType(v)}>
+                        <SelectTrigger id="media-type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="photo">Fotoğraf</SelectItem>
+                          <SelectItem value="video">Video</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="file">Dosya Seç</Label>
-                    <Input
-                      id="file"
-                      type="file"
-                      accept={mediaType === "photo" ? "image/*" : "video/*"}
-                      onChange={handleFileSelect}
-                    />
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="file">Dosya Seç</Label>
+                      <Input
+                        id="file"
+                        type="file"
+                        accept={mediaType === "photo" ? "image/*" : "video/*"}
+                        onChange={handleFileSelect}
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="title">Başlık</Label>
-                    <Input
-                      id="title"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      placeholder="Örn: Mezuniyet Töreni 2010"
-                    />
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="title">Başlık</Label>
+                      <Input
+                        id="title"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder="Örn: Mezuniyet Töreni 2010"
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Açıklama</Label>
-                    <Textarea
-                      id="description"
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Anınızı anlatın..."
-                      rows={3}
-                    />
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="description">Açıklama</Label>
+                      <Textarea
+                        id="description"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Anınızı anlatın..."
+                        rows={3}
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="year">Yıl (opsiyonel)</Label>
-                    <Select value={year} onValueChange={setYear}>
-                      <SelectTrigger id="year">
-                        <SelectValue placeholder="Seçin" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.from({ length: 40 }, (_, i) => new Date().getFullYear() - i).map((y) => (
-                          <SelectItem key={y} value={y.toString()}>
-                            {y}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="year">Yıl (opsiyonel)</Label>
+                      <Select value={year} onValueChange={setYear}>
+                        <SelectTrigger id="year">
+                          <SelectValue placeholder="Seçin" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 40 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+                            <SelectItem key={y} value={y.toString()}>
+                              {y}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                  <Button onClick={handleUpload} disabled={uploading} className="w-full">
-                    {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
-                    Yükle
-                  </Button>
-                </CardContent>
-              </Card>
+                    <Button onClick={handleUpload} disabled={uploading} className="w-full">
+                      {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+                      Yükle
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
 
               <Card>
                 <CardHeader>
