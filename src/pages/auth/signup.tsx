@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { SEO } from "@/components/SEO";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +22,7 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [kvkkAccepted, setKvkkAccepted] = useState(false);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +30,11 @@ export default function SignupPage() {
 
     if (!fullName || !graduationYear || !schoolNumber || !phone || !email || !password) {
       toast({ title: "Hata", description: "Lütfen tüm alanları doldurun", variant: "destructive" });
+      return;
+    }
+
+    if (!kvkkAccepted) {
+      toast({ title: "Hata", description: "Devam etmek için KVKK Aydınlatma Metni'ni onaylamanız gerekiyor", variant: "destructive" });
       return;
     }
 
@@ -128,7 +135,22 @@ export default function SignupPage() {
                 <Input id="confirm-password" type="password" placeholder="Şifrenizi tekrar girin" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
               </div>
 
-              <Button type="submit" className="w-full" disabled={loading}>
+              <div className="flex items-start gap-2 pt-1">
+                <Checkbox
+                  id="kvkk-consent"
+                  checked={kvkkAccepted}
+                  onCheckedChange={(checked) => setKvkkAccepted(checked === true)}
+                  className="mt-0.5"
+                />
+                <Label htmlFor="kvkk-consent" className="text-sm font-normal leading-snug text-muted-foreground">
+                  <Link href="/kvkk" target="_blank" className="text-primary hover:underline">
+                    KVKK Aydınlatma Metni'ni
+                  </Link>{" "}
+                  okudum, kişisel verilerimin belirtilen kapsamda işlenmesini kabul ediyorum.
+                </Label>
+              </div>
+
+              <Button type="submit" className="w-full" disabled={loading || !kvkkAccepted}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Kod Gönder
               </Button>
