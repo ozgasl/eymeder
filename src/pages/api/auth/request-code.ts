@@ -36,7 +36,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(429).json({ error: issued.error });
   }
 
-  await sendOtpEmail(normalizedEmail, issued.code, purpose);
+  try {
+    await sendOtpEmail(normalizedEmail, issued.code, purpose);
+  } catch (error) {
+    console.error("sendOtpEmail failed:", error);
+    return res.status(500).json({ error: "Kod e-postayla gönderilemedi, lütfen tekrar deneyin." });
+  }
 
   return res.status(200).json({ success: true });
 }
