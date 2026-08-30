@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useRouter } from "next/router";
 import { SEO } from "@/components/SEO";
 import { Navigation } from "@/components/Navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,14 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { authService } from "@/services/authService";
 import { profileService, type Profile, type SearchFilters } from "@/services/profileService";
+import { useAccessControl } from "@/hooks/useAccessControl";
+import { AccessRestricted } from "@/components/AccessRestricted";
 import { Loader2, Search, MapPin, Briefcase, GraduationCap, Building, Filter, MessageSquare, Mail, Phone, Linkedin, Twitter, Instagram, Facebook, Globe } from "lucide-react";
 
 export default function DirectoryPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { loading, isDernekUyesi } = useAccessControl();
   const [searching, setSearching] = useState(false);
   const [alumni, setAlumni] = useState<Profile[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
@@ -40,19 +38,10 @@ export default function DirectoryPage() {
   const [companyFilter, setCompanyFilter] = useState("all");
 
   useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    const currentUser = await authService.getCurrentUser();
-    if (!currentUser) {
-      router.push("/auth/login");
-    } else {
-      setUser(currentUser);
+    if (!loading && isDernekUyesi) {
       loadMembers();
-      setLoading(false);
     }
-  };
+  }, [loading, isDernekUyesi]);
 
   const loadMembers = async () => {
     const { data, error } = await profileService.getAllProfiles();
@@ -97,7 +86,6 @@ export default function DirectoryPage() {
     setCities(citiesResult.data || []);
     
     setSearching(false);
-    setLoading(false);
   };
 
   const handleSearch = () => {
@@ -123,13 +111,28 @@ export default function DirectoryPage() {
     );
   }
 
+  if (!isDernekUyesi) {
+    return (
+      <>
+        <SEO
+          title="Mezun Dizini - Mezunlar Derneği"
+          description="Mezunları keşfedin, bağlantılar kurun"
+        />
+        <div className="min-h-screen bg-background">
+          <Navigation />
+          <AccessRestricted featureName="Mezun Dizini" />
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
-      <SEO 
+      <SEO
         title="Mezun Dizini - Mezunlar Derneği"
         description="Mezunları keşfedin, bağlantılar kurun"
       />
-      
+
       <div className="min-h-screen bg-background">
         <Navigation />
 

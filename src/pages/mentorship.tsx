@@ -9,35 +9,26 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { authService } from "@/services/authService";
 import { mentorshipService } from "@/services/mentorshipService";
+import { useAccessControl } from "@/hooks/useAccessControl";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
 export default function MentorshipPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { loading: accessLoading, user, isDernekUyesi } = useAccessControl();
+  const [dataLoading, setDataLoading] = useState(true);
   const [mentors, setMentors] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
   const [message, setMessage] = useState("");
   const [requesting, setRequesting] = useState(false);
 
   useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    const currentUser = await authService.getCurrentUser();
-    if (!currentUser) {
-      router.push("/auth/login");
-    } else {
-      setUser(currentUser);
-      await Promise.all([loadMentors(), loadRequests()]);
-      setLoading(false);
+    if (!accessLoading && user) {
+      Promise.all([loadMentors(), loadRequests()]).then(() => setDataLoading(false));
     }
-  };
+  }, [accessLoading, user]);
 
   const loadMentors = async () => {
     const { data, error } = await mentorshipService.getMentors();
@@ -78,7 +69,7 @@ export default function MentorshipPage() {
     }
   };
 
-  if (loading) {
+  if (accessLoading || dataLoading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
@@ -130,24 +121,32 @@ export default function MentorshipPage() {
                             ))}
                           </div>
                         )}
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button className="w-full">Mentorluk Talep Et</Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Mentorluk Talebi</DialogTitle>
-                              <DialogDescription>{mentor.full_name} isimli mezunumuza mentorluk talebi gönderiyorsunuz.</DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-4 pt-4">
-                              <Textarea placeholder="Neden bu mentordan destek almak istiyorsunuz? Hedefleriniz neler?" value={message} onChange={(e) => setMessage(e.target.value)} rows={4} />
-                              <Button className="w-full" onClick={() => handleRequestMentorship(mentor.id)} disabled={requesting || !message.trim()}>
-                                {requesting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Talebi Gönder
-                              </Button>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
+                        {isDernekUyesi ? (
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button className="w-full">Mentorluk Talep Et</Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Mentorluk Talebi</DialogTitle>
+                                <DialogDescription>{mentor.full_name} isimli mezunumuza mentorluk talebi gönderiyorsunuz.</DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-4 pt-4">
+                                <Textarea placeholder="Neden bu mentordan destek almak istiyorsunuz? Hedefleriniz neler?" value={message} onChange={(e) => setMessage(e.target.value)} rows={4} />
+                                <Button className="w-full" onClick={() => handleRequestMentorship(mentor.id)} disabled={requesting || !message.trim()}>
+                                  {requesting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                  Talebi Gönder
+                                </Button>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        ) : (
+                          <Button className="w-full" variant="outline" asChild>
+                            <a href="https://fonzip.com/eymeder/odeme" target="_blank" rel="noopener noreferrer">
+                              Aidat Öde, Mentorluk Talep Et
+                            </a>
+                          </Button>
+                        )}
                       </CardContent>
                     </Card>
                   ))}

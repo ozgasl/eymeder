@@ -11,11 +11,14 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { eventService } from "@/services/eventService";
 import { supabase } from "@/integrations/supabase/client";
+import { useAccessControl } from "@/hooks/useAccessControl";
+import { AccessRestricted } from "@/components/AccessRestricted";
 import { Calendar, MapPin, Users, Loader2 } from "lucide-react";
 
 export default function CreateEventPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { loading: accessLoading, isStaff } = useAccessControl();
   const [loading, setLoading] = useState(false);
 
   // Separate state for each field
@@ -138,6 +141,28 @@ export default function CreateEventPage() {
       setLoading(false);
     }
   };
+
+  if (accessLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!isStaff) {
+    return (
+      <>
+        <Head>
+          <SEO title="Yeni Etkinlik Oluştur" />
+        </Head>
+        <div className="min-h-screen bg-background">
+          <Navigation />
+          <AccessRestricted variant="staff" featureName="Etkinlik oluşturma" />
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

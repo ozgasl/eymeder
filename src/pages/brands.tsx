@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { brandService } from "@/services/brandService";
 import { qrCodeService } from "@/services/qrCodeService";
-import { ExternalLink, Tag, QrCode, Loader2 } from "lucide-react";
+import { useAccessControl } from "@/hooks/useAccessControl";
+import { ExternalLink, Tag, QrCode, Loader2, Lock } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +20,7 @@ import {
 
 export default function BrandsPage() {
   const router = useRouter();
+  const { isDernekUyesi } = useAccessControl({ redirectIfUnauthenticated: false });
   const [brands, setBrands] = useState<any[]>([]);
   const [myQR, setMyQR] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -26,8 +28,13 @@ export default function BrandsPage() {
 
   useEffect(() => {
     loadBrands();
-    loadMyQR();
   }, []);
+
+  useEffect(() => {
+    if (isDernekUyesi) {
+      loadMyQR();
+    }
+  }, [isDernekUyesi]);
 
   const loadBrands = async () => {
     const { data } = await brandService.getBrands();
@@ -85,7 +92,7 @@ export default function BrandsPage() {
                     Eyüboğlu mezunlarına özel indirimler ve avantajlar
                   </p>
                 </div>
-                {myQR && (
+                {isDernekUyesi && myQR && (
                   <Button onClick={() => setShowQR(true)} size="lg" className="gap-2">
                     <QrCode className="h-5 w-5" />
                     QR Kodumu Göster
@@ -95,21 +102,44 @@ export default function BrandsPage() {
             </div>
 
             {/* Info Card */}
-            {myQR && (
-              <Card className="mb-8 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 border-primary/20">
+            {isDernekUyesi ? (
+              myQR && (
+                <Card className="mb-8 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 border-primary/20">
+                  <CardContent className="pt-6">
+                    <div className="flex items-start gap-4">
+                      <div className="bg-primary/10 p-3 rounded-full">
+                        <Tag className="h-6 w-6 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold mb-2">Nasıl İndirim Alırım?</h3>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          QR kodunuzu anlaşmalı markalarda göstererek özel indirimlerinizden yararlanın.
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          <strong>QR Kodunuz:</strong> {myQR.qr_code}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            ) : (
+              <Card className="mb-8 border-dashed">
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-4">
-                    <div className="bg-primary/10 p-3 rounded-full">
-                      <Tag className="h-6 w-6 text-primary" />
+                    <div className="bg-muted p-3 rounded-full">
+                      <Lock className="h-6 w-6 text-muted-foreground" />
                     </div>
-                    <div>
-                      <h3 className="font-semibold mb-2">Nasıl İndirim Alırım?</h3>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        QR kodunuzu anlaşmalı markalarda göstererek özel indirimlerinizden yararlanın.
+                    <div className="flex-1">
+                      <h3 className="font-semibold mb-2">İndirim QR Kodu Dernek Üyelerine Özel</h3>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Anlaşmalı markalardan indirim alabilmek için aidatını ödemiş dernek üyesi olmanız gerekir.
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        <strong>QR Kodunuz:</strong> {myQR.qr_code}
-                      </p>
+                      <Button size="sm" asChild>
+                        <a href="https://fonzip.com/eymeder/odeme" target="_blank" rel="noopener noreferrer">
+                          Aidatımı Öde
+                        </a>
+                      </Button>
                     </div>
                   </div>
                 </CardContent>

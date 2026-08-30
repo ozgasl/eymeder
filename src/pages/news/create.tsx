@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { SEO } from "@/components/SEO";
@@ -9,34 +9,20 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { authService } from "@/services/authService";
 import { newsService } from "@/services/newsService";
+import { useAccessControl } from "@/hooks/useAccessControl";
+import { AccessRestricted } from "@/components/AccessRestricted";
 import { Loader2, Newspaper } from "lucide-react";
 
 export default function CreateNewsPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { loading, isStaff } = useAccessControl();
   const [creating, setCreating] = useState(false);
-  
+
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [coverImage, setCoverImage] = useState("");
-
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    const currentUser = await authService.getCurrentUser();
-    if (!currentUser) {
-      router.push("/auth/login");
-    } else {
-      setUser(currentUser);
-      setLoading(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,6 +65,20 @@ export default function CreateNewsPage() {
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
+    );
+  }
+
+  if (!isStaff) {
+    return (
+      <>
+        <Head>
+          <SEO title="Haber Ekle" />
+        </Head>
+        <div className="min-h-screen bg-background">
+          <Navigation />
+          <AccessRestricted variant="staff" featureName="Haber paylaşımı" />
+        </div>
+      </>
     );
   }
 

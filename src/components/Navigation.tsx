@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/navigation-menu";
 import { authService } from "@/services/authService";
 import { notificationService } from "@/services/notificationService";
+import { supabase } from "@/integrations/supabase/client";
 import { Bell, LogOut, User, Menu, X, ChevronDown, Instagram, Twitter, Linkedin, MessageCircle, Globe } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
@@ -40,10 +41,31 @@ export function Navigation() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifOpen, setNotifOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isDernekUyesi, setIsDernekUyesi] = useState(false);
+  const [isStaff, setIsStaff] = useState(false);
 
   useEffect(() => {
     loadUser();
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setIsDernekUyesi(false);
+      setIsStaff(false);
+      return;
+    }
+    loadAccess(user.id);
+  }, [user]);
+
+  const loadAccess = async (userId: string) => {
+    const [{ data: profile }, { data: roleRow }] = await Promise.all([
+      supabase.from("profiles").select("membership_tier").eq("id", userId).single(),
+      supabase.from("roles").select("role").eq("user_id", userId).single(),
+    ]);
+    setIsDernekUyesi((profile as any)?.membership_tier === "dernek_uyesi");
+    const role = (roleRow as any)?.role;
+    setIsStaff(role === "admin" || role === "moderator");
+  };
 
   useEffect(() => {
     if (user) {
@@ -178,9 +200,11 @@ export function Navigation() {
           <Link href="/store" className="text-sm font-medium hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
             Mezun Store
           </Link>
-          <Link href="/directory" className="text-sm font-medium hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
-            Üyeler
-          </Link>
+          {isDernekUyesi && (
+            <Link href="/directory" className="text-sm font-medium hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
+              Üyeler
+            </Link>
+          )}
           <Link href="/brands" className="text-sm font-medium hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
             İndirimli Markalar
           </Link>
@@ -215,10 +239,12 @@ export function Navigation() {
           <Link href="/mentorship" className="text-sm font-medium hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
             Mentorluk
           </Link>
-          <Link href="/messages" className="text-sm font-medium hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
-            Mesajlar
-          </Link>
-          
+          {isDernekUyesi && (
+            <Link href="/messages" className="text-sm font-medium hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
+              Mesajlar
+            </Link>
+          )}
+
           {/* Üyelik Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center gap-1 text-sm font-medium hover:text-primary transition-colors outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" aria-label="Üyelik menüsü" aria-haspopup="true">
@@ -248,12 +274,10 @@ export function Navigation() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {user && (
-            <>
-              <Link href="/admin" className="text-sm font-medium hover:text-primary transition-colors hidden lg:block focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
-                Admin
-              </Link>
-            </>
+          {isStaff && (
+            <Link href="/admin" className="text-sm font-medium hover:text-primary transition-colors hidden lg:block focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
+              Admin
+            </Link>
           )}
         </div>
 
@@ -421,16 +445,18 @@ export function Navigation() {
             >
               Mezun Store
             </Link>
-            <Link 
-              href="/directory" 
-              className="block px-4 py-2 text-sm font-medium hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-              onClick={() => setMobileMenuOpen(false)}
-              role="menuitem"
-            >
-              Üyeler
-            </Link>
-            <Link 
-              href="/brands" 
+            {isDernekUyesi && (
+              <Link
+                href="/directory"
+                className="block px-4 py-2 text-sm font-medium hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                onClick={() => setMobileMenuOpen(false)}
+                role="menuitem"
+              >
+                Üyeler
+              </Link>
+            )}
+            <Link
+              href="/brands"
               className="block px-4 py-2 text-sm font-medium hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
               onClick={() => setMobileMenuOpen(false)}
               role="menuitem"
@@ -493,14 +519,16 @@ export function Navigation() {
             >
               Mentorluk
             </Link>
-            <Link 
-              href="/messages" 
-              className="block px-4 py-2 text-sm font-medium hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-              onClick={() => setMobileMenuOpen(false)}
-              role="menuitem"
-            >
-              Mesajlar
-            </Link>
+            {isDernekUyesi && (
+              <Link
+                href="/messages"
+                className="block px-4 py-2 text-sm font-medium hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                onClick={() => setMobileMenuOpen(false)}
+                role="menuitem"
+              >
+                Mesajlar
+              </Link>
+            )}
 
             <div className="space-y-1">
               <div className="px-4 py-2 text-sm font-semibold text-muted-foreground" role="presentation">Üyelik</div>
@@ -531,16 +559,18 @@ export function Navigation() {
               ))}
             </div>
 
-            <div className="space-y-1">
-              <Link 
-                href="/admin" 
-                className="block px-4 py-2 hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                onClick={() => setMobileMenuOpen(false)}
-                role="menuitem"
-              >
-                Admin
-              </Link>
-            </div>
+            {isStaff && (
+              <div className="space-y-1">
+                <Link
+                  href="/admin"
+                  className="block px-4 py-2 hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                  onClick={() => setMobileMenuOpen(false)}
+                  role="menuitem"
+                >
+                  Admin
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       )}

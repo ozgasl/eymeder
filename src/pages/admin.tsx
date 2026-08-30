@@ -42,7 +42,8 @@ import {
   X,
   Edit2,
   Shield,
-  Tag
+  Tag,
+  RefreshCw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -60,6 +61,7 @@ export default function AdminPage() {
 
   // Loading states
   const [loading, setLoading] = useState(true);
+  const [recheckingUserId, setRecheckingUserId] = useState<string | null>(null);
 
   // Form states
   const [editingBrand, setEditingBrand] = useState<any>(null);
@@ -162,6 +164,51 @@ export default function AdminPage() {
   const loadOrders = async () => {
     const { data } = await orderService.getAllOrders();
     if (data) setOrders(data);
+  };
+
+  const callAdminApi = async (path: string, body: Record<string, unknown>) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(path, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token || ""}`,
+      },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "İşlem başarısız oldu.");
+    }
+    return data;
+  };
+
+  const handleMembershipTierUpdate = async (userId: string, tier: string) => {
+    try {
+      await callAdminApi("/api/admin/membership-tier", { userId, tier });
+      toast({ title: "Üyelik tipi güncellendi" });
+      loadUsers();
+    } catch (err: any) {
+      toast({ title: "Hata", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleRecheckFonzip = async (userId: string) => {
+    setRecheckingUserId(userId);
+    try {
+      const data = await callAdminApi("/api/admin/recheck-fonzip", { userId });
+      toast({
+        title: "Fonzip kontrolü tamamlandı",
+        description: data.isMember
+          ? "Aidat borcu yok, dernek üyesi olarak işaretlendi."
+          : "Fonzip'te eşleşme bulunamadı veya aidat borcu var, mezun üye olarak işaretlendi.",
+      });
+      loadUsers();
+    } catch (err: any) {
+      toast({ title: "Hata", description: err.message, variant: "destructive" });
+    } finally {
+      setRecheckingUserId(null);
+    }
   };
 
   const handleRoleUpdate = async (userId: string, newRole: string) => {
@@ -424,7 +471,8 @@ export default function AdminPage() {
                         <TableRow>
                           <TableHead>Ad Soyad</TableHead>
                           <TableHead>Email</TableHead>
-                          <TableHead>Durum</TableHead>
+                          <TableHead>Üyelik Tipi</TableHead>
+                          <TableHead>Fonzip</TableHead>
                           <TableHead>Kayıt Tarihi</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -433,7 +481,36 @@ export default function AdminPage() {
                           <TableRow key={u.id}>
                             <TableCell className="font-medium">{u.full_name || 'İsimsiz'}</TableCell>
                             <TableCell>{u.email}</TableCell>
-                            <TableCell>{u.membership_tier === 'dernek_uyesi' ? 'Dernek Üyesi' : 'Mezun Üye'}</TableCell>
+                            <TableCell>
+                              <Select
+                                value={u.membership_tier}
+                                onValueChange={(val) => handleMembershipTierUpdate(u.id, val)}
+                              >
+                                <SelectTrigger className="w-[160px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="dernek_uyesi">Dernek Üyesi</SelectItem>
+                                  <SelectItem value="mezun_uye">Mezun Üye</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleRecheckFonzip(u.id)}
+                                disabled={recheckingUserId === u.id}
+                                className="gap-2"
+                              >
+                                {recheckingUserId === u.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-3.5 w-3.5" />
+                                )}
+                                Yeniden Kontrol Et
+                              </Button>
+                            </TableCell>
                             <TableCell>{new Date(u.created_at).toLocaleDateString('tr-TR')}</TableCell>
                           </TableRow>
                         ))}
