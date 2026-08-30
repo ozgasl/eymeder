@@ -139,10 +139,18 @@ export function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="border-t border-gray-800 mt-8 pt-8 text-center">
+        <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6 text-center">
           <p className="text-sm text-gray-500">
             © {new Date().getFullYear()} Eyüboğlu Eğitim Kurumları Mezunlar Derneği. Tüm hakları saklıdır.
           </p>
+          <div className="flex items-center gap-4">
+            <Link href="/kvkk" className="text-sm text-gray-500 hover:text-white transition-colors">
+              KVKK Aydınlatma Metni
+            </Link>
+            <Link href="/cerez-politikasi" className="text-sm text-gray-500 hover:text-white transition-colors">
+              Çerez Politikası
+            </Link>
+          </div>
         </div>
       </div>
     </footer>
