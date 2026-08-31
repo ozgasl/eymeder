@@ -7,11 +7,15 @@ interface SEOProps {
   url?: string;
 }
 
-// SEO elements that can be used in _document.tsx (returns JSX without Head wrapper)
+// Static fallback SEO tags rendered in _document.tsx. Most routes are gated
+// behind the client-side auth check in _app.tsx, which renders nothing until
+// the session check resolves — so for a non-JS client (link-preview bots,
+// crawlers), THIS is the only title/OG content that ever reaches them, not
+// the page's own <SEO> call below. Keep these values accurate and on-brand.
 export function SEOElements({
-  title = "Hello World",
-  description = "Welcome to my app",
-  image = "/og-image.png",
+  title = "EYB Network",
+  description = "Eyüboğlu Eğitim Kurumları Mezunlar Derneği mezun ağı",
+  image = "/logo.jpg",
   url,
 }: SEOProps) {
   return (
@@ -39,9 +43,9 @@ export function SEOElements({
 // SEO component for use in pages/_app.tsx or individual pages (uses next/head)
 // Note: Flattened structure (no fragment) for better Next.js Head compatibility during hot reload
 export function SEO({
-  title = "Hello World",
-  description = "Welcome to my app",
-  image = "/og-image.png",
+  title = "EYB Network",
+  description = "Eyüboğlu Eğitim Kurumları Mezunlar Derneği mezun ağı",
+  image = "/logo.jpg",
   url,
 }: SEOProps) {
   return (
