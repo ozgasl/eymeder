@@ -40,3 +40,6 @@ firebase-service-account.json
 
 .vercel
 .env*
+
+# superpowers brainstorm companion
+.superpowers/
