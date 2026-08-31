@@ -17,10 +17,16 @@ oku. Her oturum sonunda kendi bölümünü buraya ekle (üstte en yeni).
 
 ## Mimari kararlar (kalıcı, değişmedikçe geçerli)
 
-- **Üyelik tipi ekseni**: `profiles.membership_tier` — `dernek_uyesi` (aidat
-  ödeyen) / `mezun_uye` (kayıtlı ama aidatsız). Fonzip üzerinden
-  `graduation_year` + `school_number` → `membership_no` ile doğrulanıyor
-  (`src/lib/fonzipMembershipNo.ts`, `src/services/membershipProvider.ts`).
+- **Üyelik tipi ekseni**: `profiles.membership_tier` — `dernek_uyesi` / `mezun_uye`.
+  Fonzip üzerinden `graduation_year` + `school_number` → `membership_no` ile
+  üye bulunuyor (`src/lib/fonzipMembershipNo.ts`), sonra Fonzip'teki **Tags**
+  alanına bakılıyor (`src/lib/fonzipClient.ts`, `src/services/membershipProvider.ts`):
+  `Dernek Üyesi` veya `Yönetim` etiketi varsa (diğer etiketler ne olursa olsun)
+  `dernek_uyesi`; yoksa (etiket yok, ya da sadece `Mezun Üye`/`Bağışçı`/`Fahri Üye`
+  varsa, ya da Fonzip'te üye hiç bulunamadıysa) `mezun_uye`. **Eskiden**
+  `unpaid_debt_count` (aidat borcu) kullanılıyordu — bu, 2026-08-31'de gerçek
+  API'de güvenilmez çıktığı için (bkz. aşağıdaki ders) tamamen terk edildi;
+  artık borç kavramı üyelik tipini hiç etkilemiyor.
 - **Yetki ekseni** (bağımsız): `roles.role` — `admin` / `moderator` / `member`.
   Admin paneli ve resmi içerik (haber/etkinlik oluşturma, galeri yükleme) buna
   bakar, üyelik tipine değil.
@@ -134,6 +140,42 @@ canlıda küçük, yan etkisiz (read-only arama) deneylerle cevapla. Yazma işle
 (profiles güncellemesi) gerektiren gerçek recheck'i, kullanıcının onayı ya da bilgisi
 olan bir hesapla test et, rastgele/kendi admin hesabınla değil — sonuç üyenin
 `membership_tier`'ını gerçekten değiştirir.
+
+## 🔥 Ders: Fonzip `tags` alanı — nasıl okunur, `unpaid_debt_count` neden terk edildi
+
+`unpaid_debt_count` düzeltildikten sonra bile (yukarıdaki ders) kullanıcı canlı admin
+panelinde "Yeniden Kontrol Et"i denedi ve borç/üyelik sütunları hâlâ boş geldi (merge
+edilmemiş branch'te test edildiği için — ayrı bir konu), ama bu arada kullanıcı asıl
+kaynağı (Fonzip'in tuttuğu gerçek üyelik durumu) **Tags** alanına taşımaya karar verdi.
+`unpaid_debt_count` zaten güvenilmezdi: `eq 0`, `eq -1`, `lt 0`, `lte 0` API'de TAMAMEN
+AYNI 339 kullanıcı setini döndürüyordu (value parametresi filtre motorunda görmezden
+geliniyor, sadece "> 0 mı değil mi" ikili ayrımı var) ve bir kullanıcıyla başka bir
+attribute'u (`id`, `membership_no`) AND ile birleştirmek her zaman 0 sonuç veriyordu
+(Fonzip'in kendi API bug'ı).
+
+**Yeni tasarım — `tags` alanı**: `GET /tags` (parametresiz) bu derneğin sabit 5 etiketini
+id'leriyle döndürüyor: `Dernek Üyesi`=1297198, `Mezun Üye`=1297199, `Bağışçı`=1297221,
+`Fahri Üye`=1297222, `Yönetim`=1297468 (bu id'ler `src/lib/fonzipClient.ts`'te
+hardcoded — Fonzip'in OpenAPI spec'i bu ortamda yok, canlı `GET /tags` ile keşfedildi).
+`/users` aramasında `values_list: ["id","tags"]` istenince **LEFT JOIN gibi davranıyor**:
+bir üyenin N etiketi varsa N satır (her biri aynı `id`, farklı `tags` sayısal id'siyle),
+hiç etiketi yoksa TEK satır `tags: null`, `membership_no` hiç eşleşmiyorsa SIFIR satır.
+Bu, `unpaid_debt_count`'un aksine güvenilir ve tek sorguda tüm bilgiyi veriyor.
+
+**Kullanıcının verdiği gerçek üye export'unda (497 kişi) görülen**: 312 kişide (%63) HİÇ
+etiket yok; 134 kişide tam olarak `Dernek Üyesi,Mezun Üye`; 14 kişide
+`Dernek Üyesi,Mezun Üye,Yönetim` — yani birçok üye BİRDEN FAZLA etiketi aynı anda
+taşıyor. **Öncelik kuralı (kullanıcı onayladı)**: `Dernek Üyesi` veya `Yönetim`
+etiketi varsa diğerleri ne olursa olsun `dernek_uyesi`; yoksa (etiket yok dahil)
+`mezun_uye`. Export'taki "Donor" tag adı sadece İngilizce görüntüleme farkıydı —
+gerçek/Türkçe adı `Bağışçı` (API `GET /tags`'te böyle döndü, kullanıcının mapping'iyle
+birebir eşleşti).
+
+**profiles şeması**: `fonzip_debt_status` kolonu artık hiç yazılmıyor/okunmuyor ama
+DROP edilmedi (ayrı, bilinçli bir temizlik gerektirir — bkz. "Prod Hotfix Workflow"),
+yerine `fonzip_tags TEXT` eklendi (`20260831200000_fonzip_tags_column.sql`) — ham
+etiket adlarını virgülle ayırıp tutuyor (örn. "Dernek Üyesi, Yönetim"), admin
+panelinde "Fonzip Etiketleri" sütununda gösteriliyor (eskiden "Aidat Borcu" idi).
 
 ## Oturum günlüğü
 

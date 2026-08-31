@@ -12,7 +12,7 @@ export interface Profile {
   school_number: string | null;
   membership_tier: string;
   fonzip_membership_status: string | null;
-  fonzip_debt_status: string | null;
+  fonzip_tags: string | null;
   fonzip_checked_at: string | null;
   department: string | null;
   university: string | null;

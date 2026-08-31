@@ -207,8 +207,8 @@ export default function AdminPage() {
       toast({
         title: "Fonzip kontrolü tamamlandı",
         description: data.isMember
-          ? "Aidat borcu yok, dernek üyesi olarak işaretlendi."
-          : "Fonzip'te eşleşme bulunamadı veya aidat borcu var, mezun üye olarak işaretlendi.",
+          ? "Dernek Üyesi/Yönetim etiketi bulundu, dernek üyesi olarak işaretlendi."
+          : "Fonzip'te eşleşme bulunamadı veya ilgili etiket yok, mezun üye olarak işaretlendi.",
       });
       loadUsers();
     } catch (err: any) {
@@ -481,7 +481,7 @@ export default function AdminPage() {
                           <TableHead>Üyelik Tipi</TableHead>
                           <TableHead>Fonzip</TableHead>
                           <TableHead>Dernek Üyeliği</TableHead>
-                          <TableHead>Aidat Borcu</TableHead>
+                          <TableHead>Fonzip Etiketleri</TableHead>
                           <TableHead>Kayıt Tarihi</TableHead>
                           <TableHead>Fonzip Son Güncelleme</TableHead>
                         </TableRow>
@@ -531,10 +531,8 @@ export default function AdminPage() {
                               )}
                             </TableCell>
                             <TableCell>
-                              {u.fonzip_debt_status ? (
-                                <Badge variant={u.fonzip_debt_status === "var" ? "destructive" : "secondary"}>
-                                  {u.fonzip_debt_status === "var" ? "Var" : "Yok"}
-                                </Badge>
+                              {u.fonzip_tags ? (
+                                <Badge variant="outline">{u.fonzip_tags}</Badge>
                               ) : (
                                 <span className="text-sm text-muted-foreground">—</span>
                               )}

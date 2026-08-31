@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabaseAdmin } from "@/integrations/supabase/admin";
 import { requireStaff } from "@/lib/requireStaff";
-import { checkMembership, toFonzipStatus } from "@/services/membershipProvider";
+import { checkMembership, toFonzipStatus, formatFonzipTags } from "@/services/membershipProvider";
 import { withTimeout } from "@/lib/withTimeout";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -44,19 +44,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       email: profile.email,
     }),
     8000,
-    { isMember: false, membershipFound: null, hasDebt: null }
+    { isMember: false, membershipFound: null, tags: [] }
   );
 
   const tier = result.isMember ? "dernek_uyesi" : "mezun_uye";
   const membershipStatus = toFonzipStatus(result.membershipFound);
-  const debtStatus = toFonzipStatus(result.hasDebt);
+  const fonzipTags = formatFonzipTags(result.tags);
 
   const { error: updateError } = await supabaseAdmin
     .from("profiles")
     .update({
       membership_tier: tier,
       fonzip_membership_status: membershipStatus,
-      fonzip_debt_status: debtStatus,
+      fonzip_tags: fonzipTags,
       fonzip_checked_at: new Date().toISOString(),
     })
     .eq("id", userId);
@@ -70,6 +70,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     isMember: result.isMember,
     tier,
     membershipStatus,
-    debtStatus,
+    fonzipTags,
   });
 }

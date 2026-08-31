@@ -2,7 +2,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabaseAdmin } from "@/integrations/supabase/admin";
 import { verifyOtpCode } from "@/services/otpService";
-import { checkMembership, toFonzipStatus } from "@/services/membershipProvider";
+import { checkMembership, toFonzipStatus, formatFonzipTags } from "@/services/membershipProvider";
 import { withTimeout } from "@/lib/withTimeout";
 
 interface VerifySignupBody {
@@ -57,7 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       email: normalizedEmail,
     }),
     8000,
-    { isMember: false, membershipFound: null, hasDebt: null }
+    { isMember: false, membershipFound: null, tags: [] }
   );
 
   const { error: profileError } = await supabaseAdmin
@@ -69,7 +69,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       phone,
       membership_tier: membershipResult.isMember ? "dernek_uyesi" : "mezun_uye",
       fonzip_membership_status: toFonzipStatus(membershipResult.membershipFound),
-      fonzip_debt_status: toFonzipStatus(membershipResult.hasDebt),
+      fonzip_tags: formatFonzipTags(membershipResult.tags),
       fonzip_checked_at: new Date().toISOString(),
     })
     .eq("id", createdUser.user.id);
