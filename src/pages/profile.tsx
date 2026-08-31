@@ -26,7 +26,6 @@ export default function ProfilePage() {
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [graduationYear, setGraduationYear] = useState("");
-  const [highSchoolGraduationYear, setHighSchoolGraduationYear] = useState("");
   const [department, setDepartment] = useState("");
   const [university, setUniversity] = useState("");
   const [universityStatus, setUniversityStatus] = useState("");
@@ -67,7 +66,6 @@ export default function ProfilePage() {
       setBio(data.bio || "");
       setAvatarUrl(data.avatar_url || "");
       setGraduationYear(data.graduation_year?.toString() || "");
-      setHighSchoolGraduationYear(data.high_school_graduation_year?.toString() || "");
       setDepartment(data.department || "");
       setUniversity(data.university || "");
       setUniversityStatus(data.university_status || "");
@@ -95,8 +93,6 @@ export default function ProfilePage() {
       full_name: fullName,
       bio: bio || null,
       avatar_url: avatarUrl || null,
-      graduation_year: graduationYear ? parseInt(graduationYear) : null,
-      high_school_graduation_year: highSchoolGraduationYear ? parseInt(highSchoolGraduationYear) : null,
       department: department || null,
       university: university || null,
       university_status: universityStatus || null,
@@ -226,20 +222,16 @@ export default function ProfilePage() {
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="high_school_year">Lise Mezuniyet Yılı</Label>
-                      <Select value={highSchoolGraduationYear} onValueChange={setHighSchoolGraduationYear}>
-                        <SelectTrigger id="high_school_year" aria-label="Lise mezuniyet yılı seç">
-                          <SelectValue placeholder="Seçin" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: 60 }, (_, i) => new Date().getFullYear() - i).map(
-                            (year) => (
-                              <SelectItem key={year} value={year.toString()}>
-                                {year}
-                              </SelectItem>
-                            )
-                          )}
-                        </SelectContent>
-                      </Select>
+                      <Input
+                        id="high_school_year"
+                        value={graduationYear || "—"}
+                        readOnly
+                        disabled
+                        aria-describedby="high_school_year-desc"
+                      />
+                      <p id="high_school_year-desc" className="text-xs text-muted-foreground">
+                        Kayıt sırasında girilen mezuniyet yılıdır, buradan değiştirilemez. Hatalıysa dernek yönetimiyle iletişime geçin.
+                      </p>
                     </div>
 
                     <div className="space-y-2">
