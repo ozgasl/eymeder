@@ -98,11 +98,18 @@ export default function AdminPage() {
       return;
     }
 
-    const { data: role } = await supabase
+    const { data: role, error: roleError } = await supabase
       .from("roles")
       .select("*")
       .eq("user_id", session.user.id)
       .single();
+
+    if (roleError && roleError.code !== "PGRST116") {
+      console.error("Rol kontrolü başarısız:", roleError);
+      toast({ title: "Hata", description: "Rol bilgisi alınamadı, lütfen daha sonra tekrar deneyin.", variant: "destructive" });
+      router.push("/");
+      return;
+    }
 
     if (!role || (role.role !== "admin" && role.role !== "moderator")) {
       toast({ title: "Erişim Reddedildi", description: "Bu sayfayı görüntüleme yetkiniz yok.", variant: "destructive" });
