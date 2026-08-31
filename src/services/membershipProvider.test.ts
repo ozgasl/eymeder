@@ -10,6 +10,6 @@ describe("checkMembership", () => {
       phone: "+905551234567",
       email: "test@example.com",
     });
-    expect(result).toEqual({ isMember: false });
+    expect(result).toEqual({ isMember: false, membershipFound: null, hasDebt: null });
   });
 });

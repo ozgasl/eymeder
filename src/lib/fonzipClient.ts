@@ -68,14 +68,21 @@ async function getAccessToken(): Promise<string> {
 }
 
 export interface FonzipUserSearchResult {
-  found: boolean;
+  // Whether a Fonzip member with this membership_no exists at all.
+  membershipFound: boolean;
+  // Whether that member has unpaid dues. null when no matching member was
+  // found (the question doesn't apply).
+  hasDebt: boolean | null;
 }
 
 // Looks up a Fonzip user by their composite membership_no (see
-// buildFonzipMembershipNo) with no outstanding dues debt. Fonzip enforces one
-// active token per client credential pair, so the token is cached in
-// fonzip_token_cache rather than re-requested on every call.
-export async function findFonzipMemberInGoodStanding(membershipNo: number): Promise<FonzipUserSearchResult> {
+// buildFonzipMembershipNo), returning membership existence and dues status
+// as two separate facts rather than a single "good standing" boolean — a
+// member who exists but has unpaid dues is a different situation from no
+// matching member at all, and the two used to be indistinguishable. Fonzip
+// enforces one active token per client credential pair, so the token is
+// cached in fonzip_token_cache rather than re-requested on every call.
+export async function findFonzipMember(membershipNo: number): Promise<FonzipUserSearchResult> {
   const token = await getAccessToken();
 
   const res = await fetchWithTimeout(`${FONZIP_BASE_URL}/users`, {
@@ -93,11 +100,10 @@ export async function findFonzipMemberInGoodStanding(membershipNo: number): Prom
           condition: "and",
           attributes: [
             { type: "default", parameter: "membership_no", condition: "eq", value: membershipNo },
-            { type: "default", parameter: "unpaid_debt_count", condition: "eq", value: 0 },
           ],
         },
       },
-      values_list: ["id"],
+      values_list: ["id", "unpaid_debt_count"],
     }),
   });
 
@@ -107,5 +113,12 @@ export async function findFonzipMemberInGoodStanding(membershipNo: number): Prom
   }
 
   const data = await res.json();
-  return { found: (data.total ?? 0) > 0 };
+  const row = data.rows?.[0];
+
+  if (!row || (data.total ?? 0) === 0) {
+    return { membershipFound: false, hasDebt: null };
+  }
+
+  const unpaidDebtCount = Array.isArray(row) ? row[1] : row.unpaid_debt_count;
+  return { membershipFound: true, hasDebt: Number(unpaidDebtCount ?? 0) > 0 };
 }
