@@ -1273,8 +1273,8 @@ export type Database = {
           email: string | null
           facebook_url: string | null
           fonzip_checked_at: string | null
-          fonzip_debt_status: string | null
           fonzip_membership_status: string | null
+          fonzip_tags: string | null
           full_name: string | null
           graduation_year: number | null
           high_school_graduation_year: number | null
@@ -1305,8 +1305,8 @@ export type Database = {
           email?: string | null
           facebook_url?: string | null
           fonzip_checked_at?: string | null
-          fonzip_debt_status?: string | null
           fonzip_membership_status?: string | null
+          fonzip_tags?: string | null
           full_name?: string | null
           graduation_year?: number | null
           high_school_graduation_year?: number | null
@@ -1337,8 +1337,8 @@ export type Database = {
           email?: string | null
           facebook_url?: string | null
           fonzip_checked_at?: string | null
-          fonzip_debt_status?: string | null
           fonzip_membership_status?: string | null
+          fonzip_tags?: string | null
           full_name?: string | null
           graduation_year?: number | null
           high_school_graduation_year?: number | null
