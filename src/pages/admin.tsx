@@ -480,7 +480,10 @@ export default function AdminPage() {
                           <TableHead>Email</TableHead>
                           <TableHead>Üyelik Tipi</TableHead>
                           <TableHead>Fonzip</TableHead>
+                          <TableHead>Dernek Üyeliği</TableHead>
+                          <TableHead>Aidat Borcu</TableHead>
                           <TableHead>Kayıt Tarihi</TableHead>
+                          <TableHead>Fonzip Son Güncelleme</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -518,7 +521,32 @@ export default function AdminPage() {
                                 Yeniden Kontrol Et
                               </Button>
                             </TableCell>
+                            <TableCell>
+                              {u.fonzip_membership_status ? (
+                                <Badge variant={u.fonzip_membership_status === "var" ? "default" : "secondary"}>
+                                  {u.fonzip_membership_status === "var" ? "Var" : "Yok"}
+                                </Badge>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {u.fonzip_debt_status ? (
+                                <Badge variant={u.fonzip_debt_status === "var" ? "destructive" : "secondary"}>
+                                  {u.fonzip_debt_status === "var" ? "Var" : "Yok"}
+                                </Badge>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
                             <TableCell>{new Date(u.created_at).toLocaleDateString('tr-TR')}</TableCell>
+                            <TableCell>
+                              {u.fonzip_checked_at ? (
+                                new Date(u.fonzip_checked_at).toLocaleString('tr-TR')
+                              ) : (
+                                <span className="text-sm text-muted-foreground">Hiç kontrol edilmedi</span>
+                              )}
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>

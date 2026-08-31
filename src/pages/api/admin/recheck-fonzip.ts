@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabaseAdmin } from "@/integrations/supabase/admin";
 import { requireStaff } from "@/lib/requireStaff";
-import { checkMembership } from "@/services/membershipProvider";
+import { checkMembership, toFonzipStatus } from "@/services/membershipProvider";
 import { withTimeout } from "@/lib/withTimeout";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -44,19 +44,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       email: profile.email,
     }),
     8000,
-    { isMember: false }
+    { isMember: false, membershipFound: null, hasDebt: null }
   );
 
   const tier = result.isMember ? "dernek_uyesi" : "mezun_uye";
+  const membershipStatus = toFonzipStatus(result.membershipFound);
+  const debtStatus = toFonzipStatus(result.hasDebt);
 
   const { error: updateError } = await supabaseAdmin
     .from("profiles")
-    .update({ membership_tier: tier })
+    .update({
+      membership_tier: tier,
+      fonzip_membership_status: membershipStatus,
+      fonzip_debt_status: debtStatus,
+      fonzip_checked_at: new Date().toISOString(),
+    })
     .eq("id", userId);
 
   if (updateError) {
     return res.status(500).json({ error: updateError.message });
   }
 
-  return res.status(200).json({ success: true, isMember: result.isMember, tier });
+  return res.status(200).json({
+    success: true,
+    isMember: result.isMember,
+    tier,
+    membershipStatus,
+    debtStatus,
+  });
 }
