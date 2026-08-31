@@ -75,16 +75,7 @@ export interface FonzipUserSearchResult {
   hasDebt: boolean | null;
 }
 
-// Looks up a Fonzip user by their composite membership_no (see
-// buildFonzipMembershipNo), returning membership existence and dues status
-// as two separate facts rather than a single "good standing" boolean — a
-// member who exists but has unpaid dues is a different situation from no
-// matching member at all, and the two used to be indistinguishable. Fonzip
-// enforces one active token per client credential pair, so the token is
-// cached in fonzip_token_cache rather than re-requested on every call.
-export async function findFonzipMember(membershipNo: number): Promise<FonzipUserSearchResult> {
-  const token = await getAccessToken();
-
+async function searchFonzipUsers(token: string, attributes: Record<string, unknown>[]): Promise<{ total: number }> {
   const res = await fetchWithTimeout(`${FONZIP_BASE_URL}/users`, {
     method: "POST",
     headers: {
@@ -96,14 +87,13 @@ export async function findFonzipMember(membershipNo: number): Promise<FonzipUser
         start_page: 1,
         how_many: 1,
         order_by: "id",
-        filter: {
-          condition: "and",
-          attributes: [
-            { type: "default", parameter: "membership_no", condition: "eq", value: membershipNo },
-          ],
-        },
+        filter: { condition: "and", attributes },
       },
-      values_list: ["id", "unpaid_debt_count"],
+      // Fonzip's /users only accepts plain stored columns here — computed
+      // fields like unpaid_debt_count are filterable but not selectable, so
+      // debt status has to come from whether a debt-filtered search matches
+      // at all, not from reading a value out of the result row.
+      values_list: ["id"],
     }),
   });
 
@@ -112,13 +102,32 @@ export async function findFonzipMember(membershipNo: number): Promise<FonzipUser
     throw new Error(`Fonzip user search failed: ${data.error_description || data.error || res.status}`);
   }
 
+  // The response envelope key is `user_list`, not `rows`.
   const data = await res.json();
-  const row = data.rows?.[0];
+  return { total: data.total ?? 0 };
+}
 
-  if (!row || (data.total ?? 0) === 0) {
+// Looks up a Fonzip user by their composite membership_no (see
+// buildFonzipMembershipNo), returning membership existence and dues status
+// as two separate facts rather than a single "good standing" boolean — a
+// member who exists but has unpaid dues is a different situation from no
+// matching member at all, and the two used to be indistinguishable. Fonzip
+// enforces one active token per client credential pair, so the token is
+// cached in fonzip_token_cache rather than re-requested on every call.
+export async function findFonzipMember(membershipNo: number): Promise<FonzipUserSearchResult> {
+  const token = await getAccessToken();
+
+  const membershipNoAttr = { type: "default", parameter: "membership_no", condition: "eq", value: membershipNo };
+
+  const { total: membershipTotal } = await searchFonzipUsers(token, [membershipNoAttr]);
+  if (membershipTotal === 0) {
     return { membershipFound: false, hasDebt: null };
   }
 
-  const unpaidDebtCount = Array.isArray(row) ? row[1] : row.unpaid_debt_count;
-  return { membershipFound: true, hasDebt: Number(unpaidDebtCount ?? 0) > 0 };
+  const { total: debtFreeTotal } = await searchFonzipUsers(token, [
+    membershipNoAttr,
+    { type: "default", parameter: "unpaid_debt_count", condition: "eq", value: 0 },
+  ]);
+
+  return { membershipFound: true, hasDebt: debtFreeTotal === 0 };
 }

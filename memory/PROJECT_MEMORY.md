@@ -90,7 +90,62 @@ superuser hiçbir zaman recursion'a girmiyordu. Gerçek recursion sadece
    olmadıysa doğrudan tarayıcı Network sekmesine bak — SQL Editor'den daha
    fazla dolaylı kontrol yapmak zaman kaybettirir.
 
+## 🔥 Ders: Fonzip `/users` arama endpoint'i — gerçek response şekli
+
+**PR #8** (`findFonzipMember`, `src/lib/fonzipClient.ts`) merge olduktan sonra migration
+(`20260831150000_fonzip_status_columns.sql`) production'a hemen uygulanmamıştı — admin
+panelinde "Yeniden Kontrol Et" `Could not find the 'fonzip_checked_at' column` hatası
+veriyordu. Migration pooler üzerinden uygulandı (`NOTIFY pgrst, 'reload schema';` ile).
+
+Migration'ı uygularken PR #8'in `findFonzipMember` kodunda, gerçek Fonzip API'sine
+canlı istek atarak (kredentials `.env.local`'den, pooler'daki `fonzip_token_cache`'teki
+geçerli token kullanılarak — yeni token istemek "Token already created" 409'u veriyor,
+çünkü Fonzip client_credentials başına tek aktif token'a izin veriyor) **iki gerçek bug**
+bulundu ve düzeltildi:
+
+1. **Response zarfı `data.rows` değil `data.user_list`.** Kod `data.rows?.[0]` okuyordu;
+   gerçek anahtar hep `user_list` olduğu için `row` HER ZAMAN `undefined` oluyordu —
+   yani `membershipFound` gerçek Fonzip durumundan bağımsız olarak HER ZAMAN `false`
+   dönüyordu (canlıya çıkmış ama hiç doğru sonuç üretmemiş bir kod).
+2. **`unpaid_debt_count`, `values_list` içinde SEÇİLEMEZ** — bir filtre koşulu (`filter.attributes`)
+   olarak geçerli (`condition: "eq"`, `value: 0` ile eşleşiyor, canlıda 339 sonuçla
+   doğrulandı), ama `values_list: ["id", "unpaid_debt_count"]` şeklinde çıktı kolonu
+   olarak istenince API `400 { "error": "Geçersiz değerler" }` döndürüyor. Yani debt
+   sayısını tek sorguda "oku" diye bir yol yok — sadece "debt=0 filtresiyle eşleşiyor mu"
+   diye sorulabiliyor.
+
+**Düzeltme**: `findFonzipMember` artık iki ayrı arama yapıyor — (1) sadece `membership_no`
+filtresiyle `membershipFound` (total>0 mı), (2) bulunduysa `membership_no AND
+unpaid_debt_count=0` filtresiyle `hasDebt` (bu ikinci sorgu 0 sonuç dönerse borç VAR
+demektir). `row`/`Array.isArray` mantığı tamamen kaldırıldı, artık sadece `total`
+sayısına bakılıyor.
+
+**Doğrulama**: Bu, admin `ozgasl@gmail.com`'un kendi Fonzip kaydında test edildi
+(membership_no `19920089`, hesaplama: `graduation_year` + `school_number` zero-padded —
+bkz. `fonzipMembershipNo.ts`). Sonuç: membershipFound=true, hasDebt=true (yani bu hesapta
+şu an Fonzip'te ödenmemiş aidat var) — bu **gerçek bir production hesabının
+`membership_tier`'ını değiştirebilecek bir bulgu** olduğu için, recheck endpoint'i bu
+hesap üzerinde GERÇEKTEN tetiklenmedi (sadece read-only arama sorgularıyla test edildi),
+kullanıcıya bildirilip onayı bekleniyor.
+
+**Genel ders**: Fonzip'in OpenAPI spec'i (`documentation-json.json`) bu ortamda yok —
+"hangi alan filter'da mı yoksa values_list'te mi geçerli" sorusunu spec'ten değil,
+canlıda küçük, yan etkisiz (read-only arama) deneylerle cevapla. Yazma işlemi
+(profiles güncellemesi) gerektiren gerçek recheck'i, kullanıcının onayı ya da bilgisi
+olan bir hesapla test et, rastgele/kendi admin hesabınla değil — sonuç üyenin
+`membership_tier`'ını gerçekten değiştirir.
+
 ## Oturum günlüğü
+
+### 2026-08-31 — Fonzip debt/membership ayrımı doğrulaması, iki gerçek bug bulundu
+
+- Migration (`fonzip_status_columns`) production'a pooler üzerinden uygulandı (bkz.
+  yukarıdaki ders bölümü).
+- `findFonzipMember`'daki response-şekli varsayımı yanlış çıktı (`rows` yerine
+  `user_list`, `unpaid_debt_count` values_list'te seçilemiyor) — düzeltildi, bkz. yukarı.
+- **Ertelenen/kullanıcıya sorulan**: gerçek recheck endpoint'inin canlı bir üye
+  üzerinde tetiklenip admin panelinde doğrulanması (kullanıcı bilinen bir üye
+  seçecek), PR açılıp merge edilmesi.
 
 ### 2026-08-30/31 — Üye tipi kısıtlamaları, admin araçları, KVKK, RLS recursion fix
 
