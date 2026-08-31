@@ -26,6 +26,12 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { authService } from "@/services/authService";
 import { notificationService } from "@/services/notificationService";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +39,114 @@ import { Bell, LogOut, User, Menu, X, ChevronDown, Instagram, Twitter, Linkedin,
 import { formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+
+type NavGroupItem = {
+  href: string;
+  label: string;
+  external?: boolean;
+  requiresDernekUyesi?: boolean;
+};
+
+type NavGroup = {
+  key: string;
+  label: string;
+  items: NavGroupItem[];
+};
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    key: "about",
+    label: "Hakkımızda",
+    items: [
+      { href: "https://eymeder.com/baskanin-mesaji", label: "Başkanın Mesajı", external: true },
+      { href: "https://eymeder.com/yonetim-kurulu", label: "Yönetim Kurulu", external: true },
+    ],
+  },
+  {
+    key: "community",
+    label: "Topluluk",
+    items: [
+      { href: "/groups", label: "Gruplar" },
+      { href: "/mentorship", label: "Mentorluk" },
+      { href: "/messages", label: "Mesajlar", requiresDernekUyesi: true },
+    ],
+  },
+  {
+    key: "resources",
+    label: "Kaynaklar",
+    items: [
+      { href: "/news", label: "Haberler" },
+      { href: "/gallery", label: "Galeri" },
+      { href: "/testimonials", label: "Başarı Hikayeleri" },
+      { href: "/jobs", label: "EYB İK" },
+    ],
+  },
+  {
+    key: "perks",
+    label: "Avantajlar",
+    items: [
+      { href: "/store", label: "Mezun Store" },
+      { href: "/brands", label: "İndirimli Markalar" },
+    ],
+  },
+  {
+    key: "membership",
+    label: "Üyelik",
+    items: [
+      { href: "http://eymeder.com/neden-uye-olmaliyim", label: "Neden Üye Olmalıyım?", external: true },
+      { href: "https://fonzip.com/eymeder/form/uyelik-basvuru-formu", label: "Üyelik Başvuru", external: true },
+      { href: "https://fonzip.com/eymeder/odeme", label: "Aidat Öde", external: true },
+      { href: "https://fonzip.com/eymeder/bagis-yap", label: "Bağış Yap", external: true },
+    ],
+  },
+];
+
+function NavDropdownGroup({
+  group,
+  isDernekUyesi,
+}: {
+  group: NavGroup;
+  isDernekUyesi: boolean;
+}) {
+  const visibleItems = group.items.filter(
+    (item) => !item.requiresDernekUyesi || isDernekUyesi
+  );
+  if (visibleItems.length === 0) return null;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className="flex items-center gap-1 text-sm font-medium hover:text-primary transition-colors outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1"
+        aria-label={`${group.label} menüsü`}
+        aria-haspopup="true"
+      >
+        {group.label}
+        <ChevronDown className="h-3 w-3" aria-hidden="true" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-64" role="menu">
+        {visibleItems.map((item) => (
+          <DropdownMenuItem key={item.href} asChild>
+            {item.external ? (
+              <a
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="cursor-pointer"
+                role="menuitem"
+              >
+                {item.label}
+              </a>
+            ) : (
+              <Link href={item.href} className="cursor-pointer" role="menuitem">
+                {item.label}
+              </Link>
+            )}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 export function Navigation() {
   const router = useRouter();
@@ -134,18 +248,6 @@ export function Navigation() {
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
   };
 
-  const aboutItems = [
-    { href: "https://eymeder.com/baskanin-mesaji", label: "Başkanın Mesajı", external: true },
-    { href: "https://eymeder.com/yonetim-kurulu", label: "Yönetim Kurulu", external: true },
-  ];
-
-  const membershipItems = [
-    { href: "http://eymeder.com/neden-uye-olmaliyim", label: "Neden Üye Olmalıyım?", external: true },
-    { href: "https://fonzip.com/eymeder/form/uyelik-basvuru-formu", label: "Üyelik Başvuru", external: true },
-    { href: "https://fonzip.com/eymeder/odeme", label: "Aidat Öde", external: true },
-    { href: "https://fonzip.com/eymeder/bagis-yap", label: "Bağış Yap", external: true },
-  ];
-
   return (
     <nav className="border-b bg-card sticky top-0 z-50 shadow-sm" role="navigation" aria-label="Ana navigasyon">
       <div className="container flex h-16 items-center justify-between px-4">
@@ -167,47 +269,7 @@ export function Navigation() {
           <Link href="/" className="text-sm font-medium hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
             Ana Sayfa
           </Link>
-          
-          {/* Hakkımızda Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button 
-                className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1"
-                aria-label="Hakkımızda menüsü"
-                aria-haspopup="true"
-              >
-                Hakkımızda
-                <ChevronDown className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" role="menu">
-              {aboutItems.map((item) => (
-                <DropdownMenuItem key={item.href} asChild>
-                  <a 
-                    href={item.href} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="cursor-pointer"
-                    role="menuitem"
-                  >
-                    {item.label}
-                  </a>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
 
-          <Link href="/store" className="text-sm font-medium hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
-            Mezun Store
-          </Link>
-          {isDernekUyesi && (
-            <Link href="/directory" className="text-sm font-medium hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
-              Üyeler
-            </Link>
-          )}
-          <Link href="/brands" className="text-sm font-medium hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
-            İndirimli Markalar
-          </Link>
           <NavigationMenuItem>
             <Link
               href="/events"
@@ -221,58 +283,16 @@ export function Navigation() {
               Etkinlikler
             </Link>
           </NavigationMenuItem>
-          <Link href="/jobs" className="text-sm font-medium hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
-            EYB IK
-          </Link>
-          <Link href="/gallery" className="text-sm font-medium hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
-            Galeri
-          </Link>
-          <Link href="/news" className="text-sm font-medium hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
-            Haberler
-          </Link>
-          <Link href="/testimonials" className="text-sm font-medium hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
-            Başarı Hikayeleri
-          </Link>
-          <Link href="/groups" className="text-sm font-medium hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
-            Gruplar
-          </Link>
-          <Link href="/mentorship" className="text-sm font-medium hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
-            Mentorluk
-          </Link>
+
           {isDernekUyesi && (
-            <Link href="/messages" className="text-sm font-medium hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
-              Mesajlar
+            <Link href="/directory" className="text-sm font-medium hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
+              Üyeler
             </Link>
           )}
 
-          {/* Üyelik Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger className="flex items-center gap-1 text-sm font-medium hover:text-primary transition-colors outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" aria-label="Üyelik menüsü" aria-haspopup="true">
-              Üyelik
-              <ChevronDown className="h-3 w-3" aria-hidden="true" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-64" role="menu">
-              {membershipItems.map((item) => (
-                <DropdownMenuItem key={item.href} asChild>
-                  {item.external ? (
-                    <a 
-                      href={item.href} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="cursor-pointer"
-                      role="menuitem"
-                    >
-                      {item.label}
-                    </a>
-                  ) : (
-                    <Link href={item.href} className="cursor-pointer" role="menuitem">
-                      {item.label}
-                    </Link>
-                  )}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {NAV_GROUPS.map((group) => (
+            <NavDropdownGroup key={group.key} group={group} isDernekUyesi={isDernekUyesi} />
+          ))}
 
           {isStaff && (
             <Link href="/admin" className="text-sm font-medium hover:text-primary transition-colors hidden lg:block focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm px-2 py-1" role="menuitem">
@@ -410,40 +430,22 @@ export function Navigation() {
       {/* Mobile Menu */}
       {mobileMenuOpen && (
         <div className="lg:hidden border-t bg-card" id="mobile-menu" role="menu" aria-label="Mobil navigasyon">
-          <div className="container py-4 space-y-3">
-            <Link 
-              href="/" 
+          <div className="container py-4 space-y-1">
+            <Link
+              href="/"
               className="block px-4 py-2 text-sm font-medium hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
               onClick={() => setMobileMenuOpen(false)}
               role="menuitem"
             >
               Ana Sayfa
             </Link>
-            
-            <div className="space-y-1">
-              <div className="px-4 py-2 text-sm font-medium text-muted-foreground" role="presentation">Hakkımızda</div>
-              {aboutItems.map((item) => (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block px-8 py-2 hover:bg-muted rounded-md transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                  onClick={() => setMobileMenuOpen(false)}
-                  role="menuitem"
-                >
-                  {item.label}
-                </a>
-              ))}
-            </div>
-
-            <Link 
-              href="/store" 
+            <Link
+              href="/events"
               className="block px-4 py-2 text-sm font-medium hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
               onClick={() => setMobileMenuOpen(false)}
               role="menuitem"
             >
-              Mezun Store
+              Etkinlikler
             </Link>
             {isDernekUyesi && (
               <Link
@@ -455,121 +457,61 @@ export function Navigation() {
                 Üyeler
               </Link>
             )}
-            <Link
-              href="/brands"
-              className="block px-4 py-2 text-sm font-medium hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-              onClick={() => setMobileMenuOpen(false)}
-              role="menuitem"
-            >
-              İndirimli Markalar
-            </Link>
-            <Link 
-              href="/events" 
-              className="block px-4 py-2 text-sm font-medium hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-              onClick={() => setMobileMenuOpen(false)}
-              role="menuitem"
-            >
-              Etkinlikler
-            </Link>
-            <Link 
-              href="/jobs" 
-              className="block px-4 py-2 text-sm font-medium hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-              onClick={() => setMobileMenuOpen(false)}
-              role="menuitem"
-            >
-              EYB IK
-            </Link>
-            <Link 
-              href="/gallery" 
-              className="block px-4 py-2 text-sm font-medium hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-              onClick={() => setMobileMenuOpen(false)}
-              role="menuitem"
-            >
-              Galeri
-            </Link>
-            <Link 
-              href="/news" 
-              className="block px-4 py-2 text-sm font-medium hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-              onClick={() => setMobileMenuOpen(false)}
-              role="menuitem"
-            >
-              Haberler
-            </Link>
-            <Link 
-              href="/testimonials" 
-              className="block px-4 py-2 text-sm font-medium hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-              onClick={() => setMobileMenuOpen(false)}
-              role="menuitem"
-            >
-              Başarı Hikayeleri
-            </Link>
-            <Link 
-              href="/groups" 
-              className="block px-4 py-2 text-sm font-medium hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-              onClick={() => setMobileMenuOpen(false)}
-              role="menuitem"
-            >
-              Gruplar
-            </Link>
-            <Link 
-              href="/mentorship" 
-              className="block px-4 py-2 text-sm font-medium hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-              onClick={() => setMobileMenuOpen(false)}
-              role="menuitem"
-            >
-              Mentorluk
-            </Link>
-            {isDernekUyesi && (
+
+            <Accordion type="multiple" className="w-full">
+              {NAV_GROUPS.map((group) => {
+                const visibleItems = group.items.filter(
+                  (item) => !item.requiresDernekUyesi || isDernekUyesi
+                );
+                if (visibleItems.length === 0) return null;
+                return (
+                  <AccordionItem key={group.key} value={group.key} className="border-b-0">
+                    <AccordionTrigger className="px-4 py-2 text-sm font-medium hover:bg-muted rounded-md hover:no-underline">
+                      {group.label}
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-1">
+                      <div className="space-y-1">
+                        {visibleItems.map((item) =>
+                          item.external ? (
+                            <a
+                              key={item.href}
+                              href={item.href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block pl-8 pr-4 py-2 text-sm hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                              onClick={() => setMobileMenuOpen(false)}
+                              role="menuitem"
+                            >
+                              {item.label}
+                            </a>
+                          ) : (
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              className="block pl-8 pr-4 py-2 text-sm hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                              onClick={() => setMobileMenuOpen(false)}
+                              role="menuitem"
+                            >
+                              {item.label}
+                            </Link>
+                          )
+                        )}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
+
+            {isStaff && (
               <Link
-                href="/messages"
+                href="/admin"
                 className="block px-4 py-2 text-sm font-medium hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
                 onClick={() => setMobileMenuOpen(false)}
                 role="menuitem"
               >
-                Mesajlar
+                Admin
               </Link>
-            )}
-
-            <div className="space-y-1">
-              <div className="px-4 py-2 text-sm font-semibold text-muted-foreground" role="presentation">Üyelik</div>
-              {membershipItems.map((item) => (
-                item.external ? (
-                  <a
-                    key={item.href}
-                    href={item.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block pl-8 pr-4 py-2 text-sm hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                    onClick={() => setMobileMenuOpen(false)}
-                    role="menuitem"
-                  >
-                    {item.label}
-                  </a>
-                ) : (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="block pl-8 pr-4 py-2 text-sm hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                    onClick={() => setMobileMenuOpen(false)}
-                    role="menuitem"
-                  >
-                    {item.label}
-                  </Link>
-                )
-              ))}
-            </div>
-
-            {isStaff && (
-              <div className="space-y-1">
-                <Link
-                  href="/admin"
-                  className="block px-4 py-2 hover:bg-muted rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                  onClick={() => setMobileMenuOpen(false)}
-                  role="menuitem"
-                >
-                  Admin
-                </Link>
-              </div>
             )}
           </div>
         </div>
