@@ -92,6 +92,16 @@ export default function SignupPage() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4">
         <Card className="w-full max-w-md shadow-xl">
           <CardHeader className="space-y-1">
+            <div className="flex justify-center mb-2">
+              <img
+                src="/logo.jpg"
+                alt="Eyüboğlu Mezunlar Derneği logosu"
+                className="h-14 w-auto"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            </div>
             <CardTitle className="text-3xl font-heading font-bold text-center">Kayıt Ol</CardTitle>
             <CardDescription className="text-center">
               Mezunlar ağına katılın ve bağlantılar kurun
