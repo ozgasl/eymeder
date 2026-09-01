@@ -38,8 +38,6 @@ export interface ProfileUpdate {
   full_name?: string;
   avatar_url?: string | null;
   bio?: string | null;
-  graduation_year?: number | null;
-  high_school_graduation_year?: number | null;
   department?: string | null;
   university?: string | null;
   university_status?: string | null;

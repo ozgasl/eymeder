@@ -92,6 +92,16 @@ export default function SignupPage() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4">
         <Card className="w-full max-w-md shadow-xl">
           <CardHeader className="space-y-1">
+            <div className="flex justify-center mb-2">
+              <img
+                src="/logo.jpg"
+                alt="Eyüboğlu Mezunlar Derneği logosu"
+                className="h-14 w-auto"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            </div>
             <CardTitle className="text-3xl font-heading font-bold text-center">Kayıt Ol</CardTitle>
             <CardDescription className="text-center">
               Mezunlar ağına katılın ve bağlantılar kurun
@@ -107,12 +117,15 @@ export default function SignupPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="graduation-year">Mezuniyet Yılı</Label>
-                <Input id="graduation-year" type="number" placeholder="2015" min={1950} max={2100} value={graduationYear} onChange={(e) => setGraduationYear(e.target.value)} required />
+                <Input id="graduation-year" type="number" placeholder="2015" min={1950} max={2100} value={graduationYear} onChange={(e) => setGraduationYear(e.target.value)} required aria-describedby="membership-fields-note" />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="school-number">Okul Numarası</Label>
-                <Input id="school-number" type="text" placeholder="Okul numaranız" value={schoolNumber} onChange={(e) => setSchoolNumber(e.target.value)} required />
+                <Input id="school-number" type="text" placeholder="Okul numaranız" value={schoolNumber} onChange={(e) => setSchoolNumber(e.target.value)} required aria-describedby="membership-fields-note" />
+                <p id="membership-fields-note" className="text-xs text-muted-foreground">
+                  Mezuniyet yılı ve okul numarası, dernek üyelik kaydınızın teyidi için gereklidir.
+                </p>
               </div>
 
               <div className="space-y-2">

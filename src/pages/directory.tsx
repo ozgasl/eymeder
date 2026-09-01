@@ -29,7 +29,6 @@ export default function DirectoryPage() {
   });
   const [members, setMembers] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [yearFilter, setYearFilter] = useState("all"); // University graduation year
   const [highSchoolYearFilter, setHighSchoolYearFilter] = useState("all");
   const [cityFilter, setCityFilter] = useState("all");
   const [countryFilter, setCountryFilter] = useState("all");
@@ -55,15 +54,14 @@ export default function DirectoryPage() {
       member.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       member.department?.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesYear = yearFilter === "all" || yearFilter === "" || member.graduation_year?.toString() === yearFilter;
-    const matchesHighSchoolYear = highSchoolYearFilter === "all" || highSchoolYearFilter === "" || member.high_school_graduation_year?.toString() === highSchoolYearFilter;
+    const matchesHighSchoolYear = highSchoolYearFilter === "all" || highSchoolYearFilter === "" || member.graduation_year?.toString() === highSchoolYearFilter;
     const matchesCity = cityFilter === "all" || cityFilter === "" || member.city === cityFilter;
     const matchesCountry = countryFilter === "all" || countryFilter === "" || member.country === countryFilter;
     const matchesUniversity = universityFilter === "all" || universityFilter === "" || member.university?.toLowerCase().includes(universityFilter.toLowerCase());
     const matchesProfession = professionFilter === "all" || professionFilter === "" || member.profession?.toLowerCase().includes(professionFilter.toLowerCase());
     const matchesCompany = companyFilter === "all" || companyFilter === "" || member.company?.toLowerCase().includes(companyFilter.toLowerCase());
 
-    return matchesSearch && matchesYear && matchesHighSchoolYear && matchesCity && matchesCountry && matchesUniversity && matchesProfession && matchesCompany;
+    return matchesSearch && matchesHighSchoolYear && matchesCity && matchesCountry && matchesUniversity && matchesProfession && matchesCompany;
   });
 
   // Extract unique values for dropdowns
@@ -280,7 +278,6 @@ export default function DirectoryPage() {
                     className="w-full focus:ring-2 focus:ring-primary focus:ring-offset-2"
                     onClick={() => {
                       setSearchQuery("");
-                      setYearFilter("all");
                       setHighSchoolYearFilter("all");
                       setCityFilter("all");
                       setCountryFilter("all");
@@ -403,12 +400,12 @@ export default function DirectoryPage() {
 
                                 <div className="w-full space-y-4">
                                   <dl className="grid grid-cols-2 gap-4">
-                                    {person.high_school_graduation_year && (
+                                    {person.graduation_year && (
                                       <div className="space-y-1">
                                         <dt className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                                           <GraduationCap className="h-4 w-4" aria-hidden="true" /> Lise Mezuniyet
                                         </dt>
-                                        <dd className="text-sm">{person.high_school_graduation_year}</dd>
+                                        <dd className="text-sm">{person.graduation_year}</dd>
                                       </div>
                                     )}
                                     {person.university && (
