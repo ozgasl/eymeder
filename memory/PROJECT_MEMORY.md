@@ -134,6 +134,11 @@ bkz. `fonzipMembershipNo.ts`). Sonuç: membershipFound=true, hasDebt=true (yani 
 hesap üzerinde GERÇEKTEN tetiklenmedi (sadece read-only arama sorgularıyla test edildi),
 kullanıcıya bildirilip onayı bekleniyor.
 
+**Güncelleme (2026-09-01)**: Fonzip'in OpenAPI spec'i artık mevcut —
+`docs/fonzip-api/fonzip-api-v2.yaml`. Yeni entegrasyonlarda (örn. `/events`,
+`/tickets`) önce bu dosyaya bakılabilir; aşağıdaki dersler spec olmadan
+keşfedilen kısımlar için hâlâ geçerli.
+
 **Genel ders**: Fonzip'in OpenAPI spec'i (`documentation-json.json`) bu ortamda yok —
 "hangi alan filter'da mı yoksa values_list'te mi geçerli" sorusunu spec'ten değil,
 canlıda küçük, yan etkisiz (read-only arama) deneylerle cevapla. Yazma işlemi

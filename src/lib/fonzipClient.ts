@@ -139,3 +139,47 @@ export async function findFonzipMember(membershipNo: number): Promise<FonzipUser
 
   return { membershipFound: true, tags };
 }
+
+export interface FonzipEvent {
+  id: number;
+  name: string;
+  url: string;
+  startDate: string;
+  endDate: string;
+}
+
+// Lists upcoming (not yet ended) events from Fonzip's own events calendar
+// (GET /events, per Fonzip API v2 - see docs/fonzip-api/fonzip-api-v2.yaml),
+// so the events page can link members straight to Fonzip's ticket page for
+// each one instead of just a generic "see Fonzip" link.
+export async function listUpcomingFonzipEvents(limit = 6): Promise<FonzipEvent[]> {
+  const token = await getAccessToken();
+
+  const params = new URLSearchParams({
+    target: "u",
+    order_by: "start_date",
+    how_many: String(limit),
+  });
+
+  const res = await fetchWithTimeout(`${FONZIP_BASE_URL}/events?${params.toString()}`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(`Fonzip events request failed: ${data.error_description || data.error || res.status}`);
+  }
+
+  const data = await res.json();
+  const eventList: Array<{ id: number; name: string; url: string; start_date: string; end_date: string }> =
+    data.event_list ?? [];
+
+  return eventList.map((event) => ({
+    id: event.id,
+    name: event.name,
+    url: event.url,
+    startDate: event.start_date,
+    endDate: event.end_date,
+  }));
+}
