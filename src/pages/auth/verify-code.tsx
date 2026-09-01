@@ -27,7 +27,7 @@ export default function VerifyCodePage() {
   const [resending, setResending] = useState(false);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("pendingSignup");
+    const stored = localStorage.getItem("pendingSignup");
     if (!stored) {
       toast({ title: "Kayıt bilgisi bulunamadı", description: "Lütfen önce kayıt formunu doldurun", variant: "destructive" });
       router.replace("/auth/signup");
@@ -61,7 +61,7 @@ export default function VerifyCodePage() {
         password: pending.password,
       });
 
-      sessionStorage.removeItem("pendingSignup");
+      localStorage.removeItem("pendingSignup");
 
       if (signInError) {
         toast({ title: "Hesap oluşturuldu", description: "Lütfen giriş yapın" });
