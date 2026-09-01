@@ -64,7 +64,7 @@ export default function SignupPage() {
         return;
       }
 
-      sessionStorage.setItem(
+      localStorage.setItem(
         "pendingSignup",
         JSON.stringify({
           fullName,
