@@ -17,6 +17,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { generateICSFile, downloadICS, getGoogleCalendarUrl, getOutlookUrl } from "@/lib/calendarUtils";
+import type { FonzipEvent } from "@/lib/fonzipClient";
+import { Ticket } from "lucide-react";
 
 export default function EventsPage() {
   const router = useRouter();
@@ -25,6 +27,7 @@ export default function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [fonzipEvents, setFonzipEvents] = useState<FonzipEvent[]>([]);
 
   useEffect(() => {
     checkAuth();
@@ -37,6 +40,7 @@ export default function EventsPage() {
     } else {
       setUser(currentUser);
       loadEvents();
+      loadFonzipEvents();
       setLoading(false);
     }
   };
@@ -45,6 +49,16 @@ export default function EventsPage() {
     const { data, error } = await eventService.getUpcomingEvents();
     if (!error && data) {
       setEvents(data);
+    }
+  };
+
+  const loadFonzipEvents = async () => {
+    try {
+      const res = await fetch("/api/fonzip/events");
+      const data = await res.json();
+      setFonzipEvents(data.events || []);
+    } catch {
+      setFonzipEvents([]);
     }
   };
 
@@ -139,6 +153,42 @@ export default function EventsPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {fonzipEvents.length > 0 && (
+              <div className="mb-8">
+                <h2 className="text-lg font-heading font-semibold mb-3 flex items-center gap-2">
+                  <Ticket className="h-5 w-5 text-purple-600" aria-hidden="true" />
+                  Fonzip'teki Güncel Etkinlikler
+                </h2>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {fonzipEvents.map((event) => (
+                    <Card key={event.id} className="border-purple-200">
+                      <CardHeader>
+                        <CardTitle className="line-clamp-2 text-base">{event.name}</CardTitle>
+                        <CardDescription className="flex items-center gap-1 mt-1">
+                          <Calendar className="h-3 w-3" aria-hidden="true" />
+                          {new Date(event.startDate).toLocaleDateString("tr-TR", {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <Button asChild className="w-full gap-2">
+                          <a href={event.url} target="_blank" rel="noopener noreferrer">
+                            <Ticket className="h-4 w-4" aria-hidden="true" />
+                            Bilet Al
+                          </a>
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {events.length === 0 ? (
               <Card>

@@ -433,6 +433,7 @@ export type Database = {
           created_at: string | null
           created_by: string
           description: string | null
+          external_link: string | null
           id: string
           is_private: boolean | null
           name: string
@@ -443,6 +444,7 @@ export type Database = {
           created_at?: string | null
           created_by: string
           description?: string | null
+          external_link?: string | null
           id?: string
           is_private?: boolean | null
           name: string
@@ -453,6 +455,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string
           description?: string | null
+          external_link?: string | null
           id?: string
           is_private?: boolean | null
           name?: string

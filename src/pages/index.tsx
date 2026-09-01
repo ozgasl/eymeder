@@ -73,7 +73,7 @@ export default function Home() {
       iconBg: "bg-purple-100 text-purple-600",
     },
     {
-      title: "İş İlanları",
+      title: "EYB İK",
       description: "Kariyer fırsatları",
       icon: Briefcase,
       href: "/jobs",

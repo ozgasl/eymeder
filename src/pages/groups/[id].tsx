@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { groupService } from "@/services/groupService";
 import { authService } from "@/services/authService";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Users, Globe, Lock, UserPlus, UserMinus, Send, Heart } from "lucide-react";
+import { Loader2, Users, Globe, Lock, UserPlus, UserMinus, Send, Heart, MessageCircle } from "lucide-react";
 
 export default function GroupDetailPage() {
   const router = useRouter();
@@ -226,6 +226,15 @@ export default function GroupDetailPage() {
                       <Users className="h-4 w-4" />
                       {group.group_members?.length || 0} üye
                     </div>
+
+                    {group.external_link && (
+                      <Button variant="outline" className="w-full gap-2" asChild>
+                        <a href={group.external_link} target="_blank" rel="noreferrer">
+                          <MessageCircle className="h-4 w-4" />
+                          Gruba Bağlan
+                        </a>
+                      </Button>
+                    )}
 
                     {isMember ? (
                       <Button variant="outline" className="w-full gap-2" onClick={handleLeave}>

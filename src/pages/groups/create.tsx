@@ -25,6 +25,7 @@ export default function CreateGroupPage() {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
+  const [externalLink, setExternalLink] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +38,7 @@ export default function CreateGroupPage() {
       description: description || null,
       category: category || null,
       is_private: isPrivate,
+      external_link: externalLink || null,
       created_by: user.id,
     });
 
@@ -144,6 +146,20 @@ export default function CreateGroupPage() {
                         <SelectItem value="other">Diğer</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="external-link">Dış Grup Linki (opsiyonel)</Label>
+                    <Input
+                      id="external-link"
+                      type="url"
+                      placeholder="https://chat.whatsapp.com/..."
+                      value={externalLink}
+                      onChange={(e) => setExternalLink(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Zaten bir WhatsApp/Telegram grubunuz varsa, üyelerin katılabilmesi için linkini buraya ekleyin.
+                    </p>
                   </div>
 
                   <div className="flex items-center justify-between p-4 rounded-lg border">

@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 
 const GMAIL_SENDER_EMAIL = "eymeder@gmail.com";
+const ADMIN_NOTIFICATION_EMAIL = "info@eymeder.com";
 
 function getTransporter() {
   const appPassword = process.env.GMAIL_APP_PASSWORD;
@@ -40,6 +41,40 @@ export async function sendOtpEmail(toEmail: string, code: string, purpose: OtpEm
     from: `EYMeder <${GMAIL_SENDER_EMAIL}>`,
     to: toEmail,
     subject,
+    text,
+  });
+}
+
+export interface NewMemberNotificationInput {
+  fullName: string;
+  email: string;
+  graduationYear: number;
+  schoolNumber: string;
+  phone: string;
+}
+
+export async function sendNewMemberNotification(input: NewMemberNotificationInput): Promise<void> {
+  const transporter = getTransporter();
+
+  const text = [
+    "Uygulamaya yeni bir üye kaydoldu.",
+    "",
+    `Ad Soyad: ${input.fullName}`,
+    `E-posta: ${input.email}`,
+    `Mezuniyet Yılı: ${input.graduationYear}`,
+    `Okul Numarası: ${input.schoolNumber}`,
+    `Telefon: ${input.phone}`,
+  ].join("\n");
+
+  if (!transporter) {
+    console.warn(`[sendNewMemberNotification] GMAIL_APP_PASSWORD not set - would send to ${ADMIN_NOTIFICATION_EMAIL}: "${text}"`);
+    return;
+  }
+
+  await transporter.sendMail({
+    from: `EYMeder <${GMAIL_SENDER_EMAIL}>`,
+    to: ADMIN_NOTIFICATION_EMAIL,
+    subject: "Yeni Üye Kaydı",
     text,
   });
 }
