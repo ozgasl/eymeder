@@ -107,12 +107,15 @@ export default function SignupPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="graduation-year">Mezuniyet Yılı</Label>
-                <Input id="graduation-year" type="number" placeholder="2015" min={1950} max={2100} value={graduationYear} onChange={(e) => setGraduationYear(e.target.value)} required />
+                <Input id="graduation-year" type="number" placeholder="2015" min={1950} max={2100} value={graduationYear} onChange={(e) => setGraduationYear(e.target.value)} required aria-describedby="membership-fields-note" />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="school-number">Okul Numarası</Label>
-                <Input id="school-number" type="text" placeholder="Okul numaranız" value={schoolNumber} onChange={(e) => setSchoolNumber(e.target.value)} required />
+                <Input id="school-number" type="text" placeholder="Okul numaranız" value={schoolNumber} onChange={(e) => setSchoolNumber(e.target.value)} required aria-describedby="membership-fields-note" />
+                <p id="membership-fields-note" className="text-xs text-muted-foreground">
+                  Mezuniyet yılı ve okul numarası, dernek üyelik kaydınızın teyidi için gereklidir.
+                </p>
               </div>
 
               <div className="space-y-2">
