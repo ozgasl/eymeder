@@ -13,6 +13,7 @@ import { profileService, type Profile, type SearchFilters } from "@/services/pro
 import { useAccessControl } from "@/hooks/useAccessControl";
 import { AccessRestricted } from "@/components/AccessRestricted";
 import { Loader2, Search, MapPin, Briefcase, GraduationCap, Building, Filter, MessageSquare, Mail, Phone, Linkedin, Twitter, Instagram, Facebook, Globe } from "lucide-react";
+import { getSocialHandle } from "@/lib/socialLinks";
 
 export default function DirectoryPage() {
   const { loading, isDernekUyesi } = useAccessControl();
@@ -451,22 +452,22 @@ export default function DirectoryPage() {
                                       )}
                                       {person.linkedin_url && (
                                         <a href={person.linkedin_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-primary rounded-sm">
-                                          <Linkedin className="h-4 w-4" aria-hidden="true" /> LinkedIn
+                                          <Linkedin className="h-4 w-4" aria-hidden="true" /> @{getSocialHandle(person.linkedin_url)}
                                         </a>
                                       )}
                                       {person.twitter_url && (
                                         <a href={person.twitter_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-primary rounded-sm">
-                                          <Twitter className="h-4 w-4" aria-hidden="true" /> Twitter
+                                          <Twitter className="h-4 w-4" aria-hidden="true" /> @{getSocialHandle(person.twitter_url)}
                                         </a>
                                       )}
                                       {person.instagram_url && (
                                         <a href={person.instagram_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-primary rounded-sm">
-                                          <Instagram className="h-4 w-4" aria-hidden="true" /> Instagram
+                                          <Instagram className="h-4 w-4" aria-hidden="true" /> @{getSocialHandle(person.instagram_url)}
                                         </a>
                                       )}
                                       {person.facebook_url && (
                                         <a href={person.facebook_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-primary rounded-sm">
-                                          <Facebook className="h-4 w-4" aria-hidden="true" /> Facebook
+                                          <Facebook className="h-4 w-4" aria-hidden="true" /> @{getSocialHandle(person.facebook_url)}
                                         </a>
                                       )}
                                     </nav>

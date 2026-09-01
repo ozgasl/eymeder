@@ -14,6 +14,7 @@ import { authService } from "@/services/authService";
 import { profileService } from "@/services/profileService";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, User, Briefcase, GraduationCap, MapPin, Phone, Globe, Linkedin, Twitter, Instagram, Facebook, X } from "lucide-react";
+import { buildSocialUrl, getSocialHandle } from "@/lib/socialLinks";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -75,10 +76,10 @@ export default function ProfilePage() {
       setCountry(data.country || "");
       setCity(data.city || "");
       setPhone(data.phone || "");
-      setLinkedinUrl(data.linkedin_url || "");
-      setTwitterUrl(data.twitter_url || "");
-      setInstagramUrl(data.instagram_url || "");
-      setFacebookUrl(data.facebook_url || "");
+      setLinkedinUrl(getSocialHandle(data.linkedin_url));
+      setTwitterUrl(getSocialHandle(data.twitter_url));
+      setInstagramUrl(getSocialHandle(data.instagram_url));
+      setFacebookUrl(getSocialHandle(data.facebook_url));
       setIsMentor(data.is_mentor || false);
       setMentorBio(data.mentor_bio || "");
       setMentorshipAreas(data.mentorship_areas || []);
@@ -102,10 +103,10 @@ export default function ProfilePage() {
       country: country || null,
       city: city || null,
       phone: phone || null,
-      linkedin_url: linkedinUrl || null,
-      twitter_url: twitterUrl || null,
-      instagram_url: instagramUrl || null,
-      facebook_url: facebookUrl || null,
+      linkedin_url: linkedinUrl ? buildSocialUrl("linkedin", linkedinUrl) : null,
+      twitter_url: twitterUrl ? buildSocialUrl("twitter", twitterUrl) : null,
+      instagram_url: instagramUrl ? buildSocialUrl("instagram", instagramUrl) : null,
+      facebook_url: facebookUrl ? buildSocialUrl("facebook", facebookUrl) : null,
       is_mentor: isMentor,
       mentor_bio: isMentor ? mentorBio || null : null,
       mentorship_areas: isMentor && mentorshipAreas.length > 0 ? mentorshipAreas : null,
@@ -389,10 +390,10 @@ export default function ProfilePage() {
                       </Label>
                       <Input
                         id="linkedin"
-                        type="url"
+                        type="text"
                         value={linkedinUrl}
                         onChange={(e) => setLinkedinUrl(e.target.value)}
-                        placeholder="https://linkedin.com/in/kullanici"
+                        placeholder="kullaniciadi"
                       />
                     </div>
 
@@ -403,10 +404,10 @@ export default function ProfilePage() {
                       </Label>
                       <Input
                         id="twitter"
-                        type="url"
+                        type="text"
                         value={twitterUrl}
                         onChange={(e) => setTwitterUrl(e.target.value)}
-                        placeholder="https://twitter.com/kullanici"
+                        placeholder="kullaniciadi"
                       />
                     </div>
 
@@ -417,10 +418,10 @@ export default function ProfilePage() {
                       </Label>
                       <Input
                         id="instagram"
-                        type="url"
+                        type="text"
                         value={instagramUrl}
                         onChange={(e) => setInstagramUrl(e.target.value)}
-                        placeholder="https://instagram.com/kullanici"
+                        placeholder="kullaniciadi"
                       />
                     </div>
 
@@ -431,10 +432,10 @@ export default function ProfilePage() {
                       </Label>
                       <Input
                         id="facebook"
-                        type="url"
+                        type="text"
                         value={facebookUrl}
                         onChange={(e) => setFacebookUrl(e.target.value)}
-                        placeholder="https://facebook.com/kullanici"
+                        placeholder="kullaniciadi"
                       />
                     </div>
                   </div>
