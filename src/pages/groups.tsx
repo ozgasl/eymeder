@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { groupService } from "@/services/groupService";
 import { authService } from "@/services/authService";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Users, Search, PlusCircle, Globe, Lock } from "lucide-react";
+import { Loader2, Users, Search, PlusCircle, Globe, Lock, MessageCircle } from "lucide-react";
 
 export default function GroupsPage() {
   const router = useRouter();
@@ -137,11 +137,19 @@ export default function GroupsPage() {
                             </div>
                           </div>
                         </div>
-                        {group.category && (
-                          <Badge variant="outline" className="w-fit">
-                            {getCategoryBadge(group.category)}
-                          </Badge>
-                        )}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {group.category && (
+                            <Badge variant="outline" className="w-fit">
+                              {getCategoryBadge(group.category)}
+                            </Badge>
+                          )}
+                          {group.external_link && (
+                            <Badge variant="secondary" className="w-fit gap-1">
+                              <MessageCircle className="h-3 w-3" aria-hidden="true" />
+                              Dış grup
+                            </Badge>
+                          )}
+                        </div>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <p className="text-sm text-muted-foreground line-clamp-2">
