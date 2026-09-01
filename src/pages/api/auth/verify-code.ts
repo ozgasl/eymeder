@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/integrations/supabase/admin";
 import { verifyOtpCode } from "@/services/otpService";
 import { checkMembership, toFonzipStatus, formatFonzipTags } from "@/services/membershipProvider";
 import { withTimeout } from "@/lib/withTimeout";
+import { sendNewMemberNotification } from "@/lib/mailer";
 
 interface VerifySignupBody {
   email: string;
@@ -76,6 +77,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (profileError) {
     console.error("Profile update error after signup:", profileError);
+  }
+
+  try {
+    await sendNewMemberNotification({ fullName, email: normalizedEmail, graduationYear, schoolNumber, phone });
+  } catch (notificationError) {
+    console.error("New member notification email failed:", notificationError);
   }
 
   return res.status(200).json({ success: true });
