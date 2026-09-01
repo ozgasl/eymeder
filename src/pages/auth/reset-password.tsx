@@ -22,7 +22,7 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("pendingReset");
+    const stored = localStorage.getItem("pendingReset");
     if (!stored) {
       toast({ title: "İstek bulunamadı", description: "Lütfen önce şifremi unuttum formunu doldurun", variant: "destructive" });
       router.replace("/auth/forgot-password");
@@ -61,7 +61,7 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      sessionStorage.removeItem("pendingReset");
+      localStorage.removeItem("pendingReset");
       toast({ title: "Şifre güncellendi", description: "Yeni şifrenizle giriş yapabilirsiniz" });
       router.push("/auth/login");
     } catch (err: any) {

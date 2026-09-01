@@ -34,7 +34,7 @@ export default function ForgotPasswordPage() {
         return;
       }
 
-      sessionStorage.setItem("pendingReset", JSON.stringify({ email }));
+      localStorage.setItem("pendingReset", JSON.stringify({ email }));
       toast({ title: "Kod gönderildi", description: "E-postanıza gelen 6 haneli kodu girin" });
       router.push("/auth/reset-password");
     } catch (err: any) {
