@@ -1,6 +1,10 @@
 import { supabaseAdmin } from "@/integrations/supabase/admin";
 
 const FONZIP_BASE_URL = "https://fonzip.com/api/v2";
+// Fonzip's own public site for this association, used to turn an event's
+// bare slug (what /events actually returns in `url` - not a full link) into
+// a page members can click through to.
+const FONZIP_PUBLIC_SITE_URL = "https://fonzip.com/eymeder";
 const TOKEN_ROW_ID = 1;
 // Fonzip tokens last 3600s; refresh a bit early so we never try to use one
 // that expires mid-request.
@@ -178,8 +182,17 @@ export async function listUpcomingFonzipEvents(limit = 6): Promise<FonzipEvent[]
   return eventList.map((event) => ({
     id: event.id,
     name: event.name,
-    url: event.url,
+    url: toFonzipPublicUrl(event.url),
     startDate: event.start_date,
     endDate: event.end_date,
   }));
+}
+
+// Fonzip's /events response puts a bare slug (e.g. "eyb-outdoor-macera-turu")
+// in `url`, not a full link - resolving it as-is against the member app's
+// own origin 404s. Only prefix it if it isn't already absolute, in case
+// Fonzip starts returning full URLs later.
+function toFonzipPublicUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${FONZIP_PUBLIC_SITE_URL}/${url.replace(/^\//, "")}`;
 }

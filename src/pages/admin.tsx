@@ -435,7 +435,7 @@ export default function AdminPage() {
 
             {/* SEKMELER */}
             <Tabs defaultValue="users" className="space-y-6">
-              <TabsList className="grid grid-cols-3 lg:grid-cols-7 gap-2">
+              <TabsList className="grid grid-cols-3 lg:grid-cols-8 gap-2">
                 <TabsTrigger value="users" className="flex items-center gap-2">
                   <Users className="h-4 w-4" />
                   Kullanıcılar
@@ -451,6 +451,10 @@ export default function AdminPage() {
                 <TabsTrigger value="news" className="flex items-center gap-2">
                   <Newspaper className="h-4 w-4" />
                   Haberler
+                </TabsTrigger>
+                <TabsTrigger value="brands" className="flex items-center gap-2">
+                  <Tag className="h-4 w-4" />
+                  Markalar
                 </TabsTrigger>
                 <TabsTrigger value="products" className="flex items-center gap-2">
                   <Package className="h-4 w-4" />
