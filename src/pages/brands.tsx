@@ -10,6 +10,7 @@ import { brandService } from "@/services/brandService";
 import { qrCodeService } from "@/services/qrCodeService";
 import { useAccessControl } from "@/hooks/useAccessControl";
 import { ExternalLink, Tag, QrCode, Loader2, Lock } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import {
   Dialog,
   DialogContent,
@@ -244,7 +245,7 @@ export default function BrandsPage() {
                 {/* QR Code Display */}
                 <div className="bg-white p-6 rounded-lg border-4 border-primary">
                   <div className="text-center space-y-4">
-                    <QrCode className="h-32 w-32 mx-auto text-primary" />
+                    <QRCodeSVG value={myQR.qr_code} size={160} className="mx-auto" />
                     <div>
                       <p className="font-mono text-2xl font-bold text-primary">
                         {myQR.qr_code}
