@@ -1,5 +1,5 @@
 import { buildFonzipMembershipNo } from "@/lib/fonzipMembershipNo";
-import { findFonzipMember } from "@/lib/fonzipClient";
+import { findFonzipMember, findFonzipMemberByContact } from "@/lib/fonzipClient";
 
 export interface MembershipCheckInput {
   fullName: string;
@@ -29,19 +29,26 @@ const DERNEK_UYESI_TAG_NAMES = ["Dernek Üyesi", "Yönetim"];
 // member and reads their Fonzip tags to decide dernek_uyesi vs mezun_uye.
 // Fonzip's membership_no is graduationYear + schoolNumber zero-padded to 4
 // digits (see buildFonzipMembershipNo) - there's no separate "school number"
-// field on the Fonzip side to match against directly. Any failure (missing
-// credentials, network error, malformed response) is treated as "not a
-// member" rather than propagated, per the design: a flaky Fonzip lookup
-// should never block signup.
+// field on the Fonzip side to match against directly. That computed number
+// doesn't cover every account though: members who joined Fonzip before it
+// was adopted as the numbering convention keep whatever number they were
+// originally assigned there. When it doesn't match anyone, fall back to
+// matching by email/phone (findFonzipMemberByContact) so those members'
+// real tags aren't missed. Any failure (missing credentials, network error,
+// malformed response) is treated as "not a member" rather than propagated,
+// per the design: a flaky Fonzip lookup should never block signup.
 export async function checkMembership(input: MembershipCheckInput): Promise<MembershipCheckResult> {
   const membershipNo = buildFonzipMembershipNo(input.graduationYear, input.schoolNumber);
 
-  if (membershipNo === null) {
-    return { isMember: false, membershipFound: null, tags: [] };
-  }
-
   try {
-    const result = await findFonzipMember(membershipNo);
+    let result = membershipNo !== null
+      ? await findFonzipMember(membershipNo)
+      : { membershipFound: false, tags: [] };
+
+    if (!result.membershipFound) {
+      result = await findFonzipMemberByContact({ email: input.email, phone: input.phone });
+    }
+
     return {
       isMember: result.tags.some((tag) => DERNEK_UYESI_TAG_NAMES.includes(tag)),
       membershipFound: result.membershipFound,

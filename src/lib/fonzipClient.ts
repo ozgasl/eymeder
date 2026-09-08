@@ -92,14 +92,16 @@ const FONZIP_TAG_NAMES: Record<number, string> = {
   1297468: "Yönetim",
 };
 
-// Looks up a Fonzip user by their composite membership_no (see
-// buildFonzipMembershipNo). `tags` is a left-joined field: requesting it in
-// values_list returns one row per assigned tag (each with the same `id` but
-// a different numeric `tags` value), a single row with `tags: null` if the
-// member has no tags, or zero rows if membership_no doesn't match anyone.
-// Fonzip enforces one active token per client credential pair, so the token
-// is cached in fonzip_token_cache rather than re-requested on every call.
-export async function findFonzipMember(membershipNo: number): Promise<FonzipUserSearchResult> {
+type FonzipUserRow = { id: number; tags: number | null };
+
+// Runs a single-attribute Fonzip /users search. `tags` is a left-joined
+// field: requesting it in values_list returns one row per assigned tag (each
+// with the same `id` but a different numeric `tags` value), a single row
+// with `tags: null` if the member has no tags, or zero rows if nothing
+// matches. Fonzip enforces one active token per client credential pair, so
+// the token is cached in fonzip_token_cache rather than re-requested on
+// every call.
+async function searchFonzipUsers(parameter: string, condition: string, value: string | number): Promise<FonzipUserRow[]> {
   const token = await getAccessToken();
 
   const res = await fetchWithTimeout(`${FONZIP_BASE_URL}/users`, {
@@ -111,14 +113,13 @@ export async function findFonzipMember(membershipNo: number): Promise<FonzipUser
     body: JSON.stringify({
       search: {
         start_page: 1,
-        // Fonzip only has 5 tags total, so a member can have at most 5 rows.
-        how_many: 10,
+        // Generous enough for a handful of tag rows (Fonzip has 5 tags
+        // total) across a couple of same-value accounts, without paging.
+        how_many: 20,
         order_by: "id",
         filter: {
           condition: "and",
-          attributes: [
-            { type: "default", parameter: "membership_no", condition: "eq", value: membershipNo },
-          ],
+          attributes: [{ type: "default", parameter, condition, value }],
         },
       },
       values_list: ["id", "tags"],
@@ -132,9 +133,15 @@ export async function findFonzipMember(membershipNo: number): Promise<FonzipUser
 
   // The response envelope key is `user_list`, not `rows`.
   const data = await res.json();
-  const rows: Array<{ id: number; tags: number | null }> = data.user_list ?? [];
+  return data.user_list ?? [];
+}
 
-  if (rows.length === 0) {
+// Turns rows from searchFonzipUsers into a result, refusing to guess when
+// they span more than one distinct Fonzip user (e.g. a shared phone number)
+// - misattributing another member's tags is worse than reporting "not found".
+function toSearchResult(rows: FonzipUserRow[]): FonzipUserSearchResult {
+  const distinctIds = new Set(rows.map((row) => row.id));
+  if (distinctIds.size !== 1) {
     return { membershipFound: false, tags: [] };
   }
 
@@ -143,6 +150,42 @@ export async function findFonzipMember(membershipNo: number): Promise<FonzipUser
     .filter((name): name is string => Boolean(name));
 
   return { membershipFound: true, tags };
+}
+
+// Looks up a Fonzip user by their composite membership_no (see
+// buildFonzipMembershipNo).
+export async function findFonzipMember(membershipNo: number): Promise<FonzipUserSearchResult> {
+  const rows = await searchFonzipUsers("membership_no", "eq", membershipNo);
+  return toSearchResult(rows);
+}
+
+export interface FonzipContactMatchInput {
+  email: string;
+  phone?: string;
+}
+
+// Fallback for when membership_no doesn't match anyone: some members' Fonzip
+// accounts predate graduation_year+school_number being adopted as the
+// numbering convention (see memory/PROJECT_MEMORY.md) and keep whatever
+// membership_no they were originally assigned there, unrelated to their
+// school record. Without this fallback, a real Dernek Üyesi/Yönetim member
+// looks like they were never found in Fonzip. Tries email first (exact,
+// reliable), then phone (last 10 digits, to tolerate country-code/formatting
+// differences) only if email didn't match.
+export async function findFonzipMemberByContact(input: FonzipContactMatchInput): Promise<FonzipUserSearchResult> {
+  const email = input.email.trim().toLowerCase();
+  if (email) {
+    const byEmail = toSearchResult(await searchFonzipUsers("email", "eq", email));
+    if (byEmail.membershipFound) return byEmail;
+  }
+
+  const phoneDigits = input.phone?.replace(/\D/g, "").slice(-10);
+  if (phoneDigits && phoneDigits.length === 10) {
+    const byPhone = toSearchResult(await searchFonzipUsers("phone", "contains", phoneDigits));
+    if (byPhone.membershipFound) return byPhone;
+  }
+
+  return { membershipFound: false, tags: [] };
 }
 
 export interface FonzipEvent {
