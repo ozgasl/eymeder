@@ -23,6 +23,7 @@ import { orderService } from "@/services/orderService";
 import { authService } from "@/services/authService";
 import { brandService } from "@/services/brandService";
 import { BrandCodesManager } from "@/components/admin/BrandCodesManager";
+import { LogoUploadField } from "@/components/admin/LogoUploadField";
 import { supabase } from "@/integrations/supabase/client";
 import { buildSocialUrl, getSocialHandle } from "@/lib/socialLinks";
 import { 
@@ -305,6 +306,13 @@ export default function AdminPage() {
 
   const handleUpdateBrand = async () => {
     if (!editingBrand) return;
+    // Captured before the write: if the logo changed, the file it replaced is
+    // deleted only AFTER the row stops pointing at it, so a failed save (or a
+    // cancelled edit) never leaves a brand showing a missing image.
+    const previousLogoUrl = brands.find((brand) => brand.id === editingBrand.id)?.logo_url as
+      | string
+      | null
+      | undefined;
     const { connected_member, ...editableFields } = editingBrand;
     const { error } = await brandService.updateBrand(editingBrand.id, {
       ...editableFields,
@@ -313,6 +321,9 @@ export default function AdminPage() {
       connected_member_id: editingBrand.connected_member_id || null,
     });
     if (!error) {
+      if (previousLogoUrl && previousLogoUrl !== editingBrand.logo_url) {
+        await brandService.deleteLogo(previousLogoUrl);
+      }
       toast({ title: "Marka güncellendi" });
       setEditingBrand(null);
       loadBrands();
@@ -323,8 +334,11 @@ export default function AdminPage() {
 
   const handleDeleteBrand = async (id: string) => {
     if (!confirm("Bu markayı silmek istediğinizden emin misiniz?")) return;
+    const logoUrl = brands.find((brand) => brand.id === id)?.logo_url as string | null | undefined;
     const { error } = await brandService.deleteBrand(id);
     if (!error) {
+      // Only ever removes a file from our own bucket (see deleteLogo).
+      await brandService.deleteLogo(logoUrl);
       toast({ title: "Marka silindi" });
       loadBrands();
     } else {
@@ -651,6 +665,8 @@ export default function AdminPage() {
                       (@ veya tam adres gerekmez). Bağlantılı Mezun, indirimi sağlayan ya da aracı olan
                       üyeyi işaretlemek için; adı marka kartında görünür. Marka eklendikten sonra
                       indirim kodunu sayfanın altındaki &quot;Yeni İndirim Kodu&quot; bölümünden tanımlayın.
+                      Logoyu ya dosya olarak yükleyin ya da markanın kendi sitesindeki adresi yapıştırın;
+                      logo değiştirildiğinde eskisi kayıt güncellendikten sonra silinir.
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -680,15 +696,14 @@ export default function AdminPage() {
                       <Label>İndirim Bilgisi *</Label>
                       <Input value={newBrand.discount_info} onChange={(e) => setNewBrand({ ...newBrand, discount_info: e.target.value })} placeholder="Örn: %15 indirim" />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Logo URL</Label>
-                        <Input value={newBrand.logo_url} onChange={(e) => setNewBrand({ ...newBrand, logo_url: e.target.value })} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Website URL</Label>
-                        <Input value={newBrand.website_url} onChange={(e) => setNewBrand({ ...newBrand, website_url: e.target.value })} />
-                      </div>
+                    <LogoUploadField
+                      value={newBrand.logo_url}
+                      onChange={(url) => setNewBrand({ ...newBrand, logo_url: url })}
+                      brandName={newBrand.name}
+                    />
+                    <div className="space-y-2">
+                      <Label>Website URL</Label>
+                      <Input value={newBrand.website_url} onChange={(e) => setNewBrand({ ...newBrand, website_url: e.target.value })} />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -753,10 +768,12 @@ export default function AdminPage() {
                                   </div>
                                   <Textarea value={editingBrand.description || ""} onChange={(e) => setEditingBrand({ ...editingBrand, description: e.target.value })} rows={2} />
                                   <Input value={editingBrand.discount_info} onChange={(e) => setEditingBrand({ ...editingBrand, discount_info: e.target.value })} />
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <Input value={editingBrand.logo_url || ""} onChange={(e) => setEditingBrand({ ...editingBrand, logo_url: e.target.value })} placeholder="Logo URL" />
-                                    <Input value={editingBrand.website_url || ""} onChange={(e) => setEditingBrand({ ...editingBrand, website_url: e.target.value })} placeholder="Website URL" />
-                                  </div>
+                                  <LogoUploadField
+                                    value={editingBrand.logo_url || ""}
+                                    onChange={(url) => setEditingBrand({ ...editingBrand, logo_url: url })}
+                                    brandName={editingBrand.name || ""}
+                                  />
+                                  <Input value={editingBrand.website_url || ""} onChange={(e) => setEditingBrand({ ...editingBrand, website_url: e.target.value })} placeholder="Website URL" />
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <Input value={editingBrand.instagram_url || ""} onChange={(e) => setEditingBrand({ ...editingBrand, instagram_url: e.target.value })} placeholder="Instagram kullanıcı adı" />
                                     <Input value={editingBrand.twitter_url || ""} onChange={(e) => setEditingBrand({ ...editingBrand, twitter_url: e.target.value })} placeholder="X kullanıcı adı" />
