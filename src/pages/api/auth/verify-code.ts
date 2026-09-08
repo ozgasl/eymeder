@@ -71,7 +71,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       membership_tier: membershipResult.isMember ? "dernek_uyesi" : "mezun_uye",
       fonzip_membership_status: toFonzipStatus(membershipResult.membershipFound),
       fonzip_tags: formatFonzipTags(membershipResult.tags),
-      fonzip_checked_at: new Date().toISOString(),
+      // Only stamp the check when Fonzip actually answered. A signup must never
+      // be blocked by a slow lookup (hence the timeout fallback above), but
+      // recording a non-answer as a completed check made those profiles read
+      // "checked, no membership" when nothing had been established — an admin
+      // needs to see them as unchecked so they get looked at again.
+      ...(membershipResult.membershipFound === null
+        ? {}
+        : { fonzip_checked_at: new Date().toISOString() }),
     })
     .eq("id", createdUser.user.id);
 

@@ -47,6 +47,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     { isMember: false, membershipFound: null, tags: [] }
   );
 
+  // membershipFound === null means the lookup never produced an answer: it
+  // threw, or it outran the timeout above. That is NOT "no matching member" —
+  // writing it as one downgraded real dernek_uyesi members to mezun_uye and
+  // wiped their recorded tags, purely because Fonzip was slow. Leave the
+  // profile exactly as it was and let the admin retry.
+  if (result.membershipFound === null) {
+    return res.status(503).json({
+      error: "Fonzip'ten yanıt alınamadı, üyenin kaydı değiştirilmedi. Lütfen tekrar deneyin.",
+    });
+  }
+
   const tier = result.isMember ? "dernek_uyesi" : "mezun_uye";
   const membershipStatus = toFonzipStatus(result.membershipFound);
   const fonzipTags = formatFonzipTags(result.tags);

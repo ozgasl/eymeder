@@ -326,6 +326,66 @@ sırasında yanlış mezuniyet yılı girilmiş/kaydedilmiş.
    "Fonzip'i Yeniden Kontrol Et". `fonzip_membership_status = 'yok'` olan
    üyeler arasında başka benzer yanlış-veri vakaları olabilir, taranmadı.
 
+## 🔥 Ders: Cevapsız Fonzip kontrolü "üye değil" sayılıyordu — sessiz düşürme (2026-09-08)
+
+**Nasıl bulundu**: `graduation_year` taramasında 4 üyenin
+`fonzip_membership_status = null` AMA `fonzip_checked_at` **dolu** olduğu
+görüldü. Sorgumda bunlara "hiç kontrol edilmemiş" demişim — yanlış etiket.
+`fonzip_checked_at` dolu olduğu için kontrol ÇALIŞMIŞ, sadece cevap
+üretmemiş.
+
+**Üç durumu asla karıştırma** (`profiles`):
+| status | checked_at | anlamı |
+|---|---|---|
+| `var`/`yok` | dolu | Fonzip cevap verdi |
+| `null` | **dolu** | kontrol çalıştı, **cevap alınamadı** (exception ya da timeout) |
+| `null` | null | hiç sorulmamış |
+
+**Gerçek bug**: `membershipFound === null` (cevapsız), `isMember: false`'a
+düşüyor ve `recheck-fonzip` bunu `membership_tier = 'mezun_uye'` olarak
+YAZIYORDU — yani yavaş bir Fonzip çağrısı gerçek bir dernek üyesini sessizce
+mezun üyeye düşürüyor, üstelik `formatFonzipTags([])` ile kayıtlı etiketlerini
+de siliyordu. Düzeltme: cevapsızsa **hiçbir şey yazılmıyor**, route 503 +
+"Fonzip'ten yanıt alınamadı, üyenin kaydı değiştirilmedi" dönüyor.
+`verify-code`'da (kayıt) ise cevapsızsa `fonzip_checked_at` YAZILMIYOR — kayıt
+akışı asla bloke edilmiyor (tasarım kararı) ama profil dürüstçe
+"kontrol edilmemiş" görünüyor.
+
+**Neden bugün ortaya çıktı (şüphe)**: `checkMembership` artık numara → e-posta
+→ telefon diye **üç ardışık** Fonzip araması yapıyor (e-posta/telefon yedeği
+bugün girdi, PR #16), route'ların bütçesi ise hâlâ `withTimeout(..., 8000)`.
+Eskiden tek arama vardı. **Nedene dokunulmadı** — aramaları paralelleştirmek
+akla geliyor ama `getAccessToken()` boş önbellekte yeni token istiyor ve Fonzip
+client başına tek aktif token'a izin veriyor ("Token already created" 409), yani
+naif paralelleştirme token çakışması üretir. Yapılacaksa: önce token'ı bir kez
+ısıt, sonra üç aramayı paralel çalıştır.
+
+## 🔥 Ders: Yanlış `graduation_year` taraması — hangi hatayı kendi verimizle bulabiliriz, hangisini bulamayız (2026-09-08)
+
+`docs/audits/graduation-year-audit.sql` bu taramayı yapıyor (yerel Postgres'te,
+iki bilinen vakayı da içeren fixture'la test edildi). Ayrım kritik:
+
+- **Kendi verimizle KANITLANABİLENLER** (sorgu bunlara "YÜKSEK" diyor): satır
+  kendi kendiyle çelişiyor. `high_school_graduation_year` (kod artık okumuyor
+  ama veri duruyor — bu yüzden DROP etmek zararlı olurdu, ikinci görüş kaynağı)
+  `graduation_year`'dan farklı; `graduation_year` >= `university_graduation_year`;
+  yıl aralık dışı; `school_number` `buildFonzipMembershipNo`'nun kullanamayacağı
+  halde (rakamsız ya da 4 haneden uzun → o üye yıl ne olursa olsun ASLA
+  eşleşemez); iki üyenin aynı membership_no'ya düşmesi ("88" ile "0088"
+  zero-pad sonrası çakışıyor).
+- **KANITLANAMAYANLAR** ("düşük"): tek bulgusu `fonzip_membership_status='yok'`
+  olanlar. Yanlış yıl da bunu üretir, Fonzip'e hiç kayıtlı olmamak da; verimizde
+  ikisini ayıran hiçbir şey yok. Ancak dışarıdan (Fonzip'e aday yıllarla
+  `/users` sorgusu) çözülür.
+
+**Kendi heuristiğimde bulunan hata (yerel test sayesinde)**: "19/20 basamak
+takası" diye bir desen varsayıp `gy - 100` öneriyordum. Şinasi Yılmaz vakası
+2016 → **1996**'ydı; 96 ile 16 aynı değil, yani yüzyıl takası DEĞİL, düpedüz
+yanlış giriş. Heuristik 1916 gibi anlamsız yıllar öneriyordu. **Ders**: bilinen
+bir vakadan desen çıkarırken sayıları gerçekten karşılaştır; bir tarama
+sorgusunu yazdıktan sonra bilinen vakaları içeren fixture'la (yerel Postgres 16
+bu ortamda mevcut, `initdb` root'la çalışmaz — `su postgres` gerekir) çalıştır.
+
 ## 🔥 Ders: "Migration'ı uyguladım" doğrulanmadan güvenilmez + PostgREST şema önbelleği (2026-09-08)
 
 **İki kez aynı sınıf sorun**: (1) Marka indirim kodu migration'ı "uygulandı"
@@ -376,6 +436,33 @@ kontrol et** — bir `TabsContent` yazıp `TabsTrigger`'ı eklemeyi unutmak,
 konsolda hiçbir hata vermeyen, sessiz bir UI bug'ı.
 
 ## Oturum günlüğü
+
+### 2026-09-08 — Yanlış graduation_year taraması (Bugfix 2 oturumu, ikinci talep)
+
+Hafızada "sıradaki iyi aday" olarak duran tarama yapıldı. **Sonuç: kendi
+verimizde kanıtlanabilir tek bir yanlış `graduation_year` yok** — denetim
+sorgusu ([PR #19](https://github.com/ozgasl/eymeder/pull/19),
+`docs/audits/`) production'da 17 satır döndürdü ve hiçbiri YÜKSEK değil.
+Yani Aysın/Şinasi sınıfı hatanın başka örneği bulunamadı; o iki vaka
+kanıtlanabilirdi çünkü ikinci bir yıl kaydı vardı, bu 17 kişide yok.
+
+**Production tablosu**: 49 üye · 28 Fonzip'te eşleşen · 17 eşleşmeyen ·
+4 cevapsız kontrol. 17'nin 5'i yedek arama öncesinden bayat kayıttı.
+
+**Taramanın gerçek getirisi başka yerden geldi**: 9 üye (5 bayat + 4 cevapsız)
+yeniden kontrol edildi ve **2'si gerçekten dernek üyesi çıkıp güncellendi** —
+yani hakları olan üyelik geri verildi. Ayrıca tarama, cevapsız Fonzip
+kontrolünün üyeyi sessizce düşürdüğü bug'ı ortaya çıkardı (bkz. yukarıdaki
+ders) — bu, aranan hatadan daha önemliydi.
+
+**Kalan havuz**: numara + e-posta + telefon üçüyle de bulunamayan ~12 üye.
+Bunları ancak Fonzip tarafından çözmek mümkün: `name` parametresiyle ara
+(spec'te `contains` koşulu var), tek eşleşme varsa `membership_no`'yu oku
+(spec'te `values_list`'te SEÇİLEBİLİR olduğu iki resmi örnekle doğrulandı) —
+ilk 4 hanesi gerçek mezuniyet yılı. Şinasi vakası tam olarak böyle çözüldü.
+12 kişi için elle yapmak önerildi; üye sayısı büyürse `findFonzipMemberByName`
++ salt-okunur admin raporu kurulabilir. Bir kısmı zaten hata değil: 2019/2021/
+2025 mezunları henüz aidat ödeyen dernek üyesi olmamış olabilir.
 
 ### 2026-09-08 — Marka indirim kodu sistemi (Bugfix 2 oturumu, ilk talep)
 
