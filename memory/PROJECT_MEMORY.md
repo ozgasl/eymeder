@@ -83,6 +83,41 @@ oku. Her oturum sonunda kendi bölümünü buraya ekle (üstte en yeni).
   linki gibi) — grup oluşturma formunda opsiyonel, doluysa grup detayında
   "Gruba Bağlan" butonu çıkıyor (`src/pages/groups/create.tsx`,
   `groups/[id].tsx`).
+- **Marka indirim kodları (2026-09-08)**: Kodlar `brands` tablosunda DEĞİL,
+  kendi tablolarında: `brand_discount_codes` (marka başına N kod/kampanya;
+  `code` platform genelinde `lower(code)` üzerinde UNIQUE, `label`,
+  koda özel `discount_info`, `source` = `brand`/`generated`, `is_single_use`,
+  `valid_from`/`valid_until`, `max_redemptions`, `is_active`) ve
+  `brand_code_usages` (kampanya × üye başına TEK satır: `member_code`,
+  `first_viewed_at`, `issued_at`, `expires_at`, `redeemed_at`, `redeemed_by`).
+  Migration: `20260908160000_brand_discount_codes.sql`.
+  - Kod üretimi `src/lib/discountCode.ts` (saf, testli): `%10` → `EYB10`,
+    oran yoksa marka adından `EYBSISL`, çakışırsa `EYB10TK` → `EYB10-2`.
+    Üyeye özel tek kullanımlık kod `EYB10-7F3K2A` (I/O/0/1 içermeyen alfabe).
+  - **`brands`'in aksine RLS gerçek**: `members_read_brand_codes` sadece
+    `dernek_uyesi` + staff'a SELECT veriyor, yani kod UI'da değil VERİTABANINDA
+    kısıtlı. Yardımcılar: `public.is_staff()`, `public.is_dernek_uyesi()`
+    (ikisi de SECURITY DEFINER — bkz. 42P17 recursion dersi).
+  - **`brand_code_usages`'a üye INSERT/UPDATE politikası YOK, bilinçli**: tüm
+    yazma işlemleri service-role API route'larından geçiyor
+    (`/api/brand-codes/view`, `/api/brand-codes/issue`,
+    `/api/admin/brand-codes/redeem`), böylece üye kendi sayacını şişiremiyor.
+    Yeni bir sayaç/kod aksiyonu eklerken bu deseni koru.
+  - **Sayaç mantığı (kullanıcıya açıklandı ve onaylandı)**: İndirim markanın
+    kasasında verildiği için "kullanıldı" bilgisi otomatik ölçülemez. Üç ayrı
+    metrik var ve isimleri kasıtlı: `Görüntüleyen` = kodu açan üye sayısı
+    (otomatik, sadece ilgi göstergesi), `Kod alan` = tek kullanımlık kod
+    üretmiş üye sayısı, `Kullanan` = staff'ın `/api/admin/brand-codes/redeem`
+    üzerinden onayladığı gerçek kullanım. `max_redemptions` SADECE son metriği
+    kapatıyor; kod dağıtımı kontenjanı doldurmuyor.
+  - **Bilinen sınır**: `UNIQUE(brand_code_id, user_id)` yüzünden paylaşılan bir
+    kodda aynı üyenin tekrar tekrar kullanımı bir kez sayılıyor (metrikler
+    "kaç üye", "kaç kez" değil). Tekrarlı kullanım sayılmak istenirse
+    `brand_code_usages` satır-başına-kullanım log'una dönüştürülmeli.
+  - Üye QR kod sistemi (`user_qr_codes`, `generate_user_qr_code()` trigger'ı)
+    **hiç değiştirilmedi** — kullanıcının açık talebi; kimlik doğrulama
+    kimliği olarak kalıyor (paylaşılan kod kullanımında üyeyi tanımlamak için
+    de bu QR giriliyor) ve ileride etkinliklerde kullanılabilir.
 - **Markalarda sosyal medya + bağlantılı üye**: `brands.instagram_url`,
   `brands.twitter_url`, `brands.connected_member_id` (→ `profiles.id`).
   Admin panelinde (`src/pages/admin.tsx`, "Markalar" sekmesi) kayıtlı
@@ -286,6 +321,45 @@ kontrol et** — bir `TabsContent` yazıp `TabsTrigger`'ı eklemeyi unutmak,
 konsolda hiçbir hata vermeyen, sessiz bir UI bug'ı.
 
 ## Oturum günlüğü
+
+### 2026-09-08 — Marka indirim kodu sistemi (Bugfix 2 oturumu, ilk talep)
+
+Kullanıcının talebi: "İndirimli Marka eklerken markaların verebileceği indirim
+kodlarını girebileceğimiz bir alan olmalı, firma vermezse biz üretelim (örn.
+%10 için EYB10). Mevcut üyeye özel karekod sistemini değiştirme."
+
+Plan sunuldu, kullanıcı 3 karar noktasını önerildiği gibi onayladı (oran yoksa
+marka adından kod, kod tekilliği zorunlu, kod DB seviyesinde gizli) ve
+başlangıçta kapsam dışı bırakılan 4 özelliği de istedi: geçerlilik tarihi,
+kullanım sayacı, marka başına çoklu kod, üyeye özel tek kullanımlık kod.
+Hepsi uygulandı — tasarımın tamamı için yukarıdaki "Marka indirim kodları"
+mimari kararına bak.
+
+**Planın onaylanan halinden bilinçli bir sapma**: Plan `brands.discount_code`
+adında TEK bir kolon öngörüyordu; "marka başına birden fazla kod" talebi
+gelince kod ayrı bir tabloya (`brand_discount_codes`) taşındı. Bunun yan
+faydası: kodlar ayrı tabloda olduğu için RLS ile `dernek_uyesi`'ye kısıtlamak
+bedava geldi — planda "UI seviyesinde gizlemek yeterli, DB'de herkes okuyabilir"
+diye kabul edilen sınır artık geçerli değil, gerçek koruma var.
+
+Eklenen dosyalar: `supabase/migrations/20260908160000_brand_discount_codes.sql`,
+`src/lib/discountCode.ts` (+ 31 test), `src/lib/brandCodes.ts`,
+`src/lib/requireMember.ts` (`requireDernekUyesi` — `requireStaff`'ın üye
+karşılığı), `src/services/brandCodeService.ts`,
+`src/pages/api/brand-codes/{view,issue}.ts`,
+`src/pages/api/admin/brand-codes/redeem.ts`,
+`src/components/admin/BrandCodesManager.tsx`,
+`src/components/BrandDiscountCodes.tsx`. Değişen: `admin.tsx` (Markalar
+sekmesine kod yöneticisi), `brands.tsx` (üyeye kod gösterimi), README,
+`database.types.ts`.
+
+**Supabase'de manuel çalıştırılması gereken migration**:
+`20260908160000_brand_discount_codes.sql` — Vercel deploy'u migration
+çalıştırmıyor, kullanıcıya ayrıca söylendi.
+
+**Canlıda test EDİLMEDİ** (bu ortamdan Supabase'e yazma yapılmadı): kod ekleme,
+üyeye özel kod üretme ve "kullanıldı olarak işaretle" akışları migration
+uygulandıktan sonra gerçek admin hesabıyla denenmeli.
 
 ### 2026-09-01 — 2026-09-08 — Mezuniyet yılı bugfix'i, mobil sekme kaybı, 6 yeni talep, Fonzip üyelik yedek araması
 

@@ -76,6 +76,129 @@ export type Database = {
           },
         ]
       }
+      brand_code_usages: {
+        Row: {
+          brand_code_id: string
+          created_at: string | null
+          expires_at: string | null
+          first_viewed_at: string | null
+          id: string
+          issued_at: string | null
+          member_code: string | null
+          redeem_note: string | null
+          redeemed_at: string | null
+          redeemed_by: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          brand_code_id: string
+          created_at?: string | null
+          expires_at?: string | null
+          first_viewed_at?: string | null
+          id?: string
+          issued_at?: string | null
+          member_code?: string | null
+          redeem_note?: string | null
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          brand_code_id?: string
+          created_at?: string | null
+          expires_at?: string | null
+          first_viewed_at?: string | null
+          id?: string
+          issued_at?: string | null
+          member_code?: string | null
+          redeem_note?: string | null
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_code_usages_brand_code_id_fkey"
+            columns: ["brand_code_id"]
+            isOneToOne: false
+            referencedRelation: "brand_discount_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_code_usages_redeemed_by_fkey"
+            columns: ["redeemed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_code_usages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_discount_codes: {
+        Row: {
+          brand_id: string
+          code: string
+          created_at: string | null
+          discount_info: string | null
+          id: string
+          is_active: boolean
+          is_single_use: boolean
+          label: string | null
+          max_redemptions: number | null
+          source: string
+          updated_at: string | null
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          brand_id: string
+          code: string
+          created_at?: string | null
+          discount_info?: string | null
+          id?: string
+          is_active?: boolean
+          is_single_use?: boolean
+          label?: string | null
+          max_redemptions?: number | null
+          source?: string
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          brand_id?: string
+          code?: string
+          created_at?: string | null
+          discount_info?: string | null
+          id?: string
+          is_active?: boolean
+          is_single_use?: boolean
+          label?: string | null
+          max_redemptions?: number | null
+          source?: string
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_discount_codes_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brands: {
         Row: {
           category: string | null

@@ -22,6 +22,7 @@ import { productService } from "@/services/productService";
 import { orderService } from "@/services/orderService";
 import { authService } from "@/services/authService";
 import { brandService } from "@/services/brandService";
+import { BrandCodesManager } from "@/components/admin/BrandCodesManager";
 import { supabase } from "@/integrations/supabase/client";
 import { buildSocialUrl, getSocialHandle } from "@/lib/socialLinks";
 import { 
@@ -793,6 +794,8 @@ export default function AdminPage() {
                     )}
                   </CardContent>
                 </Card>
+
+                <BrandCodesManager brands={brands} />
               </TabsContent>
 
               {/* Products Tab */}
