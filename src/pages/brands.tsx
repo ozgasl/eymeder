@@ -32,6 +32,7 @@ export default function BrandsPage() {
   const [myUseCounts, setMyUseCounts] = useState<Record<string, number>>({});
   const [myQR, setMyQR] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showQR, setShowQR] = useState(false);
 
   useEffect(() => {
@@ -46,8 +47,14 @@ export default function BrandsPage() {
   }, [isDernekUyesi]);
 
   const loadBrands = async () => {
-    const { data } = await brandService.getBrands();
-    if (data) setBrands(data);
+    const { data, error } = await brandService.getBrands();
+    // Without this, a failed query (e.g. a column the select joins on is
+    // missing) is indistinguishable from "no partner brands yet".
+    if (error) {
+      console.error("loadBrands failed:", error);
+      setLoadError(error.message);
+    }
+    setBrands(data ?? []);
     setLoading(false);
   };
 
@@ -184,10 +191,21 @@ export default function BrandsPage() {
               <Card>
                 <CardContent className="py-12 text-center">
                   <Tag className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="font-semibold mb-2">Henüz Anlaşmalı Marka Yok</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Yakında mezunlarımıza özel indirimler eklenecek!
-                  </p>
+                  {loadError ? (
+                    <>
+                      <h3 className="font-semibold mb-2">Markalar Yüklenemedi</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Bir sorun oluştu, lütfen sayfayı yenileyin. Sürerse bize bildirin.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="font-semibold mb-2">Henüz Anlaşmalı Marka Yok</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Yakında mezunlarımıza özel indirimler eklenecek!
+                      </p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             ) : (

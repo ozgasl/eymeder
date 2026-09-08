@@ -161,8 +161,21 @@ export default function AdminPage() {
   };
 
   const loadBrands = async () => {
-    const { data } = await brandService.getAllBrands();
-    if (data) setBrands(data);
+    const { data, error } = await brandService.getAllBrands();
+    // An empty list and a failed query look identical once the error is
+    // dropped: a missing column on `brands` fails the whole select (it joins
+    // profiles over connected_member_id), and the panel then just showed
+    // "no brands" with nothing to explain it.
+    if (error) {
+      console.error("loadBrands failed:", error);
+      toast({
+        title: "Markalar yüklenemedi",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+    setBrands(data ?? []);
   };
 
   const loadNews = async () => {

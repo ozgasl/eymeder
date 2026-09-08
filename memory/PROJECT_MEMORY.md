@@ -320,6 +320,42 @@ sırasında yanlış mezuniyet yılı girilmiş/kaydedilmiş.
    "Fonzip'i Yeniden Kontrol Et". `fonzip_membership_status = 'yok'` olan
    üyeler arasında başka benzer yanlış-veri vakaları olabilir, taranmadı.
 
+## 🔥 Ders: "Migration'ı uyguladım" doğrulanmadan güvenilmez + PostgREST şema önbelleği (2026-09-08)
+
+**İki kez aynı sınıf sorun**: (1) Marka indirim kodu migration'ı "uygulandı"
+denmesine rağmen ikinci migration `42P01: relation "brand_discount_codes" does
+not exist` verdi — yani ilk script hiç etki etmemişti. (2) Hemen ardından admin
+panelinde `Could not find the 'connected_member_id' column of 'brands' in the
+schema cache` çıktı; o kolonu ekleyen `20260908140000` de bu dosyada
+"uygulandı" olarak kayıtlıydı.
+
+**Neden fark edilmiyor**: Supabase SQL Editor tüm script'i TEK transaction'da
+çalıştırır — script'in sonundaki bir hata baştaki `CREATE TABLE`'ları da geri
+alır. Kullanıcı "çalıştırdım" der, tablolar yoktur. Bu yüzden **bu dosyadaki
+"kullanıcı uyguladı" notları kanıt değil**; şema bağımlılığı olan bir işe
+başlamadan önce doğrula (`information_schema.columns` / `.tables` sorgusu).
+
+**İki ayrı hata mesajını karıştırma**:
+- `42P01 relation ... does not exist` → nesne gerçekten yok (SQL'i çalıştır).
+- `Could not find the 'X' column ... in the schema cache` → bu PostgREST'in
+  cümlesi; kolon YOK ya da VAR ama PostgREST önbelleği eski. İkisini birden
+  kapatan onarım: `ADD COLUMN IF NOT EXISTS` + `NOTIFY pgrst, 'reload schema';`
+
+**`uuid_generate_v4()` tuzağı**: eski migration'lar bunu kullanıyor ama repoda
+hiçbir yer `CREATE EXTENSION "uuid-ossp"` çalıştırmıyor — eklenti/search_path
+yoksa fonksiyon çözülmez ve TÜM script geri alınır. Yeni migration'larda
+**`gen_random_uuid()`** kullan (Postgres 13+ çekirdeğinde, her zaman çözülür).
+
+**Sessiz hata yutmanın bedeli (RLS dersinin tekrarı)**: `admin.tsx`'te
+`loadBrands` sadece `{ data }` alıyordu. `brandService.getAllBrands()`
+`connected_member_id` FK'si üzerinden `profiles`'a join attığı için kolon
+yokken sorgu TAMAMEN hata veriyor → `data` null → panel "marka yok" gösteriyor,
+sebep hakkında tek kelime yok. Üstelik indirim kodu ekranındaki marka
+dropdown'ı da aynı listeden beslendiği için boş kalıyor: **tek kök neden, iki
+farklı görünen belirti**. `loadBrands` (admin + brands sayfası) artık `error`'u
+gösteriyor. Yeni bir Supabase okuması yazarken `{ data, error }`'un ikisini de
+al — bu ders bu projede üçüncü kez bedel ödetti.
+
 ## 🔥 Ders: Admin panelinde yeni bir sekme (`TabsContent`) eklerken `TabsList`'e `TabsTrigger` eklemeyi unutma
 
 `src/pages/admin.tsx`'te marka yönetimi için eksiksiz bir `TabsContent

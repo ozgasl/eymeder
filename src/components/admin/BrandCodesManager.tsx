@@ -270,13 +270,19 @@ export function BrandCodesManager({ brands }: BrandCodesManagerProps) {
             <div className="space-y-2">
               <Label>Marka *</Label>
               <Select value={newCode.brand_id} onValueChange={(val) => setNewCode({ ...newCode, brand_id: val })}>
-                <SelectTrigger><SelectValue placeholder="Marka seçin" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={brands.length ? "Marka seçin" : "Marka yok"} /></SelectTrigger>
                 <SelectContent>
                   {brands.map((brand) => (
                     <SelectItem key={brand.id} value={brand.id}>{brand.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {brands.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Kod eklemek için önce yukarıdan bir marka ekleyin. Markalar yüklenemediyse
+                  yukarıdaki listede bir hata mesajı çıkar.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>İndirim Kodu *</Label>
