@@ -7,11 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { brandService } from "@/services/brandService";
+import { brandCodeService } from "@/services/brandCodeService";
 import { qrCodeService } from "@/services/qrCodeService";
 import { useAccessControl } from "@/hooks/useAccessControl";
 import { ExternalLink, Tag, QrCode, Loader2, Lock, Instagram, Twitter } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { getSocialHandle } from "@/lib/socialLinks";
+import { isCodeUsable } from "@/lib/discountCode";
+import { BrandDiscountCodes, type BrandCode, type MemberCodeUsage } from "@/components/BrandDiscountCodes";
 import {
   Dialog,
   DialogContent,
@@ -24,8 +27,12 @@ export default function BrandsPage() {
   const router = useRouter();
   const { isDernekUyesi } = useAccessControl({ redirectIfUnauthenticated: false });
   const [brands, setBrands] = useState<any[]>([]);
+  const [codesByBrand, setCodesByBrand] = useState<Record<string, BrandCode[]>>({});
+  const [myUsages, setMyUsages] = useState<Record<string, MemberCodeUsage>>({});
+  const [myUseCounts, setMyUseCounts] = useState<Record<string, number>>({});
   const [myQR, setMyQR] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showQR, setShowQR] = useState(false);
 
   useEffect(() => {
@@ -35,18 +42,47 @@ export default function BrandsPage() {
   useEffect(() => {
     if (isDernekUyesi) {
       loadMyQR();
+      loadCodes();
     }
   }, [isDernekUyesi]);
 
   const loadBrands = async () => {
-    const { data } = await brandService.getBrands();
-    if (data) setBrands(data);
+    const { data, error } = await brandService.getBrands();
+    // Without this, a failed query (e.g. a column the select joins on is
+    // missing) is indistinguishable from "no partner brands yet".
+    if (error) {
+      console.error("loadBrands failed:", error);
+      setLoadError(error.message);
+    }
+    setBrands(data ?? []);
     setLoading(false);
   };
 
   const loadMyQR = async () => {
     const { data } = await qrCodeService.getMyQRCode();
     if (data) setMyQR(data);
+  };
+
+  // Codes are readable only by dernek_uyesi members and staff (RLS), so for
+  // anyone else this simply comes back empty rather than failing.
+  const loadCodes = async () => {
+    const [{ data: codes }, { data: usages }, { data: useCounts }] = await Promise.all([
+      brandCodeService.getCodes(),
+      brandCodeService.getMyUsages(),
+      brandCodeService.getMyRedemptionCounts(),
+    ]);
+
+    const grouped: Record<string, BrandCode[]> = {};
+    for (const code of (codes ?? []) as Array<BrandCode & { brand_id: string }>) {
+      if (!isCodeUsable(code)) continue;
+      (grouped[code.brand_id] ??= []).push(code);
+    }
+    setCodesByBrand(grouped);
+
+    setMyUsages(
+      Object.fromEntries(((usages ?? []) as MemberCodeUsage[]).map((usage) => [usage.brand_code_id, usage])),
+    );
+    setMyUseCounts(useCounts ?? {});
   };
 
   const categoryColors: Record<string, string> = {
@@ -115,7 +151,8 @@ export default function BrandsPage() {
                       <div>
                         <h3 className="font-semibold mb-2">Nasıl İndirim Alırım?</h3>
                         <p className="text-sm text-muted-foreground mb-2">
-                          QR kodunuzu anlaşmalı markalarda göstererek özel indirimlerinizden yararlanın.
+                          Markanın kartındaki indirim kodunu kasada söyleyin; kodu olmayan markalarda
+                          QR kodunuzu göstererek indirimden yararlanın.
                         </p>
                         <p className="text-xs text-muted-foreground">
                           <strong>QR Kodunuz:</strong> {myQR.qr_code}
@@ -133,9 +170,10 @@ export default function BrandsPage() {
                       <Lock className="h-6 w-6 text-muted-foreground" />
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-semibold mb-2">İndirim QR Kodu Dernek Üyelerine Özel</h3>
+                      <h3 className="font-semibold mb-2">İndirim Kodları ve QR Kodu Dernek Üyelerine Özel</h3>
                       <p className="text-sm text-muted-foreground mb-3">
-                        Anlaşmalı markalardan indirim alabilmek için aidatını ödemiş dernek üyesi olmanız gerekir.
+                        Anlaşmalı markaların indirim kodlarını görmek ve indirimlerden yararlanmak için
+                        aidatını ödemiş dernek üyesi olmanız gerekir.
                       </p>
                       <Button size="sm" asChild>
                         <a href="https://fonzip.com/eymeder/odeme" target="_blank" rel="noopener noreferrer">
@@ -153,10 +191,21 @@ export default function BrandsPage() {
               <Card>
                 <CardContent className="py-12 text-center">
                   <Tag className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="font-semibold mb-2">Henüz Anlaşmalı Marka Yok</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Yakında mezunlarımıza özel indirimler eklenecek!
-                  </p>
+                  {loadError ? (
+                    <>
+                      <h3 className="font-semibold mb-2">Markalar Yüklenemedi</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Bir sorun oluştu, lütfen sayfayı yenileyin. Sürerse bize bildirin.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="font-semibold mb-2">Henüz Anlaşmalı Marka Yok</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Yakında mezunlarımıza özel indirimler eklenecek!
+                      </p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             ) : (
@@ -220,6 +269,15 @@ export default function BrandsPage() {
                           </div>
                         </div>
                       </div>
+
+                      {isDernekUyesi && (
+                        <BrandDiscountCodes
+                          codes={codesByBrand[brand.id] ?? []}
+                          usages={myUsages}
+                          useCounts={myUseCounts}
+                          onIssued={loadCodes}
+                        />
+                      )}
 
                       {brand.connected_member?.full_name && (
                         <p className="text-xs text-muted-foreground">
