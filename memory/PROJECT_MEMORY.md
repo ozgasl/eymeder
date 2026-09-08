@@ -83,6 +83,36 @@ oku. Her oturum sonunda kendi bölümünü buraya ekle (üstte en yeni).
   linki gibi) — grup oluşturma formunda opsiyonel, doluysa grup detayında
   "Gruba Bağlan" butonu çıkıyor (`src/pages/groups/create.tsx`,
   `groups/[id].tsx`).
+- **Marka logosu dosya yükleme (2026-09-08)**: `brands.logo_url` ŞEMA OLARAK
+  DEĞİŞMEDİ — hem yüklenen dosyanın public URL'i hem elle yapıştırılan dış
+  adres aynı kolonda. Yükleme `brand-logos` kovasına
+  (`20260908190000_brand_logos_bucket.sql`), client'tan (marka yazma işlemleri
+  de RLS üzerinden client'tan; ayrıca API route'un 4.5 MB gövde limitine
+  takılmaz).
+  - **Sınırlar KOVADA zorlanıyor** (`allowed_mime_types`, `file_size_limit`
+    2 MB), sadece UI'da değil: yükleme client'tan gittiği için staff biri
+    doğrudan storage'a çağrı atıp formu atlayabilir. `src/lib/imageUpload.ts`
+    aynı listeyi tutar ama işi sadece hatayı Türkçe anlatmak.
+  - **SVG bilinçli olarak DIŞARIDA**: public kovadaki SVG `<img>` içinde
+    zararsız ama dosya URL'i doğrudan açıldığında script çalıştırır.
+    HEIC/HEIF de dışarıda: tarayıcılar `<img>`'de gösteremiyor, yüklenir ama
+    kırık görünür. İkisi de kullanıcıya ayrı, açıklayıcı mesaj veriyor.
+  - **Uzantı MIME'dan türetiliyor, `file.name`'den DEĞİL**
+    (`buildLogoObjectPath`) — tarayıcının bildirdiği ad saldırgan kontrolünde.
+  - **Eski dosya silme sırası kritik**: `deleteLogo` yalnızca satır artık o
+    URL'e işaret etmedikten SONRA çağrılıyor (`handleUpdateBrand` başarılı
+    update'ten sonra, `handleDeleteBrand` satır silindikten sonra). Bileşen
+    içinde "değiştir/kaldır" anında silmek, iptal edilen bir düzenlemede
+    markayı kırık görsele düşürürdü. `logoObjectPathFromUrl` dış URL'lerde
+    null döner — marka kendi sitesindeki logoyu barındırıyorsa asla silinmez.
+  - **Bilinen sınır**: yükleyip formu kaydetmeden vazgeçilirse dosya kovada
+    yetim kalır (kırık referans değil, sadece atık). Ara depolama alanı
+    olmadan kaçınılmaz.
+  - **`avatars` ve `media` kovalarında HİÇ doğrulama yok** (dashboard'dan elle
+    açılmışlar, `20260414171443`'te insert yorum satırı) —
+    `galleryService.uploadMedia` ve `profileService.uploadAvatar` ne tür ne
+    boyut kontrol ediyor. Bu ayrı ve gerçek bir açık, bu işin kapsamı dışında
+    bırakıldı; `imageUpload.ts` oraya da uygulanabilir.
 - **Marka indirim kodları (2026-09-08)**: Kodlar `brands` tablosunda DEĞİL,
   kendi tablolarında: `brand_discount_codes` (marka başına N kod/kampanya;
   `code` platform genelinde `lower(code)` üzerinde UNIQUE, `label`,
