@@ -644,6 +644,14 @@ export default function AdminPage() {
                     <CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5" /> Yeni Marka Ekle</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Mezunlara indirim veren bir firmayı buraya ekleyin. İndirim bilgisini
+                      &quot;%15 indirim&quot; gibi oranı belirtecek şekilde yazın: aşağıdaki kod üretici
+                      oranı bu alandan okuyor. Sosyal medya alanlarına sadece kullanıcı adını yazın
+                      (@ veya tam adres gerekmez). Bağlantılı Mezun, indirimi sağlayan ya da aracı olan
+                      üyeyi işaretlemek için; adı marka kartında görünür. Marka eklendikten sonra
+                      indirim kodunu sayfanın altındaki &quot;Yeni İndirim Kodu&quot; bölümünden tanımlayın.
+                    </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Marka Adı *</Label>
@@ -712,7 +720,14 @@ export default function AdminPage() {
                   <CardHeader>
                     <CardTitle>Mevcut Markalar ({brands.length})</CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Göz ikonu markayı pasif eder: pasif marka üye sayfasında hiç görünmez, ama
+                      kodları ve kullanım kayıtları korunur — bir anlaşmayı geçici olarak durdurmak
+                      için bunu kullanın. Kalem ikonu bilgileri düzenler. Çöp kutusu markayı kalıcı
+                      olarak siler ve markanın TÜM indirim kodlarını, kullanım kayıtlarıyla birlikte
+                      götürür; bu yüzden silmek yerine pasif etmeyi tercih edin.
+                    </p>
                     {brands.length === 0 ? (
                       <p className="text-center text-muted-foreground py-8">Henüz marka eklenmemiş</p>
                     ) : (

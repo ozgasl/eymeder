@@ -266,6 +266,14 @@ export function BrandCodesManager({ brands }: BrandCodesManagerProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Bir markaya kod tanımlar; bir markanın birden fazla kodu olabilir (örneğin yaz kampanyası
+            ile öğrenci indirimi ayrı ayrı). Firma kendi kodunu verdiyse olduğu gibi yazın; vermediyse
+            &quot;Kod Üret&quot; markanın indirim oranından bir kod üretir (%10 için EYB10) ve başka bir
+            markada kullanılan koda denk gelmemesini kendisi sağlar — kodlar tüm platformda tekildir.
+            Tarih alanları boş bırakılırsa kod süresiz, kontenjan boş bırakılırsa sınırsız geçerlidir.
+            Kodları yalnızca aidatını ödemiş dernek üyeleri görebilir.
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Marka *</Label>
@@ -416,7 +424,15 @@ export function BrandCodesManager({ brands }: BrandCodesManagerProps) {
             <BadgePercent className="h-5 w-5" /> İndirim Kodları ({codes.length})
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Sayaçların anlamı: <strong>Görüntüleyen</strong>, kodu uygulamada açan üye sayısıdır —
+            ilgi göstergesi, kullanım kanıtı değil. <strong>Kod alan</strong>, kendine özel kod üretmiş
+            üye sayısı. <strong>Kullanım</strong>, kasada onaylanmış gerçek kullanım sayısı; parantezdeki
+            sayı bunun kaç ayrı üyeden geldiğini söyler, yani aynı üyenin tekrarlı kullanımı da sayılır.
+            Kontenjan yalnızca Kullanım&apos;ı kapatır — kod dağıtmak kontenjanı doldurmaz. Göz ikonu kodu
+            pasif eder (üyelere görünmez, kayıtlar durur), çöp kutusu kodu ve kullanım kayıtlarını siler.
+          </p>
           {loading ? (
             <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
           ) : codes.length === 0 ? (
