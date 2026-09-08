@@ -1,20 +1,28 @@
--- Members worth re-running the admin panel's Fonzip check on, before treating
--- anything as a data error.
+-- Members whose Fonzip state needs another look, and why. Three different
+-- situations get conflated if you only read `fonzip_membership_status`:
 --
--- Two groups, both cheap to clear and neither needing a data fix:
---   * 'yok' written before 2026-09-08 — that predates the email/phone fallback
---     (findFonzipMemberByContact), so it only ever meant "the computed
---     membership_no didn't match". Re-checking now also tries email and phone.
---   * never checked at all (fonzip_membership_status is null) — these joined
---     before the check existed and have never been asked about.
+--   * "Fonzip yanıt vermedi" — status is null but `fonzip_checked_at` is set.
+--     The check ran and produced no answer: it threw, or it outran the 8s
+--     timeout in the API route. Since checkMembership gained the email/phone
+--     fallback on 2026-09-08 it makes up to three sequential Fonzip searches,
+--     so that budget is much easier to blow than when it made one. These
+--     members were never established either way — retry them.
+--   * "hiç kontrol edilmemiş" — status and checked_at both null. Joined before
+--     the check existed and has never been asked about.
+--   * "bayat kontrol" — 'yok' written before 2026-09-08, i.e. before the
+--     email/phone fallback, so it only ever meant "the computed membership_no
+--     didn't match". A re-check now also tries email and phone.
 --
--- Whatever is still 'yok' after this is the real pool: not found by number,
--- email or phone. Those can only be settled from Fonzip's side — searching it
--- by name and reading the member's own membership_no, whose first four digits
--- are the true graduation year.
+-- Whatever is still 'yok' after re-checking these is the real pool: not found
+-- by number, email or phone. Those can only be settled from Fonzip's side —
+-- search it by name and read the member's own membership_no, whose first four
+-- digits are the true graduation year.
 select
   case
-    when fonzip_membership_status is null then 'hiç kontrol edilmemiş'
+    when fonzip_membership_status is null and fonzip_checked_at is not null
+      then 'Fonzip yanıt vermedi (kontrol tamamlanamadı)'
+    when fonzip_membership_status is null
+      then 'hiç kontrol edilmemiş'
     else 'bayat kontrol (yedek arama öncesi)'
   end                                                as neden,
   full_name                                          as ad,

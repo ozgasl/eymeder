@@ -116,15 +116,24 @@ select
        then gy || lpad(okul_no_rakam, 4, '0') end as hesaplanan_fonzip_no,
   fonzip                                      as fonzip_eslesme,
   fonzip_checked_at::date                     as kontrol_tarihi,
-  case when fonzip = 'yok' and (fonzip_checked_at is null or fonzip_checked_at < '2026-09-08')
-       then 'EVET' else 'hayır' end           as bayat_kontrol,
+  case
+    when fonzip is null and fonzip_checked_at is not null then 'YANIT YOK'
+    when fonzip = 'yok' and (fonzip_checked_at is null or fonzip_checked_at < '2026-09-08') then 'BAYAT'
+    else 'hayır'
+  end                                         as kontrol_durumu,
   fonzip_tags,
   membership_tier,
   coalesce(
     nullif(array_to_string(celiskiler, ' · '), ''),
-    'Fonzip''te eşleşme yok — yıl dışarıdan doğrulanmalı'
+    case when fonzip is null
+      then 'Fonzip kontrolü yanıt vermedi — üyelik hiç belirlenemedi'
+      else 'Fonzip''te eşleşme yok — yıl dışarıdan doğrulanmalı'
+    end
   )                                           as sebepler
 from isaretli
 where cardinality(celiskiler) > 0
    or fonzip = 'yok'
+   -- status null = the check never produced an answer; those members are
+   -- unresolved too, not simply "fine".
+   or fonzip is null
 order by cardinality(celiskiler) desc, ad;

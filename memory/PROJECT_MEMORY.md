@@ -326,6 +326,40 @@ sırasında yanlış mezuniyet yılı girilmiş/kaydedilmiş.
    "Fonzip'i Yeniden Kontrol Et". `fonzip_membership_status = 'yok'` olan
    üyeler arasında başka benzer yanlış-veri vakaları olabilir, taranmadı.
 
+## 🔥 Ders: Cevapsız Fonzip kontrolü "üye değil" sayılıyordu — sessiz düşürme (2026-09-08)
+
+**Nasıl bulundu**: `graduation_year` taramasında 4 üyenin
+`fonzip_membership_status = null` AMA `fonzip_checked_at` **dolu** olduğu
+görüldü. Sorgumda bunlara "hiç kontrol edilmemiş" demişim — yanlış etiket.
+`fonzip_checked_at` dolu olduğu için kontrol ÇALIŞMIŞ, sadece cevap
+üretmemiş.
+
+**Üç durumu asla karıştırma** (`profiles`):
+| status | checked_at | anlamı |
+|---|---|---|
+| `var`/`yok` | dolu | Fonzip cevap verdi |
+| `null` | **dolu** | kontrol çalıştı, **cevap alınamadı** (exception ya da timeout) |
+| `null` | null | hiç sorulmamış |
+
+**Gerçek bug**: `membershipFound === null` (cevapsız), `isMember: false`'a
+düşüyor ve `recheck-fonzip` bunu `membership_tier = 'mezun_uye'` olarak
+YAZIYORDU — yani yavaş bir Fonzip çağrısı gerçek bir dernek üyesini sessizce
+mezun üyeye düşürüyor, üstelik `formatFonzipTags([])` ile kayıtlı etiketlerini
+de siliyordu. Düzeltme: cevapsızsa **hiçbir şey yazılmıyor**, route 503 +
+"Fonzip'ten yanıt alınamadı, üyenin kaydı değiştirilmedi" dönüyor.
+`verify-code`'da (kayıt) ise cevapsızsa `fonzip_checked_at` YAZILMIYOR — kayıt
+akışı asla bloke edilmiyor (tasarım kararı) ama profil dürüstçe
+"kontrol edilmemiş" görünüyor.
+
+**Neden bugün ortaya çıktı (şüphe)**: `checkMembership` artık numara → e-posta
+→ telefon diye **üç ardışık** Fonzip araması yapıyor (e-posta/telefon yedeği
+bugün girdi, PR #16), route'ların bütçesi ise hâlâ `withTimeout(..., 8000)`.
+Eskiden tek arama vardı. **Nedene dokunulmadı** — aramaları paralelleştirmek
+akla geliyor ama `getAccessToken()` boş önbellekte yeni token istiyor ve Fonzip
+client başına tek aktif token'a izin veriyor ("Token already created" 409), yani
+naif paralelleştirme token çakışması üretir. Yapılacaksa: önce token'ı bir kez
+ısıt, sonra üç aramayı paralel çalıştır.
+
 ## 🔥 Ders: Yanlış `graduation_year` taraması — hangi hatayı kendi verimizle bulabiliriz, hangisini bulamayız (2026-09-08)
 
 `docs/audits/graduation-year-audit.sql` bu taramayı yapıyor (yerel Postgres'te,
