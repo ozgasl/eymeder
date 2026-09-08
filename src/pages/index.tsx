@@ -32,6 +32,7 @@ export default function Home() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
+  const firstName: string | undefined = user?.user_metadata?.full_name?.trim().split(/\s+/)[0];
 
   useEffect(() => {
     setMounted(true);
@@ -161,7 +162,7 @@ export default function Home() {
           <section className="container py-12 md:py-16" aria-labelledby="welcome-heading">
             <div className="text-center mb-12">
               <h1 id="welcome-heading" className="text-4xl md:text-5xl font-bold tracking-tight mb-4 text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">
-                Hoş Geldiniz
+                {firstName ? `Hoş Geldin ${firstName}` : "Hoş Geldiniz"}
               </h1>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
                 Eyüboğlu Eğitim Kurumları Mezunlar Derneği
