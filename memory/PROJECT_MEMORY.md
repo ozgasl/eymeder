@@ -127,6 +127,12 @@ oku. Her oturum sonunda kendi bölümünü buraya ekle (üstte en yeni).
     gerçek ikinci ziyaret engellenmiyor, sadece aynı satışın çift girişi.
     **Bir kullanımı `brand_code_usages`'a yazarak sayma refleksine dönme**: o
     tablo kampanya × üye başına tekil, sayım defteri o değil.
+  - **`brands.discount_code` kolonu DB'de var ama ÖLÜ (kullanıcı kararı: bırak)**:
+    ilk planda tek kolon öngörülmüştü, kullanıcı o ALTER'ı elle çalıştırdı; sonra
+    "marka başına birden fazla kod" talebiyle tasarım `brand_discount_codes`
+    tablosuna taşındı. Hiçbir migration onu oluşturmuyor, hiçbir kod satırı
+    okumuyor/yazmıyor, `database.types.ts`'te de yok. Şaşırma, kullanma —
+    `fonzip_debt_status` ile aynı statüde (bilinçli olarak DROP edilmedi).
   - Üye QR kod sistemi (`user_qr_codes`, `generate_user_qr_code()` trigger'ı)
     **hiç değiştirilmedi** — kullanıcının açık talebi; kimlik doğrulama
     kimliği olarak kalıyor (paylaşılan kod kullanımında üyeyi tanımlamak için
