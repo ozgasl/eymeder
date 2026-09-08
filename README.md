@@ -4,18 +4,30 @@ A full-featured alumni community platform built with **Next.js 15** and **Supaba
 
 ## Features
 
-- **Member Directory** — searchable alumni profiles with membership validation
-- **Events** — create, browse, and register for events (with Fonzip integration)
-- **Groups** — community groups members can create and join
+- **Member Directory** — searchable alumni profiles with membership validation, social handles shown as `@username` (LinkedIn/X/Instagram/Facebook)
+- **Events** — create, browse, and register for in-app events; also surfaces live upcoming events from Fonzip with a direct ticket link (see [Fonzip integration](#fonzip-integration) below)
+- **Groups** — community groups members can create and join, optionally linked to an external chat (WhatsApp/Telegram)
 - **Jobs** — alumni job board with postings and applications
 - **News** — articles and announcements
 - **Mentorship** — connect mentors and mentees
 - **Messaging** — direct messages between members
 - **Store** — products, cart, and checkout powered by **Stripe**
-- **Gallery, Brands, Testimonials** — community content sections
+- **Gallery, Brands, Testimonials** — community content sections; brands can list Instagram/X handles and an alumnus they're connected to
 - **Gamification** — points/engagement via `gamificationService`
-- **QR Codes & Notifications** — membership QR codes and in-app notifications
+- **QR Codes & Notifications** — real scannable membership QR codes (`qrcode.react`) and in-app notifications
 - **Admin** — member upload and management tooling
+
+### Fonzip integration
+
+Fonzip is the association's dues/membership platform. `src/lib/fonzipClient.ts`
+looks up a member's tags (Dernek Üyesi / Mezun Üye / Yönetim) to decide their
+`membership_tier`, first by a computed `membership_no`
+(`graduation_year` + `school_number`, see `src/lib/fonzipMembershipNo.ts`),
+falling back to matching by email/phone if that doesn't find anyone (some
+accounts predate that numbering convention, or a member's `graduation_year`
+was simply entered wrong at signup). Fonzip's full OpenAPI spec is checked
+into the repo at `docs/fonzip-api/fonzip-api-v2.yaml` — check it before
+building against a new Fonzip endpoint.
 
 ## Tech Stack
 
@@ -100,6 +112,14 @@ src/
 supabase/
 └── migrations/      # Database schema migrations
 ```
+
+## Project Memory
+
+`memory/PROJECT_MEMORY.md` tracks cross-session architectural decisions and
+hard-won lessons (RLS gotchas, Fonzip API quirks, known-unfixed issues) for
+whoever — human or AI — picks up work on this repo next. Read it before
+starting a new bugfix/feature session; append to it (newest first, under
+"Oturum günlüğü") when you finish one.
 
 ## Deployment
 

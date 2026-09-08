@@ -42,6 +42,53 @@ oku. Her oturum sonunda kendi bölümünü buraya ekle (üstte en yeni).
   sunucu tarafında doğrulanıyor. Yeni admin-only aksiyon eklerken bu deseni
   kullan (client-side `roles` kontrolü tek başına yeterli GÜVENLİK değil, sadece
   UX — bkz. aşağıdaki RLS dersi).
+- **`graduation_year` tek kaynak (kullanıcı kararı, 2026-09-01)**: Kayıt
+  sırasında girilen mezuniyet yılı `profiles.graduation_year`'a yazılıyor ve
+  bundan sonra **değiştirilemez** — profil sayfasında salt okunur gösteriliyor
+  (`src/pages/profile.tsx`). Fonzip `membership_no` hesaplaması
+  (`graduation_year` + `school_number`, bkz. `fonzipMembershipNo.ts`) ve
+  dizin/detay sayfalarındaki gösterim hep bu alanı kullanıyor.
+  `profiles.high_school_graduation_year` kolonu DB'de hâlâ duruyor ama kod
+  artık hiçbir yerde okumuyor/yazmıyor — iki ayrı "mezuniyet yılı" alanının
+  senkron kalmaması yüzünden üye listesi/profil arasında tutarsızlık
+  yaşanmıştı (bkz. aşağıdaki ders), o yüzden tek alana indirildi.
+- **Kayıt/kod doğrulama ve şifre sıfırlama arası bekleyen veri `localStorage`'da**
+  (`pendingSignup`, `pendingReset` — `src/pages/auth/signup.tsx`,
+  `verify-code.tsx`, `forgot-password.tsx`, `reset-password.tsx`).
+  `sessionStorage` DEĞİL, çünkü sekmeye özel: mobilde e-posta uygulamasına
+  geçip tarayıcıya dönen kullanıcı (özellikle yeni sekme/pencere bağlamı
+  oluşursa) verisini kaybediyordu.
+- **Sosyal medya alanları DB'de tam URL, UI'da kullanıcı adı**:
+  `profiles.linkedin_url/twitter_url/instagram_url/facebook_url` ve
+  `brands.instagram_url/twitter_url` kolonları tam URL saklıyor (şema
+  değişmedi), ama formlar sadece `@kullaniciadi` isteyip
+  `src/lib/socialLinks.ts`'teki `buildSocialUrl`/`getSocialHandle` ile
+  kaydetmeden önce/gösterirken dönüştürüyor. Yeni bir sosyal medya alanı
+  eklerken bu yardımcı fonksiyonları kullan, aynı deseni tekrar yazma.
+- **Fonzip üyelik eşleşmesi artık iki aşamalı** (`src/services/membershipProvider.ts`):
+  önce `membership_no` (`graduation_year`+`school_number`) ile arama
+  (`findFonzipMember`), bulamazsa e-posta (tam eşleşme) → telefon (son 10
+  hane) ile yedek arama (`findFonzipMemberByContact`,
+  `src/lib/fonzipClient.ts`). Birden fazla farklı Fonzip kullanıcısına denk
+  gelen belirsiz sonuçlar asla "bulundu" sayılmıyor. Bkz. aşağıdaki ders —
+  bu, sanıldığı gibi bir "eski numaralandırma şeması" sorunu değil, kendi
+  DB'mizdeki hatalı `graduation_year`/`school_number` verilerine karşı bir
+  güvenlik ağı olarak eklendi.
+- **Fonzip OpenAPI spec'i artık repoda**: `docs/fonzip-api/fonzip-api-v2.yaml`
+  (2026-09-01'de kullanıcı tarafından paylaşıldı). Yeni bir Fonzip endpoint'i
+  kullanmadan önce burayı kontrol et — `/events`, `/tickets`,
+  `/fundraising-*` gibi daha önce keşfedilmemiş endpoint'ler burada tam
+  şema ile mevcut.
+- **Gruplarda dış link**: `groups.external_link` (WhatsApp/Telegram grup
+  linki gibi) — grup oluşturma formunda opsiyonel, doluysa grup detayında
+  "Gruba Bağlan" butonu çıkıyor (`src/pages/groups/create.tsx`,
+  `groups/[id].tsx`).
+- **Markalarda sosyal medya + bağlantılı üye**: `brands.instagram_url`,
+  `brands.twitter_url`, `brands.connected_member_id` (→ `profiles.id`).
+  Admin panelinde (`src/pages/admin.tsx`, "Markalar" sekmesi) kayıtlı
+  üyelerden dropdown ile seçiliyor, `brandService.ts`'teki sorgular
+  `connected_member:profiles!brands_connected_member_id_fkey(...)` join'i
+  ile ismini getiriyor.
 
 ## ⚠️ Bilinen, ÇÖZÜLMEMİŞ güvenlik açığı
 
@@ -182,7 +229,119 @@ yerine `fonzip_tags TEXT` eklendi (`20260831200000_fonzip_tags_column.sql`) — 
 etiket adlarını virgülle ayırıp tutuyor (örn. "Dernek Üyesi, Yönetim"), admin
 panelinde "Fonzip Etiketleri" sütununda gösteriliyor (eskiden "Aidat Borcu" idi).
 
+## 🔥 Ders: "Fonzip'te numara farklı" varsayımı yanlış çıktı — önce kendi DB'ne bak (Sinasi Yılmaz vakası, 2026-09-08)
+
+**Bildirilen belirti**: Bir üye (Sinasi Yılmaz) Fonzip'te "Dernek Üyesi" ve
+"Yönetim" etiketleriyle, borcu olmadan görünüyordu ama uygulamada
+"Mezun Üye" olarak görünüyordu.
+
+**İlk (yanlış) teşhis**: Kullanıcının verdiği iki numaradan (5288380 ve
+19960758) ikincisinin `buildFonzipMembershipNo(1996, "0758")` ile birebir
+eşleşmesi, "Fonzip'te bu üyenin numarası bizim hesapladığımızdan farklı,
+eski bir numaralandırma şemasından kalma" sonucuna vardırdı — mantıklı
+görünen ama YANLIŞ bir çıkarımdı.
+
+**Gerçek kök neden**: Kullanıcı Fonzip ekran görüntüsünü paylaşınca, Fonzip'in
+kendi "Üye No" alanının tam olarak **19960758** olduğu görüldü — yani
+hesaplanan numara zaten doğruydu! "5288380" membership_no değil, ayrı bir
+alandı (kurum kayıt no/tckno benzeri). Sorgu (`select graduation_year,
+school_number from profiles where email=...`) gerçek kök nedeni ortaya
+çıkardı: bizim DB'mizde `graduation_year=2016` kayıtlıydı (olması gereken:
+1996) — yani uygulama `20160758`'i arıyordu, Fonzip'teki gerçek `19960758`
+ile hiç eşleşmiyordu. **Bu, oturumun başındaki Aysın Gün vakasıyla birebir
+aynı sınıf hata**: Fonzip'in numaralandırmasıyla ilgisi yok, sadece kayıt
+sırasında yanlış mezuniyet yılı girilmiş/kaydedilmiş.
+
+**Çıkarılan dersler**:
+1. Hesaplanan bir değer (membership_no gibi) dış sistemde "bulunamadı"
+   döndüğünde, önce "dış sistemin şeması/numaralandırması farklı olabilir"
+   diye karmaşık bir teoriye atlama — önce KENDİ verini sorgula
+   (`graduation_year`/`school_number` gibi girdileri). Basit veri hatası,
+   sistemsel şema uyuşmazlığından çok daha olası.
+2. Kullanıcının paylaştığı ekran görüntüsündeki hangi sayının hangi alana
+   ait olduğunu (etiket/ikon farkı) doğrulamadan sayısal bir örtüşmeye
+   ("bu iki sayı formülle eşleşiyor") güvenip teşhis kurma — yanlış
+   etiketlenmiş bir alan kolayca yanlış sonuca götürür.
+3. Yine de bu oturumda eklenen e-posta/telefon yedek araması
+   (`findFonzipMemberByContact`) boşa gitmedi: kök neden ne olursa olsun
+   (gerçek numaralandırma farkı ya da bizim yanlış verimiz), üyeyi e-posta
+   üzerinden bulup doğru etiketlere ulaşabiliyor — kalıcı bir güvenlik ağı
+   olarak tutulmalı.
+4. Düzeltme sadece veri düzeltmesiydi (`update profiles set graduation_year
+   = 1996 where email = 'snsylm@gmail.com'`) + admin panelinden
+   "Fonzip'i Yeniden Kontrol Et". `fonzip_membership_status = 'yok'` olan
+   üyeler arasında başka benzer yanlış-veri vakaları olabilir, taranmadı.
+
+## 🔥 Ders: Admin panelinde yeni bir sekme (`TabsContent`) eklerken `TabsList`'e `TabsTrigger` eklemeyi unutma
+
+`src/pages/admin.tsx`'te marka yönetimi için eksiksiz bir `TabsContent
+value="brands"` bloğu vardı, ama `TabsList`'te ona karşılık gelen
+`TabsTrigger` hiç yoktu — yani sekme çubuğunda tıklanacak bir "Markalar"
+sekmesi yoktu, o bölüme UI'dan ulaşmak mümkün değildi. Kullanıcı bunu
+"marka ekleyemiyorum" diye bildirmişti; gerçek neden kısmen bu basit
+gözden kaçmaydı (RLS sonsuz döngü ayrı, gerçek bir sorundu ama tek başına
+yeterli açıklama değildi). **Yeni bir admin sekmesi eklerken/var olanı
+denetlerken her zaman `TabsList` ↔ `TabsContent` eşleşmesini iki yönlü
+kontrol et** — bir `TabsContent` yazıp `TabsTrigger`'ı eklemeyi unutmak,
+konsolda hiçbir hata vermeyen, sessiz bir UI bug'ı.
+
 ## Oturum günlüğü
+
+### 2026-09-01 — 2026-09-08 — Mezuniyet yılı bugfix'i, mobil sekme kaybı, 6 yeni talep, Fonzip üyelik yedek araması
+
+Uzun, çok konulu bir bugfix + geliştirme oturumu. PR'lar sırayla:
+
+- **[#10](https://github.com/ozgasl/eymeder/pull/10)**: Aysın Gün'ün "üye
+  listesinde üniversite mezuniyeti görünüyor" şikayeti → kök neden:
+  `graduation_year` (kayıt anında girilen, Fonzip eşleşmesinde kullanılan)
+  ile `high_school_graduation_year` (profil sayfasında ayrı düzenlenebilen)
+  senkron değildi. `graduation_year` tek kaynak yapıldı, profilde salt
+  okunur. Bkz. yukarıdaki mimari karar.
+- **[#11](https://github.com/ozgasl/eymeder/pull/11)**,
+  **[#12](https://github.com/ozgasl/eymeder/pull/12)**: Mobilde kayıt/kod
+  doğrulama ve şifre sıfırlama akışlarında e-posta uygulamasına geçip
+  dönünce form verisi kayboluyordu (`sessionStorage` sekmeye özel) →
+  `localStorage`'a taşındı.
+- **[#13](https://github.com/ozgasl/eymeder/pull/13)**: Tek oturumda
+  onaylanan 6 talep — ana sayfada "EYB İK" etiketi, etkinlik sayfasında
+  Fonzip'ten canlı etkinlik + bilet linki (kullanıcının paylaştığı Fonzip
+  OpenAPI spec'i sayesinde gerçek API entegrasyonu yapılabildi, bkz.
+  `docs/fonzip-api/fonzip-api-v2.yaml`), yeni kayıtta info@eymeder.com'a
+  bilgi maili, gruplara dış link alanı, sosyal medya hesapları kullanıcı
+  adıyla, ve marka ekleme sorunu + gerçek QR kod + test markaları.
+- **[#14](https://github.com/ozgasl/eymeder/pull/14)**,
+  **[#15](https://github.com/ozgasl/eymeder/pull/15)**: Canlı testte
+  bulunan iki takip bug'ı — admin panelinde "Markalar" sekmesi hiç
+  görünmüyordu (bkz. yukarıdaki ders), Fonzip "Bilet Al" linki yanlış yola
+  gidip 404 veriyordu (doğrusu `/eymeder/etkinlikler/{slug}`).
+- **[#16](https://github.com/ozgasl/eymeder/pull/16)**: Sinasi Yılmaz
+  vakası → Fonzip üyelik eşleşmesine e-posta/telefon yedek araması eklendi
+  (bkz. yukarıdaki ders — gerçek kök neden bizim DB'deki yanlış
+  `graduation_year` idi, ama yedek arama kalıcı bir güvenlik ağı). Aynı
+  PR'a (henüz merge edilmemişken) markalara Instagram/X + bağlantılı
+  mezun dropdown'u ve ana sayfada kişiselleşmiş karşılama başlığı
+  ("Hoş Geldin {Ad}") eklendi.
+
+**Uygulanan ama Supabase'de manuel çalıştırılması gereken migration'lar**
+(session sırasında her birinde hatırlatıldı, hepsi kullanıcı tarafından
+uygulandı): `20260901120000_groups_external_link.sql`,
+`20260901130000_seed_test_brands.sql`,
+`20260908140000_brands_social_and_member_link.sql`. Yeni bir migration
+eklediğinde bunu ayrıca söyle — Vercel deploy'u migration'ları OTOMATİK
+çalıştırmıyor.
+
+**Veri düzeltmeleri** (kullanıcı tarafından SQL ile manuel yapıldı):
+Aysın Gün (`graduation_year` yanlış girilmiş), Sinasi Yılmaz (aynı sınıf
+hata, `2016` → `1996`). `fonzip_membership_status = 'yok'` olan üyeler
+arasında başka benzer vakalar olabilir, taranmadı — **sıradaki oturum için
+iyi bir aday**.
+
+**Süreç notu**: Bu oturumda her düzeltme ayrı bir PR olarak açılıp
+(designated branch her seferinde `origin/main`'den `git checkout -B` ile
+sıfırlanarak, çünkü önceki PR merge olmuştu) kullanıcı onayıyla merge
+edildi — bir istisna: #16'ya, henüz merge edilmemişken, art arda gelen 2
+küçük ek talep (marka sosyal medya alanları, karşılama başlığı) ayrı PR
+açmak yerine aynı dala commit olarak eklendi.
 
 ### 2026-08-31 — Fonzip debt/membership ayrımı doğrulaması, iki gerçek bug bulundu
 
