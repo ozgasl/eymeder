@@ -326,6 +326,32 @@ sırasında yanlış mezuniyet yılı girilmiş/kaydedilmiş.
    "Fonzip'i Yeniden Kontrol Et". `fonzip_membership_status = 'yok'` olan
    üyeler arasında başka benzer yanlış-veri vakaları olabilir, taranmadı.
 
+## 🔥 Ders: Yanlış `graduation_year` taraması — hangi hatayı kendi verimizle bulabiliriz, hangisini bulamayız (2026-09-08)
+
+`docs/audits/graduation-year-audit.sql` bu taramayı yapıyor (yerel Postgres'te,
+iki bilinen vakayı da içeren fixture'la test edildi). Ayrım kritik:
+
+- **Kendi verimizle KANITLANABİLENLER** (sorgu bunlara "YÜKSEK" diyor): satır
+  kendi kendiyle çelişiyor. `high_school_graduation_year` (kod artık okumuyor
+  ama veri duruyor — bu yüzden DROP etmek zararlı olurdu, ikinci görüş kaynağı)
+  `graduation_year`'dan farklı; `graduation_year` >= `university_graduation_year`;
+  yıl aralık dışı; `school_number` `buildFonzipMembershipNo`'nun kullanamayacağı
+  halde (rakamsız ya da 4 haneden uzun → o üye yıl ne olursa olsun ASLA
+  eşleşemez); iki üyenin aynı membership_no'ya düşmesi ("88" ile "0088"
+  zero-pad sonrası çakışıyor).
+- **KANITLANAMAYANLAR** ("düşük"): tek bulgusu `fonzip_membership_status='yok'`
+  olanlar. Yanlış yıl da bunu üretir, Fonzip'e hiç kayıtlı olmamak da; verimizde
+  ikisini ayıran hiçbir şey yok. Ancak dışarıdan (Fonzip'e aday yıllarla
+  `/users` sorgusu) çözülür.
+
+**Kendi heuristiğimde bulunan hata (yerel test sayesinde)**: "19/20 basamak
+takası" diye bir desen varsayıp `gy - 100` öneriyordum. Şinasi Yılmaz vakası
+2016 → **1996**'ydı; 96 ile 16 aynı değil, yani yüzyıl takası DEĞİL, düpedüz
+yanlış giriş. Heuristik 1916 gibi anlamsız yıllar öneriyordu. **Ders**: bilinen
+bir vakadan desen çıkarırken sayıları gerçekten karşılaştır; bir tarama
+sorgusunu yazdıktan sonra bilinen vakaları içeren fixture'la (yerel Postgres 16
+bu ortamda mevcut, `initdb` root'la çalışmaz — `su postgres` gerekir) çalıştır.
+
 ## 🔥 Ders: "Migration'ı uyguladım" doğrulanmadan güvenilmez + PostgREST şema önbelleği (2026-09-08)
 
 **İki kez aynı sınıf sorun**: (1) Marka indirim kodu migration'ı "uygulandı"
