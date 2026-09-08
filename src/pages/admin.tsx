@@ -23,6 +23,7 @@ import { orderService } from "@/services/orderService";
 import { authService } from "@/services/authService";
 import { brandService } from "@/services/brandService";
 import { supabase } from "@/integrations/supabase/client";
+import { buildSocialUrl, getSocialHandle } from "@/lib/socialLinks";
 import { 
   Users, 
   Calendar, 
@@ -43,7 +44,9 @@ import {
   Edit2,
   Shield,
   Tag,
-  RefreshCw
+  RefreshCw,
+  Instagram,
+  Twitter
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -72,6 +75,9 @@ export default function AdminPage() {
     discount_info: "",
     logo_url: "",
     website_url: "",
+    instagram_url: "",
+    twitter_url: "",
+    connected_member_id: "",
     is_active: true,
     display_order: 0,
   });
@@ -264,12 +270,18 @@ export default function AdminPage() {
       return;
     }
 
-    const { error } = await brandService.createBrand(newBrand);
+    const { error } = await brandService.createBrand({
+      ...newBrand,
+      instagram_url: newBrand.instagram_url ? buildSocialUrl("instagram", newBrand.instagram_url) : null,
+      twitter_url: newBrand.twitter_url ? buildSocialUrl("twitter", newBrand.twitter_url) : null,
+      connected_member_id: newBrand.connected_member_id || null,
+    });
     if (!error) {
       toast({ title: "Marka eklendi" });
       setNewBrand({
         name: "", category: "Diğer", description: "", discount_info: "",
-        logo_url: "", website_url: "", is_active: true, display_order: 0,
+        logo_url: "", website_url: "", instagram_url: "", twitter_url: "", connected_member_id: "",
+        is_active: true, display_order: 0,
       });
       loadBrands();
     } else {
@@ -279,7 +291,13 @@ export default function AdminPage() {
 
   const handleUpdateBrand = async () => {
     if (!editingBrand) return;
-    const { error } = await brandService.updateBrand(editingBrand.id, editingBrand);
+    const { connected_member, ...editableFields } = editingBrand;
+    const { error } = await brandService.updateBrand(editingBrand.id, {
+      ...editableFields,
+      instagram_url: editingBrand.instagram_url ? buildSocialUrl("instagram", editingBrand.instagram_url) : null,
+      twitter_url: editingBrand.twitter_url ? buildSocialUrl("twitter", editingBrand.twitter_url) : null,
+      connected_member_id: editingBrand.connected_member_id || null,
+    });
     if (!error) {
       toast({ title: "Marka güncellendi" });
       setEditingBrand(null);
@@ -650,6 +668,28 @@ export default function AdminPage() {
                         <Input value={newBrand.website_url} onChange={(e) => setNewBrand({ ...newBrand, website_url: e.target.value })} />
                       </div>
                     </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2"><Instagram className="h-4 w-4" /> Instagram</Label>
+                        <Input value={newBrand.instagram_url} onChange={(e) => setNewBrand({ ...newBrand, instagram_url: e.target.value })} placeholder="kullaniciadi" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2"><Twitter className="h-4 w-4" /> X (Twitter)</Label>
+                        <Input value={newBrand.twitter_url} onChange={(e) => setNewBrand({ ...newBrand, twitter_url: e.target.value })} placeholder="kullaniciadi" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Bağlantılı Mezun</Label>
+                      <Select value={newBrand.connected_member_id || "none"} onValueChange={(val) => setNewBrand({ ...newBrand, connected_member_id: val === "none" ? "" : val })}>
+                        <SelectTrigger><SelectValue placeholder="Seçin" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Yok</SelectItem>
+                          {[...users].sort((a, b) => (a.full_name || "").localeCompare(b.full_name || "", "tr")).map((u) => (
+                            <SelectItem key={u.id} value={u.id}>{u.full_name || u.email}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <Button onClick={handleCreateBrand} className="w-full"><Plus className="h-4 w-4 mr-2" /> Marka Ekle</Button>
                   </CardContent>
                 </Card>
@@ -688,6 +728,19 @@ export default function AdminPage() {
                                     <Input value={editingBrand.logo_url || ""} onChange={(e) => setEditingBrand({ ...editingBrand, logo_url: e.target.value })} placeholder="Logo URL" />
                                     <Input value={editingBrand.website_url || ""} onChange={(e) => setEditingBrand({ ...editingBrand, website_url: e.target.value })} placeholder="Website URL" />
                                   </div>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <Input value={editingBrand.instagram_url || ""} onChange={(e) => setEditingBrand({ ...editingBrand, instagram_url: e.target.value })} placeholder="Instagram kullanıcı adı" />
+                                    <Input value={editingBrand.twitter_url || ""} onChange={(e) => setEditingBrand({ ...editingBrand, twitter_url: e.target.value })} placeholder="X kullanıcı adı" />
+                                  </div>
+                                  <Select value={editingBrand.connected_member_id || "none"} onValueChange={(val) => setEditingBrand({ ...editingBrand, connected_member_id: val === "none" ? "" : val })}>
+                                    <SelectTrigger><SelectValue placeholder="Bağlantılı mezun seçin" /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="none">Yok</SelectItem>
+                                      {[...users].sort((a, b) => (a.full_name || "").localeCompare(b.full_name || "", "tr")).map((u) => (
+                                        <SelectItem key={u.id} value={u.id}>{u.full_name || u.email}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
                                   <div className="flex gap-2">
                                     <Button onClick={handleUpdateBrand} size="sm"><Save className="h-4 w-4 mr-2" /> Kaydet</Button>
                                     <Button onClick={() => setEditingBrand(null)} size="sm" variant="outline"><X className="h-4 w-4 mr-2" /> İptal</Button>
@@ -703,12 +756,32 @@ export default function AdminPage() {
                                     </div>
                                     {brand.description && <p className="text-sm text-muted-foreground mb-2">{brand.description}</p>}
                                     <p className="text-sm font-medium text-green-600">{brand.discount_info}</p>
+                                    <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-muted-foreground">
+                                      {brand.instagram_url && (
+                                        <a href={brand.instagram_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:underline">
+                                          <Instagram className="h-3.5 w-3.5" /> @{getSocialHandle(brand.instagram_url)}
+                                        </a>
+                                      )}
+                                      {brand.twitter_url && (
+                                        <a href={brand.twitter_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:underline">
+                                          <Twitter className="h-3.5 w-3.5" /> @{getSocialHandle(brand.twitter_url)}
+                                        </a>
+                                      )}
+                                      {brand.connected_member?.full_name && (
+                                        <span>Bağlantılı mezun: {brand.connected_member.full_name}</span>
+                                      )}
+                                    </div>
                                   </div>
                                   <div className="flex gap-2">
                                     <Button size="sm" variant="outline" onClick={() => handleToggleBrand(brand.id, !brand.is_active)}>
                                       {brand.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                     </Button>
-                                    <Button size="sm" variant="outline" onClick={() => setEditingBrand(brand)}><Edit2 className="h-4 w-4" /></Button>
+                                    <Button size="sm" variant="outline" onClick={() => setEditingBrand({
+                                      ...brand,
+                                      instagram_url: getSocialHandle(brand.instagram_url),
+                                      twitter_url: getSocialHandle(brand.twitter_url),
+                                      connected_member_id: brand.connected_member_id || "",
+                                    })}><Edit2 className="h-4 w-4" /></Button>
                                     <Button size="sm" variant="destructive" onClick={() => handleDeleteBrand(brand.id)}><Trash2 className="h-4 w-4" /></Button>
                                   </div>
                                 </div>

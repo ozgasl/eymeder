@@ -79,44 +79,61 @@ export type Database = {
       brands: {
         Row: {
           category: string | null
+          connected_member_id: string | null
           created_at: string | null
           description: string | null
           discount_info: string
           display_order: number | null
           id: string
+          instagram_url: string | null
           is_active: boolean | null
           logo_url: string | null
           name: string
+          twitter_url: string | null
           updated_at: string | null
           website_url: string | null
         }
         Insert: {
           category?: string | null
+          connected_member_id?: string | null
           created_at?: string | null
           description?: string | null
           discount_info: string
           display_order?: number | null
           id?: string
+          instagram_url?: string | null
           is_active?: boolean | null
           logo_url?: string | null
           name: string
+          twitter_url?: string | null
           updated_at?: string | null
           website_url?: string | null
         }
         Update: {
           category?: string | null
+          connected_member_id?: string | null
           created_at?: string | null
           description?: string | null
           discount_info?: string
           display_order?: number | null
           id?: string
+          instagram_url?: string | null
           is_active?: boolean | null
           logo_url?: string | null
           name?: string
+          twitter_url?: string | null
           updated_at?: string | null
           website_url?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "brands_connected_member_id_fkey"
+            columns: ["connected_member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cart_items: {
         Row: {

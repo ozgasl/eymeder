@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 import { brandService } from "@/services/brandService";
 import { qrCodeService } from "@/services/qrCodeService";
 import { useAccessControl } from "@/hooks/useAccessControl";
-import { ExternalLink, Tag, QrCode, Loader2, Lock } from "lucide-react";
+import { ExternalLink, Tag, QrCode, Loader2, Lock, Instagram, Twitter } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { getSocialHandle } from "@/lib/socialLinks";
 import {
   Dialog,
   DialogContent,
@@ -188,6 +189,20 @@ export default function BrandsPage() {
                       {brand.description && (
                         <CardDescription>{brand.description}</CardDescription>
                       )}
+                      {(brand.instagram_url || brand.twitter_url) && (
+                        <div className="flex items-center gap-3 pt-1">
+                          {brand.instagram_url && (
+                            <a href={brand.instagram_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground hover:underline">
+                              <Instagram className="h-4 w-4" /> @{getSocialHandle(brand.instagram_url)}
+                            </a>
+                          )}
+                          {brand.twitter_url && (
+                            <a href={brand.twitter_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground hover:underline">
+                              <Twitter className="h-4 w-4" /> @{getSocialHandle(brand.twitter_url)}
+                            </a>
+                          )}
+                        </div>
+                      )}
                     </CardHeader>
 
                     <CardContent className="space-y-4">
@@ -205,6 +220,12 @@ export default function BrandsPage() {
                           </div>
                         </div>
                       </div>
+
+                      {brand.connected_member?.full_name && (
+                        <p className="text-xs text-muted-foreground">
+                          Bağlantılı mezun: <span className="font-medium">{brand.connected_member.full_name}</span>
+                        </p>
+                      )}
 
                       {/* Website Link */}
                       {brand.website_url && (

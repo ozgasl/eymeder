@@ -10,7 +10,7 @@ export const brandService = {
   async getBrands(): Promise<{ data: Brand[] | null; error: any }> {
     const { data, error } = await supabase
       .from("brands")
-      .select("*")
+      .select("*, connected_member:profiles!brands_connected_member_id_fkey(id, full_name)")
       .eq("is_active", true)
       .order("display_order", { ascending: true })
       .order("name", { ascending: true });
@@ -23,7 +23,7 @@ export const brandService = {
   async getAllBrands(): Promise<{ data: Brand[] | null; error: any }> {
     const { data, error } = await supabase
       .from("brands")
-      .select("*")
+      .select("*, connected_member:profiles!brands_connected_member_id_fkey(id, full_name)")
       .order("display_order", { ascending: true })
       .order("name", { ascending: true });
 
