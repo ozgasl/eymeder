@@ -437,6 +437,33 @@ konsolda hiçbir hata vermeyen, sessiz bir UI bug'ı.
 
 ## Oturum günlüğü
 
+### 2026-09-08 — Yanlış graduation_year taraması (Bugfix 2 oturumu, ikinci talep)
+
+Hafızada "sıradaki iyi aday" olarak duran tarama yapıldı. **Sonuç: kendi
+verimizde kanıtlanabilir tek bir yanlış `graduation_year` yok** — denetim
+sorgusu ([PR #19](https://github.com/ozgasl/eymeder/pull/19),
+`docs/audits/`) production'da 17 satır döndürdü ve hiçbiri YÜKSEK değil.
+Yani Aysın/Şinasi sınıfı hatanın başka örneği bulunamadı; o iki vaka
+kanıtlanabilirdi çünkü ikinci bir yıl kaydı vardı, bu 17 kişide yok.
+
+**Production tablosu**: 49 üye · 28 Fonzip'te eşleşen · 17 eşleşmeyen ·
+4 cevapsız kontrol. 17'nin 5'i yedek arama öncesinden bayat kayıttı.
+
+**Taramanın gerçek getirisi başka yerden geldi**: 9 üye (5 bayat + 4 cevapsız)
+yeniden kontrol edildi ve **2'si gerçekten dernek üyesi çıkıp güncellendi** —
+yani hakları olan üyelik geri verildi. Ayrıca tarama, cevapsız Fonzip
+kontrolünün üyeyi sessizce düşürdüğü bug'ı ortaya çıkardı (bkz. yukarıdaki
+ders) — bu, aranan hatadan daha önemliydi.
+
+**Kalan havuz**: numara + e-posta + telefon üçüyle de bulunamayan ~12 üye.
+Bunları ancak Fonzip tarafından çözmek mümkün: `name` parametresiyle ara
+(spec'te `contains` koşulu var), tek eşleşme varsa `membership_no`'yu oku
+(spec'te `values_list`'te SEÇİLEBİLİR olduğu iki resmi örnekle doğrulandı) —
+ilk 4 hanesi gerçek mezuniyet yılı. Şinasi vakası tam olarak böyle çözüldü.
+12 kişi için elle yapmak önerildi; üye sayısı büyürse `findFonzipMemberByName`
++ salt-okunur admin raporu kurulabilir. Bir kısmı zaten hata değil: 2019/2021/
+2025 mezunları henüz aidat ödeyen dernek üyesi olmamış olabilir.
+
 ### 2026-09-08 — Marka indirim kodu sistemi (Bugfix 2 oturumu, ilk talep)
 
 Kullanıcının talebi: "İndirimli Marka eklerken markaların verebileceği indirim
