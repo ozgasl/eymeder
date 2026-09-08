@@ -11,11 +11,18 @@ export interface BrandCodeStats {
   viewedCount: number;
   /** Members who were issued their own single-use code. */
   issuedCount: number;
-  /** Members whose use was confirmed by staff at the till — the real figure. */
-  redeemedCount: number;
+  /** Distinct members whose use was confirmed by staff at the till. */
+  redeemerCount: number;
+  /** Total confirmed uses, counting a member's repeat visits separately. */
+  redemptionCount: number;
 }
 
-export const EMPTY_STATS: BrandCodeStats = { viewedCount: 0, issuedCount: 0, redeemedCount: 0 };
+export const EMPTY_STATS: BrandCodeStats = {
+  viewedCount: 0,
+  issuedCount: 0,
+  redeemerCount: 0,
+  redemptionCount: 0,
+};
 
 async function authHeaders(): Promise<HeadersInit> {
   const { data: { session } } = await supabase.auth.getSession();
@@ -77,30 +84,62 @@ export const brandCodeService = {
   },
 
   /**
-   * Usage counters per campaign, aggregated from the usage ledger.
-   * `brand_code_usages` holds one row per (campaign, member) with a timestamp
-   * for each stage, so counting non-null timestamps gives the three figures
-   * without a separate counter column that could drift.
+   * Usage counters per campaign, aggregated from the two ledgers rather than
+   * from counter columns that could drift: `brand_code_usages` holds one row
+   * per (campaign, member) with a timestamp per stage (reveal, issue), and
+   * `brand_code_redemptions` holds one row per actual use — so repeat use by
+   * the same member is counted, and distinct users give the member figure.
    */
   async getStats(): Promise<{ data: Record<string, BrandCodeStats>; error: any }> {
-    const { data, error } = await supabase
-      .from("brand_code_usages")
-      .select("brand_code_id, first_viewed_at, issued_at, redeemed_at");
+    const [{ data: usages, error: usageError }, { data: redemptions, error: redemptionError }] = await Promise.all([
+      supabase.from("brand_code_usages").select("brand_code_id, first_viewed_at, issued_at"),
+      supabase.from("brand_code_redemptions").select("brand_code_id, user_id"),
+    ]);
 
     const stats: Record<string, BrandCodeStats> = {};
-    for (const row of (data ?? []) as Array<{
+    const entryFor = (brandCodeId: string) => (stats[brandCodeId] ??= { ...EMPTY_STATS });
+
+    for (const row of (usages ?? []) as Array<{
       brand_code_id: string;
       first_viewed_at: string | null;
       issued_at: string | null;
-      redeemed_at: string | null;
     }>) {
-      const entry = (stats[row.brand_code_id] ??= { ...EMPTY_STATS });
+      const entry = entryFor(row.brand_code_id);
       if (row.first_viewed_at) entry.viewedCount++;
       if (row.issued_at) entry.issuedCount++;
-      if (row.redeemed_at) entry.redeemedCount++;
     }
 
-    return { data: stats, error };
+    const redeemers: Record<string, Set<string>> = {};
+    for (const row of (redemptions ?? []) as Array<{ brand_code_id: string; user_id: string }>) {
+      entryFor(row.brand_code_id).redemptionCount++;
+      (redeemers[row.brand_code_id] ??= new Set()).add(row.user_id);
+    }
+    for (const [brandCodeId, users] of Object.entries(redeemers)) {
+      entryFor(brandCodeId).redeemerCount = users.size;
+    }
+
+    return { data: stats, error: usageError ?? redemptionError };
+  },
+
+  /**
+   * How many times the signed-in member has used each campaign, so the brands
+   * page can say "3 kez kullandınız" on a shared code that stays usable.
+   */
+  async getMyRedemptionCounts(): Promise<{ data: Record<string, number>; error: any }> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { data: {}, error: null };
+
+    const { data, error } = await supabase
+      .from("brand_code_redemptions")
+      .select("brand_code_id")
+      .eq("user_id", user.id);
+
+    const counts: Record<string, number> = {};
+    for (const row of (data ?? []) as Array<{ brand_code_id: string }>) {
+      counts[row.brand_code_id] = (counts[row.brand_code_id] ?? 0) + 1;
+    }
+
+    return { data: counts, error };
   },
 
   /** The signed-in member's own rows (RLS: users_read_own_code_usages). */
@@ -139,6 +178,8 @@ export const brandCodeService = {
     label: string | null;
     code: string;
     redeemedAt: string;
+    memberUseCount: number;
+    totalUseCount: number;
   }> {
     return postJson("/api/admin/brand-codes/redeem", input);
   },

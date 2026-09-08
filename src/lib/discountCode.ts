@@ -15,6 +15,13 @@ export const CODE_PREFIX = "EYB";
 /** Days a per-member single-use code stays valid when the campaign itself has no end date. */
 export const DEFAULT_MEMBER_CODE_DAYS = 30;
 
+/**
+ * A shared code may legitimately be used again and again, so repeat use is
+ * counted rather than blocked. Two entries this close together are a
+ * double-submit or a cashier entering the same sale twice, not two visits.
+ */
+export const DUPLICATE_REDEMPTION_WINDOW_MS = 2 * 60 * 1000;
+
 // No I/O/0/1 - these codes get read aloud and retyped at a till.
 const MEMBER_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -190,4 +197,20 @@ export function computeMemberCodeExpiry(validUntil: string | null | undefined, n
   const until = new Date(validUntil);
   if (Number.isNaN(until.getTime())) return fallback;
   return until.getTime() < fallback.getTime() ? until : fallback;
+}
+
+/**
+ * True when a new redemption arriving `now` is close enough to the member's
+ * previous one on the same code to be an accidental duplicate.
+ */
+export function isDuplicateRedemption(
+  lastRedeemedAt: string | null | undefined,
+  now: Date = new Date(),
+  windowMs: number = DUPLICATE_REDEMPTION_WINDOW_MS,
+): boolean {
+  if (!lastRedeemedAt) return false;
+
+  const last = new Date(lastRedeemedAt).getTime();
+  if (Number.isNaN(last)) return false;
+  return now.getTime() - last < windowMs;
 }

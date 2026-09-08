@@ -79,7 +79,13 @@ export function BrandCodesManager({ brands }: BrandCodesManagerProps) {
   const [redeemQr, setRedeemQr] = useState("");
   const [redeemNote, setRedeemNote] = useState("");
   const [redeeming, setRedeeming] = useState(false);
-  const [lastRedemption, setLastRedemption] = useState<{ brandName: string; memberName: string; discountInfo: string } | null>(null);
+  const [lastRedemption, setLastRedemption] = useState<{
+    brandName: string;
+    memberName: string;
+    discountInfo: string;
+    memberUseCount: number;
+    totalUseCount: number;
+  } | null>(null);
 
   const brandNames = useMemo(
     () => Object.fromEntries(brands.map((brand) => [brand.id, brand.name])),
@@ -198,8 +204,8 @@ export function BrandCodesManager({ brands }: BrandCodesManagerProps) {
 
   const handleDelete = async (code: any) => {
     const usage = stats[code.id] ?? EMPTY_STATS;
-    const warning = usage.redeemedCount > 0
-      ? `\n\nDikkat: bu kodun ${usage.redeemedCount} kullanım kaydı var, silinince o kayıtlar da silinir.`
+    const warning = usage.redemptionCount > 0
+      ? `\n\nDikkat: bu kodun ${usage.redemptionCount} kullanım kaydı var, silinince o kayıtlar da silinir.`
       : "";
     if (!confirm(`"${code.code}" kodunu silmek istediğinizden emin misiniz?${warning}`)) return;
 
@@ -228,7 +234,7 @@ export function BrandCodesManager({ brands }: BrandCodesManagerProps) {
       setLastRedemption(result);
       toast({
         title: "Kod kullanıldı olarak işaretlendi",
-        description: `${result.brandName} — ${result.memberName}`,
+        description: `${result.brandName} — ${result.memberName} (${result.memberUseCount}. kullanımı)`,
       });
       setRedeemCode("");
       setRedeemQr("");
@@ -363,7 +369,9 @@ export function BrandCodesManager({ brands }: BrandCodesManagerProps) {
           <p className="text-sm text-muted-foreground">
             İndirim markanın kasasında verildiği için kullanım sayacı ancak burada işaretlenerek ilerler.
             Üyeye özel kodlarda sadece kod yeterli; tüm üyelerin aynı kodu kullandığı kampanyalarda
-            üyenin QR kodu da gerekir.
+            üyenin QR kodu da gerekir. Paylaşılan bir kodu aynı üye tekrar tekrar kullanabilir ve her
+            kullanım ayrı sayılır — sadece aynı satışın iki kez kaydedilmesi (2 dakika içinde tekrar
+            giriş) engellenir.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
@@ -387,7 +395,9 @@ export function BrandCodesManager({ brands }: BrandCodesManagerProps) {
           {lastRedemption && (
             <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900">
               <strong>{lastRedemption.memberName}</strong> için <strong>{lastRedemption.brandName}</strong> indirimi
-              kaydedildi{lastRedemption.discountInfo ? ` (${lastRedemption.discountInfo})` : ""}.
+              kaydedildi{lastRedemption.discountInfo ? ` (${lastRedemption.discountInfo})` : ""}. Bu üyenin{" "}
+              <strong>{lastRedemption.memberUseCount}.</strong> kullanımı; kodun toplam kullanımı{" "}
+              <strong>{lastRedemption.totalUseCount}</strong>.
             </div>
           )}
         </CardContent>
@@ -468,10 +478,11 @@ export function BrandCodesManager({ brands }: BrandCodesManagerProps) {
                             {code.discount_info && <p>{code.discount_info}</p>}
                             {window && <p>{window}</p>}
                             <p>
-                              Görüntüleyen: <strong>{usage.viewedCount}</strong>
-                              {code.is_single_use && <> · Kod alan: <strong>{usage.issuedCount}</strong></>}
-                              {" "}· Kullanan: <strong>{usage.redeemedCount}</strong>
-                              {code.max_redemptions ? ` / ${code.max_redemptions}` : ""}
+                              Görüntüleyen: <strong>{usage.viewedCount}</strong> üye
+                              {code.is_single_use && <> · Kod alan: <strong>{usage.issuedCount}</strong> üye</>}
+                              {" "}· Kullanım: <strong>{usage.redemptionCount}</strong>
+                              {code.max_redemptions ? ` / ${code.max_redemptions}` : ""} kez
+                              {!code.is_single_use && <> ({usage.redeemerCount} üye)</>}
                             </p>
                           </div>
                         </div>

@@ -76,6 +76,71 @@ export type Database = {
           },
         ]
       }
+      brand_code_redemptions: {
+        Row: {
+          brand_code_id: string
+          code_used: string | null
+          created_at: string | null
+          id: string
+          note: string | null
+          redeemed_at: string
+          redeemed_by: string | null
+          usage_id: string | null
+          user_id: string
+        }
+        Insert: {
+          brand_code_id: string
+          code_used?: string | null
+          created_at?: string | null
+          id?: string
+          note?: string | null
+          redeemed_at?: string
+          redeemed_by?: string | null
+          usage_id?: string | null
+          user_id: string
+        }
+        Update: {
+          brand_code_id?: string
+          code_used?: string | null
+          created_at?: string | null
+          id?: string
+          note?: string | null
+          redeemed_at?: string
+          redeemed_by?: string | null
+          usage_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_code_redemptions_brand_code_id_fkey"
+            columns: ["brand_code_id"]
+            isOneToOne: false
+            referencedRelation: "brand_discount_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_code_redemptions_redeemed_by_fkey"
+            columns: ["redeemed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_code_redemptions_usage_id_fkey"
+            columns: ["usage_id"]
+            isOneToOne: false
+            referencedRelation: "brand_code_usages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_code_redemptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_code_usages: {
         Row: {
           brand_code_id: string

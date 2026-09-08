@@ -29,6 +29,7 @@ export default function BrandsPage() {
   const [brands, setBrands] = useState<any[]>([]);
   const [codesByBrand, setCodesByBrand] = useState<Record<string, BrandCode[]>>({});
   const [myUsages, setMyUsages] = useState<Record<string, MemberCodeUsage>>({});
+  const [myUseCounts, setMyUseCounts] = useState<Record<string, number>>({});
   const [myQR, setMyQR] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showQR, setShowQR] = useState(false);
@@ -58,9 +59,10 @@ export default function BrandsPage() {
   // Codes are readable only by dernek_uyesi members and staff (RLS), so for
   // anyone else this simply comes back empty rather than failing.
   const loadCodes = async () => {
-    const [{ data: codes }, { data: usages }] = await Promise.all([
+    const [{ data: codes }, { data: usages }, { data: useCounts }] = await Promise.all([
       brandCodeService.getCodes(),
       brandCodeService.getMyUsages(),
+      brandCodeService.getMyRedemptionCounts(),
     ]);
 
     const grouped: Record<string, BrandCode[]> = {};
@@ -73,6 +75,7 @@ export default function BrandsPage() {
     setMyUsages(
       Object.fromEntries(((usages ?? []) as MemberCodeUsage[]).map((usage) => [usage.brand_code_id, usage])),
     );
+    setMyUseCounts(useCounts ?? {});
   };
 
   const categoryColors: Record<string, string> = {
@@ -253,6 +256,7 @@ export default function BrandsPage() {
                         <BrandDiscountCodes
                           codes={codesByBrand[brand.id] ?? []}
                           usages={myUsages}
+                          useCounts={myUseCounts}
                           onIssued={loadCodes}
                         />
                       )}

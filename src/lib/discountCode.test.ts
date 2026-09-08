@@ -4,8 +4,10 @@ import {
   buildMemberCode,
   computeMemberCodeExpiry,
   describeCodeWindow,
+  DUPLICATE_REDEMPTION_WINDOW_MS,
   foldTurkish,
   isCodeUsable,
+  isDuplicateRedemption,
   makeUniqueDiscountCode,
   normalizeDiscountCode,
   parseDiscountPercent,
@@ -174,6 +176,36 @@ describe("computeMemberCodeExpiry", () => {
 
   it("keeps the 30-day cap when the campaign ends later", () => {
     expect(computeMemberCodeExpiry("2027-01-01T00:00:00Z", now).toISOString()).toBe("2026-10-08T12:00:00.000Z");
+  });
+});
+
+describe("isDuplicateRedemption", () => {
+  const now = new Date("2026-09-08T12:00:00Z");
+
+  it("treats a first use as not a duplicate", () => {
+    expect(isDuplicateRedemption(null, now)).toBe(false);
+    expect(isDuplicateRedemption(undefined, now)).toBe(false);
+  });
+
+  it("refuses a second entry seconds after the first", () => {
+    expect(isDuplicateRedemption("2026-09-08T11:59:50Z", now)).toBe(true);
+  });
+
+  it("allows a genuine repeat visit later on", () => {
+    expect(isDuplicateRedemption("2026-09-08T11:50:00Z", now)).toBe(false);
+    expect(isDuplicateRedemption("2026-09-07T12:00:00Z", now)).toBe(false);
+  });
+
+  it("uses a two-minute window by default", () => {
+    expect(DUPLICATE_REDEMPTION_WINDOW_MS).toBe(120000);
+    const justInside = new Date(now.getTime() - DUPLICATE_REDEMPTION_WINDOW_MS + 1000).toISOString();
+    const justOutside = new Date(now.getTime() - DUPLICATE_REDEMPTION_WINDOW_MS).toISOString();
+    expect(isDuplicateRedemption(justInside, now)).toBe(true);
+    expect(isDuplicateRedemption(justOutside, now)).toBe(false);
+  });
+
+  it("ignores an unparseable timestamp instead of blocking the sale", () => {
+    expect(isDuplicateRedemption("bozuk-tarih", now)).toBe(false);
   });
 });
 

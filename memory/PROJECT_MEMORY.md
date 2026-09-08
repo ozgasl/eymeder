@@ -88,9 +88,15 @@ oku. Her oturum sonunda kendi bölümünü buraya ekle (üstte en yeni).
   `code` platform genelinde `lower(code)` üzerinde UNIQUE, `label`,
   koda özel `discount_info`, `source` = `brand`/`generated`, `is_single_use`,
   `valid_from`/`valid_until`, `max_redemptions`, `is_active`) ve
-  `brand_code_usages` (kampanya × üye başına TEK satır: `member_code`,
-  `first_viewed_at`, `issued_at`, `expires_at`, `redeemed_at`, `redeemed_by`).
-  Migration: `20260908160000_brand_discount_codes.sql`.
+  `brand_code_usages` (kampanya × üye başına TEK satır = üyenin o kampanyadaki
+  DURUMU: `member_code`, `first_viewed_at`, `issued_at`, `expires_at`, ve EN SON
+  kullanımı gösteren `redeemed_at`/`redeemed_by`/`redeem_note`) ve
+  `brand_code_redemptions` (kullanım başına BİR satır = append-only defter:
+  `usage_id`, `code_used` snapshot'ı, `redeemed_at`, `redeemed_by`, `note`).
+  Migration'lar: `20260908160000_brand_discount_codes.sql` +
+  `20260908170000_brand_code_redemptions.sql` (ikincisi mevcut
+  `brand_code_usages.redeemed_at` kayıtlarını deftere backfill ediyor —
+  idempotent).
   - Kod üretimi `src/lib/discountCode.ts` (saf, testli): `%10` → `EYB10`,
     oran yoksa marka adından `EYBSISL`, çakışırsa `EYB10TK` → `EYB10-2`.
     Üyeye özel tek kullanımlık kod `EYB10-7F3K2A` (I/O/0/1 içermeyen alfabe).
@@ -104,16 +110,23 @@ oku. Her oturum sonunda kendi bölümünü buraya ekle (üstte en yeni).
     `/api/admin/brand-codes/redeem`), böylece üye kendi sayacını şişiremiyor.
     Yeni bir sayaç/kod aksiyonu eklerken bu deseni koru.
   - **Sayaç mantığı (kullanıcıya açıklandı ve onaylandı)**: İndirim markanın
-    kasasında verildiği için "kullanıldı" bilgisi otomatik ölçülemez. Üç ayrı
-    metrik var ve isimleri kasıtlı: `Görüntüleyen` = kodu açan üye sayısı
-    (otomatik, sadece ilgi göstergesi), `Kod alan` = tek kullanımlık kod
-    üretmiş üye sayısı, `Kullanan` = staff'ın `/api/admin/brand-codes/redeem`
-    üzerinden onayladığı gerçek kullanım. `max_redemptions` SADECE son metriği
-    kapatıyor; kod dağıtımı kontenjanı doldurmuyor.
-  - **Bilinen sınır**: `UNIQUE(brand_code_id, user_id)` yüzünden paylaşılan bir
-    kodda aynı üyenin tekrar tekrar kullanımı bir kez sayılıyor (metrikler
-    "kaç üye", "kaç kez" değil). Tekrarlı kullanım sayılmak istenirse
-    `brand_code_usages` satır-başına-kullanım log'una dönüştürülmeli.
+    kasasında verildiği için "kullanıldı" bilgisi otomatik ölçülemez. Metrikler
+    ve isimleri kasıtlı: `Görüntüleyen` = kodu açan üye sayısı (otomatik, sadece
+    ilgi göstergesi), `Kod alan` = tek kullanımlık kod üretmiş üye sayısı,
+    `Kullanım` = staff'ın `/api/admin/brand-codes/redeem` üzerinden onayladığı
+    gerçek kullanım SAYISI (+ parantezde kaç ayrı üye). Sayaçlar sayaç
+    kolonundan değil iki defterden hesaplanıyor (`brandCodeService.getStats`).
+    `max_redemptions` SADECE toplam kullanım sayısını kapatıyor; kod dağıtımı
+    kontenjanı doldurmuyor.
+  - **Tekrarlı kullanım sayılıyor (2026-09-08, ikinci tur)**: Paylaşılan bir kodu
+    aynı üye tekrar tekrar kullanabilir ve her kullanım `brand_code_redemptions`'da
+    ayrı satır. Tek kullanımlık kişisel kod ise hâlâ bir kez harcanıyor
+    (`brand_code_usages.redeemed_at` "bu kişisel kod tükendi" işareti olarak
+    duruyor). Yanlışlıkla iki kez kaydı engellemek için 2 dakikalık yineleme
+    penceresi var (`isDuplicateRedemption`, `DUPLICATE_REDEMPTION_WINDOW_MS`) —
+    gerçek ikinci ziyaret engellenmiyor, sadece aynı satışın çift girişi.
+    **Bir kullanımı `brand_code_usages`'a yazarak sayma refleksine dönme**: o
+    tablo kampanya × üye başına tekil, sayım defteri o değil.
   - Üye QR kod sistemi (`user_qr_codes`, `generate_user_qr_code()` trigger'ı)
     **hiç değiştirilmedi** — kullanıcının açık talebi; kimlik doğrulama
     kimliği olarak kalıyor (paylaşılan kod kullanımında üyeyi tanımlamak için
@@ -360,6 +373,14 @@ sekmesine kod yöneticisi), `brands.tsx` (üyeye kod gösterimi), README,
 **Canlıda test EDİLMEDİ** (bu ortamdan Supabase'e yazma yapılmadı): kod ekleme,
 üyeye özel kod üretme ve "kullanıldı olarak işaretle" akışları migration
 uygulandıktan sonra gerçek admin hesabıyla denenmeli.
+
+**İkinci tur (aynı oturum, aynı PR)**: Kullanıcı ilk migration'ı Supabase'de
+uyguladıktan sonra "tekrarlı kullanım da sayılsın" dedi. İlk migration ARTIK
+PRODUCTION'DA olduğu için o dosya değiştirilmedi; kullanım defteri ayrı bir
+migration ile eklendi (`20260908170000_brand_code_redemptions.sql`, mevcut
+kayıtlar backfill'li). **Ders**: kullanıcı bir migration'ı uyguladığını
+söyledikten sonra o dosya dokunulmaz — şema değişikliği yeni bir migration
+olarak gelir, aksi halde onun DB'si ile repo birbirinden ayrı düşer.
 
 ### 2026-09-01 — 2026-09-08 — Mezuniyet yılı bugfix'i, mobil sekme kaybı, 6 yeni talep, Fonzip üyelik yedek araması
 

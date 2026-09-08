@@ -2,13 +2,15 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { supabaseAdmin } from "@/integrations/supabase/admin";
 import {
   campaignUnavailableReason,
+  countMemberRedemptions,
   countRedemptions,
+  lastMemberRedemptionAt,
   loadCampaign,
   loadUsage,
   type BrandCodeUsage,
   type BrandDiscountCode,
 } from "@/lib/brandCodes";
-import { normalizeDiscountCode } from "@/lib/discountCode";
+import { isDuplicateRedemption, normalizeDiscountCode } from "@/lib/discountCode";
 import { requireStaff } from "@/lib/requireStaff";
 
 // Marks a discount code as actually used. This is the only place a redemption
@@ -17,9 +19,12 @@ import { requireStaff } from "@/lib/requireStaff";
 //
 // Two shapes:
 //   - single-use campaigns: the member's personal code (EYB10-7F3K2A) is
-//     enough, it already identifies both the campaign and the member.
+//     enough, it already identifies both the campaign and the member, and it
+//     can only be used once.
 //   - shared campaigns: everyone uses the same code, so the member is
-//     identified by their membership QR code (EYMDER-XXXXXXXX) as well.
+//     identified by their membership QR code (EYMDER-XXXXXXXX). Repeat use is
+//     normal here (a member visits the same café again), so each use is its
+//     own row in `brand_code_redemptions` and all of them count.
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -71,9 +76,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // `.is("redeemed_at", null)` makes this a no-op if a parallel request
-      // redeemed the same code first, so check that a row actually changed
-      // rather than reporting a redemption that didn't happen.
-      const { data: updated, error } = await supabaseAdmin
+      // spent the same personal code first, so check that a row actually
+      // changed before writing the redemption to the ledger.
+      const { data: updated, error: spendError } = await supabaseAdmin
         .from("brand_code_usages")
         .update({
           redeemed_at: now.toISOString(),
@@ -85,12 +90,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .is("redeemed_at", null)
         .select("id");
 
-      if (error) throw new Error(error.message);
+      if (spendError) throw new Error(spendError.message);
       if (!updated || updated.length === 0) {
         return res.status(409).json({ error: "Bu kod az önce başka bir işlemde kullanıldı." });
       }
 
-      return res.status(200).json(await describeRedemption(campaign.brand_id, usage.user_id, campaign, now));
+      await recordRedemption({
+        brandCodeId: campaign.id,
+        userId: usage.user_id,
+        usageId: usage.id,
+        codeUsed: usage.member_code ?? campaign.code,
+        redeemedBy: auth.userId,
+        note: redeemNote,
+        now,
+      });
+
+      return res.status(200).json(await describeRedemption(campaign, usage.user_id, now));
     }
 
     // 2. A shared campaign code — then we also need to know which member.
@@ -116,6 +131,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(409).json({ error: unavailable });
     }
 
+    // The QR value is typed in by hand and goes into an ilike pattern, so
+    // strip anything that isn't part of a real QR code (% and _ are wildcards).
     const qrCode = normalizeDiscountCode(memberQrCode);
     if (!qrCode) {
       return res.status(400).json({ error: "Bu kodu tüm üyeler kullanıyor; üyenin QR kodunu da girin." });
@@ -134,7 +151,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: memberProfile } = await supabaseAdmin
       .from("profiles")
-      .select("full_name, membership_tier")
+      .select("membership_tier")
       .eq("id", memberId)
       .single();
 
@@ -146,52 +163,96 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(409).json({ error: "Bu kampanyanın kontenjanı doldu." });
     }
 
-    const existing = await loadUsage(campaign.id, memberId);
-    if (existing?.redeemed_at) {
+    // Repeat use is allowed and counted; only an accidental double entry is
+    // refused (see DUPLICATE_REDEMPTION_WINDOW_MS).
+    const lastUse = await lastMemberRedemptionAt(campaign.id, memberId);
+    if (isDuplicateRedemption(lastUse, now)) {
       return res.status(409).json({
-        error: `Bu üye bu kodu daha önce kullandı (${new Date(existing.redeemed_at).toLocaleString("tr-TR")}).`,
+        error: `Bu üye bu kodu az önce kullandı (${new Date(lastUse!).toLocaleTimeString("tr-TR")}). Aynı satış iki kez kaydedilmesin diye tekrar kaydedilmedi.`,
       });
     }
 
-    const redemption = {
-      redeemed_at: now.toISOString(),
-      redeemed_by: auth.userId,
-      redeem_note: redeemNote,
-      updated_at: now.toISOString(),
-    };
+    const usageId = await ensureUsageRow(campaign.id, memberId, now);
+    await recordRedemption({
+      brandCodeId: campaign.id,
+      userId: memberId,
+      usageId,
+      codeUsed: campaign.code,
+      redeemedBy: auth.userId,
+      note: redeemNote,
+      now,
+    });
 
-    const { error } = existing
-      ? await supabaseAdmin
-          .from("brand_code_usages")
-          .update(redemption)
-          .eq("id", existing.id)
-          .is("redeemed_at", null)
-      : await supabaseAdmin
-          .from("brand_code_usages")
-          .insert({ brand_code_id: campaign.id, user_id: memberId, ...redemption });
-
-    // 23505: a parallel request created this member's usage row first.
-    if (error?.code === "23505") {
-      return res.status(409).json({ error: "Bu üye bu kodu az önce kullandı." });
+    // The usage row tracks the member's latest use of this campaign; the
+    // ledger above is what the counters are computed from.
+    if (usageId) {
+      await supabaseAdmin
+        .from("brand_code_usages")
+        .update({
+          redeemed_at: now.toISOString(),
+          redeemed_by: auth.userId,
+          redeem_note: redeemNote,
+          updated_at: now.toISOString(),
+        })
+        .eq("id", usageId);
     }
-    if (error) throw new Error(error.message);
 
-    return res.status(200).json(await describeRedemption(campaign.brand_id, memberId, campaign, now));
+    return res.status(200).json(await describeRedemption(campaign, memberId, now));
   } catch (error: any) {
     console.error("brand code redeem failed:", error);
     return res.status(500).json({ error: "Kod kullanımı kaydedilemedi." });
   }
 }
 
-async function describeRedemption(
-  brandId: string,
-  memberId: string,
-  campaign: { code: string; label: string | null; discount_info: string | null },
-  now: Date,
-) {
-  const [{ data: brand }, { data: member }] = await Promise.all([
-    supabaseAdmin.from("brands").select("name, discount_info").eq("id", brandId).single(),
+/** Returns the member's state row for a campaign, creating it if this is their first contact. */
+async function ensureUsageRow(brandCodeId: string, userId: string, now: Date): Promise<string | null> {
+  const existing = await loadUsage(brandCodeId, userId);
+  if (existing) return existing.id;
+
+  // A member can be redeemed for without ever opening the app, so this row may
+  // not exist yet. `first_viewed_at` stays null on purpose — they didn't view it.
+  const { data, error } = await supabaseAdmin
+    .from("brand_code_usages")
+    .insert({ brand_code_id: brandCodeId, user_id: userId, created_at: now.toISOString() })
+    .select("id")
+    .maybeSingle();
+
+  // 23505: a parallel request created it first.
+  if (error?.code === "23505") {
+    return (await loadUsage(brandCodeId, userId))?.id ?? null;
+  }
+  if (error) throw new Error(error.message);
+  return (data as { id: string } | null)?.id ?? null;
+}
+
+async function recordRedemption(input: {
+  brandCodeId: string;
+  userId: string;
+  usageId: string | null;
+  codeUsed: string;
+  redeemedBy: string;
+  note: string | null;
+  now: Date;
+}) {
+  const { error } = await supabaseAdmin.from("brand_code_redemptions").insert({
+    brand_code_id: input.brandCodeId,
+    user_id: input.userId,
+    usage_id: input.usageId,
+    code_used: input.codeUsed,
+    redeemed_at: input.now.toISOString(),
+    redeemed_by: input.redeemedBy,
+    note: input.note,
+  });
+
+  if (error) throw new Error(error.message);
+}
+
+async function describeRedemption(campaign: BrandDiscountCode, memberId: string, now: Date) {
+  const [{ data: brand }, { data: member }, memberUseCount, totalUseCount] = await Promise.all([
+    supabaseAdmin.from("brands").select("name, discount_info").eq("id", campaign.brand_id).single(),
     supabaseAdmin.from("profiles").select("full_name").eq("id", memberId).single(),
+    countMemberRedemptions(campaign.id, memberId),
+    countRedemptions(campaign.id),
   ]);
 
   return {
@@ -202,5 +263,7 @@ async function describeRedemption(
     label: campaign.label,
     code: campaign.code,
     redeemedAt: now.toISOString(),
+    memberUseCount,
+    totalUseCount,
   };
 }

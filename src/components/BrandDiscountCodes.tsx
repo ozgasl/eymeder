@@ -28,6 +28,8 @@ interface BrandDiscountCodesProps {
   codes: BrandCode[];
   /** The signed-in member's usage rows, keyed by campaign id. */
   usages: Record<string, MemberCodeUsage>;
+  /** How many times the member has used each campaign, keyed by campaign id. */
+  useCounts: Record<string, number>;
   /** Called after a personal code is issued so the parent can refresh usages. */
   onIssued: () => void;
 }
@@ -35,9 +37,10 @@ interface BrandDiscountCodesProps {
 /**
  * The discount codes a member can use at one brand. Shared codes are hidden
  * behind a "show" button so the reveal counter in the admin panel means
- * something; single-use campaigns hand each member their own code on demand.
+ * something, and stay usable afterwards (each visit is counted separately);
+ * single-use campaigns hand each member their own code, once.
  */
-export function BrandDiscountCodes({ codes, usages, onIssued }: BrandDiscountCodesProps) {
+export function BrandDiscountCodes({ codes, usages, useCounts, onIssued }: BrandDiscountCodesProps) {
   const { toast } = useToast();
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [issuing, setIssuing] = useState<string | null>(null);
@@ -82,15 +85,18 @@ export function BrandDiscountCodes({ codes, usages, onIssued }: BrandDiscountCod
       {codes.map((code) => {
         const usage = usages[code.id];
         const validity = describeCodeWindow(code);
-        const redeemedAt = usage?.redeemed_at ?? null;
-        const isRedeemed = Boolean(redeemedAt);
+        const lastUsedAt = usage?.redeemed_at ?? null;
+        const useCount = useCounts[code.id] ?? 0;
+        // A shared code can be used again on the next visit, so only a
+        // single-use personal code is ever spent for good.
+        const isSpent = code.is_single_use && Boolean(lastUsedAt);
         const personalCode = usage?.member_code ?? null;
         const personalExpired = Boolean(
           usage?.expires_at && new Date(usage.expires_at).getTime() < Date.now(),
         );
         const shownCode = code.is_single_use ? personalCode : code.code;
         const canShow = code.is_single_use
-          ? Boolean(personalCode) && !personalExpired && !isRedeemed
+          ? Boolean(personalCode) && !personalExpired && !isSpent
           : Boolean(revealed[code.id]);
 
         return (
@@ -99,14 +105,17 @@ export function BrandDiscountCodes({ codes, usages, onIssued }: BrandDiscountCod
               <Ticket className="h-4 w-4 text-primary" />
               <span className="text-sm font-medium">{code.label || "İndirim Kodu"}</span>
               {code.is_single_use && <Badge variant="outline" className="text-xs">Size özel, tek kullanım</Badge>}
-              {isRedeemed && <Badge variant="secondary" className="text-xs">Kullanıldı</Badge>}
+              {isSpent && <Badge variant="secondary" className="text-xs">Kullanıldı</Badge>}
+              {!code.is_single_use && useCount > 0 && (
+                <Badge variant="secondary" className="text-xs">{useCount} kez kullandınız</Badge>
+              )}
             </div>
 
             {code.discount_info && <p className="text-sm text-muted-foreground">{code.discount_info}</p>}
 
-            {redeemedAt ? (
+            {isSpent && lastUsedAt ? (
               <p className="text-xs text-muted-foreground">
-                Bu kodu {new Date(redeemedAt).toLocaleDateString("tr-TR")} tarihinde kullandınız.
+                Bu kodu {new Date(lastUsedAt).toLocaleDateString("tr-TR")} tarihinde kullandınız.
               </p>
             ) : canShow && shownCode ? (
               <div className="flex items-center gap-2 flex-wrap">
@@ -127,11 +136,17 @@ export function BrandDiscountCodes({ codes, usages, onIssued }: BrandDiscountCod
               </Button>
             )}
 
-            {(validity || (canShow && code.is_single_use && usage?.expires_at)) && !isRedeemed && (
+            {(validity || (canShow && code.is_single_use && usage?.expires_at)) && !isSpent && (
               <p className="text-xs text-muted-foreground">
                 {code.is_single_use && usage?.expires_at && canShow
                   ? `Kodunuz ${new Date(usage.expires_at).toLocaleDateString("tr-TR")} tarihine kadar geçerli`
                   : validity}
+              </p>
+            )}
+
+            {!code.is_single_use && lastUsedAt && (
+              <p className="text-xs text-muted-foreground">
+                Son kullanım: {new Date(lastUsedAt).toLocaleDateString("tr-TR")}
               </p>
             )}
           </div>
