@@ -12,6 +12,7 @@ A full-featured alumni community platform built with **Next.js 15** and **Supaba
 - **Mentorship** — connect mentors and mentees
 - **Messaging** — direct messages between members
 - **Store** — products, cart, and checkout powered by **Stripe**
+- **Uploads** — brand logos, gallery media and profile photos each go to their own Supabase Storage bucket, with the accepted formats and size limit declared once in `src/lib/fileUpload.ts` and enforced again on the bucket itself (the uploads run client-side, so the bucket is what actually holds the line)
 - **Gallery, Brands, Testimonials** — community content sections; brands can list Instagram/X handles and an alumnus they're connected to, and their logo can be uploaded as a file (PNG/JPEG/WebP/AVIF/GIF, 2 MB) or given as an external URL
 - **Brand discount codes** — partner brands can supply their own code, or we generate one from the discount rate (%10 → `EYB10`, see `src/lib/discountCode.ts`). Each code has an optional validity window and redemption cap, and can either be shared by all members or issued per member as a single-use code (`EYB10-7F3K2A`). Codes are readable only by `dernek_uyesi` members (enforced by RLS, not just the UI). Only a staff-confirmed redemption (`/api/admin/brand-codes/redeem`) counts as use: each one is a row in `brand_code_redemptions`, so a member's repeat visits to a shared code are counted separately, while `brand_code_usages` holds their per-campaign state (revealed, personal code, expiry)
 - **Gamification** — points/engagement via `gamificationService`

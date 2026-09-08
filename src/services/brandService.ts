@@ -1,12 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import {
-  buildLogoObjectPath,
-  logoObjectPathFromUrl,
-  LOGO_BUCKET,
-  validateLogoFile,
-  type AllowedLogoType,
-} from "@/lib/imageUpload";
+  BRAND_LOGO_UPLOAD,
+  buildObjectPath,
+  objectPathFromUrl,
+  slugifyForPath,
+  validateUpload,
+} from "@/lib/fileUpload";
 
 type Brand = Database["public"]["Tables"]["brands"]["Row"];
 type BrandInsert = Database["public"]["Tables"]["brands"]["Insert"];
@@ -93,13 +93,13 @@ export const brandService = {
    * bucket enforces the type and size limits again server-side.
    */
   async uploadLogo(file: File, brandName: string): Promise<{ url: string | null; error: any }> {
-    const validation = validateLogoFile(file);
+    const validation = validateUpload(file, BRAND_LOGO_UPLOAD);
     if (!validation.ok) {
       return { url: null, error: new Error(validation.message) };
     }
 
-    const path = buildLogoObjectPath(brandName, file.type.toLowerCase() as AllowedLogoType);
-    const { error } = await supabase.storage.from(LOGO_BUCKET).upload(path, file, {
+    const path = buildObjectPath(slugifyForPath(brandName, "marka"), file.type, BRAND_LOGO_UPLOAD);
+    const { error } = await supabase.storage.from(BRAND_LOGO_UPLOAD.bucket).upload(path, file, {
       contentType: file.type,
       // The path carries a timestamp, so a URL never points at different bytes.
       cacheControl: "31536000",
@@ -111,7 +111,7 @@ export const brandService = {
       return { url: null, error };
     }
 
-    const { data } = supabase.storage.from(LOGO_BUCKET).getPublicUrl(path);
+    const { data } = supabase.storage.from(BRAND_LOGO_UPLOAD.bucket).getPublicUrl(path);
     return { url: data.publicUrl, error: null };
   },
 
@@ -122,10 +122,10 @@ export const brandService = {
    * cancelled edit can't leave a brand pointing at a deleted file.
    */
   async deleteLogo(url: string | null | undefined): Promise<{ error: any }> {
-    const path = logoObjectPathFromUrl(url);
+    const path = objectPathFromUrl(url, BRAND_LOGO_UPLOAD);
     if (!path) return { error: null };
 
-    const { error } = await supabase.storage.from(LOGO_BUCKET).remove([path]);
+    const { error } = await supabase.storage.from(BRAND_LOGO_UPLOAD.bucket).remove([path]);
     if (error) console.error("deleteLogo failed:", error);
     return { error };
   },

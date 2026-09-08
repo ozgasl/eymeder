@@ -83,6 +83,31 @@ oku. Her oturum sonunda kendi bölümünü buraya ekle (üstte en yeni).
   linki gibi) — grup oluşturma formunda opsiyonel, doluysa grup detayında
   "Gruba Bağlan" butonu çıkıyor (`src/pages/groups/create.tsx`,
   `groups/[id].tsx`).
+- **Yükleme kuralları tek yerde: `src/lib/fileUpload.ts` (2026-09-08)**
+  (eski adı `imageUpload.ts`, video da kapsadığı için yeniden adlandırıldı).
+  Üç yükleme yolu var, her biri kendi kovasına: marka logosu (`brand-logos`,
+  2 MB, görsel), profil fotoğrafı (`avatars`, 5 MB, görsel), galeri
+  (`media`, foto 10 MB / video 50 MB). Hepsi `UploadPreset` olarak tanımlı,
+  `validateUpload(file, preset)` ile kontrol ediliyor.
+  - **Sınırlar HEM kovada HEM kodda**: kova gerçek zorlayıcı (yüklemeler
+    client'tan gidiyor, form atlanabilir), kod ise reddi Türkçe açıklıyor.
+    `20260908190000` (brand-logos) ve `20260908200000` (avatars + media)
+    migration'larındaki sayılar `fileUpload.ts` ile aynı olmalı — bunu
+    doğrulayan bir test var (`preset limits match the bucket migration`).
+  - **`media` kovası foto ve videoyu paylaşıyor**, kova tek limit tutabildiği
+    için kovadaki değer büyük olan (50 MB); fotoğrafın 10 MB tavanı sadece
+    uygulamada zorlanıyor.
+  - **Supabase'in proje geneli yükleme limiti ayrı**: kovadaki 50 MB'tan
+    düşükse geçerli olan o. Daha büyük video için dashboard'dan
+    (Storage → Settings) yükseltilmeli.
+  - **`profileService.uploadAvatar` ÖLÜ KOD**: profil sayfası sadece
+    "Profil Fotoğrafı URL" metin alanı kullanıyor, fonksiyonu hiçbir yer
+    çağırmıyor. Silinmedi, doğrulandı — biri gerçek bir seçici bağlarsa
+    kontrolsüz başlamasın. Gerçek maruziyet `gallery.tsx` → `uploadMedia`'daydı.
+  - **`wrongKindMessage` neden preset'te**: galeri foto/video seçicisi olduğu
+    için "yanlış tür seçtin" mesajı orada anlamlı; marka logosunda video
+    seçilince "Video'yu seçin" demek olmayan bir seçeneği işaret eder. Bu
+    mesaj yalnızca ikili presetlerde tanımlı.
 - **Marka logosu dosya yükleme (2026-09-08)**: `brands.logo_url` ŞEMA OLARAK
   DEĞİŞMEDİ — hem yüklenen dosyanın public URL'i hem elle yapıştırılan dış
   adres aynı kolonda. Yükleme `brand-logos` kovasına
