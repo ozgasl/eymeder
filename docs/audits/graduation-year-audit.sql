@@ -21,6 +21,12 @@
 --     * Two members computing the same Fonzip membership_no — at least one is
 --       wrong (note that "88" and "0088" collide once zero-padded).
 --
+--   Before treating any "Fonzip found nobody" row as a data problem, check
+--   `kontrol_tarihi`: the email/phone fallback (findFonzipMemberByContact)
+--   only shipped on 2026-09-08, so a 'yok' written before that date means no
+--   more than "the computed membership_no didn't match" — re-running the check
+--   may resolve it with no data fix at all. `bayat_kontrol = EVET` marks those.
+--
 --   LOW confidence — only "Fonzip found nobody". A wrong year produces this,
 --   but so does a member who simply is not registered in Fonzip, and nothing
 --   in our data separates the two. There is no digit pattern to exploit here:
@@ -44,7 +50,8 @@ with temiz as (
     regexp_replace(coalesce(p.school_number, ''), '\D', '', 'g') as okul_no_rakam,
     p.membership_tier,
     p.fonzip_membership_status                 as fonzip,
-    p.fonzip_tags
+    p.fonzip_tags,
+    p.fonzip_checked_at
   from profiles p
 ),
 ayni_numara as (
@@ -108,6 +115,9 @@ select
   case when gy is not null and okul_no_rakam <> '' and length(okul_no_rakam) <= 4
        then gy || lpad(okul_no_rakam, 4, '0') end as hesaplanan_fonzip_no,
   fonzip                                      as fonzip_eslesme,
+  fonzip_checked_at::date                     as kontrol_tarihi,
+  case when fonzip = 'yok' and (fonzip_checked_at is null or fonzip_checked_at < '2026-09-08')
+       then 'EVET' else 'hayır' end           as bayat_kontrol,
   fonzip_tags,
   membership_tier,
   coalesce(
@@ -118,12 +128,3 @@ from isaretli
 where cardinality(celiskiler) > 0
    or fonzip = 'yok'
 order by cardinality(celiskiler) desc, ad;
-
--- ===================== 2) Doğrulanamayan havuzun boyutu =====================
--- Bunları ayırt etmek için Fonzip'e aday yıllarla sorgu atmak gerekiyor.
-select
-  count(*) filter (where fonzip_membership_status = 'yok')            as fonzip_eslesmeyen,
-  count(*) filter (where fonzip_membership_status = 'var')            as fonzip_eslesen,
-  count(*) filter (where fonzip_membership_status is null)            as hic_kontrol_edilmemis,
-  count(*)                                                           as toplam_uye
-from profiles;
