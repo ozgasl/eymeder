@@ -13,7 +13,7 @@
 -- that the member's personal code is spent).
 
 CREATE TABLE IF NOT EXISTS brand_code_redemptions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   brand_code_id UUID NOT NULL REFERENCES brand_discount_codes(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   -- The member's state row for this campaign; kept nullable so a redemption
