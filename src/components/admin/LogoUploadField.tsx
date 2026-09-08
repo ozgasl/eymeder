@@ -4,12 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { brandService } from "@/services/brandService";
-import {
-  LOGO_ACCEPT_ATTRIBUTE,
-  LOGO_FORMAT_LABEL,
-  MAX_LOGO_BYTES,
-  validateLogoFile,
-} from "@/lib/imageUpload";
+import { acceptAttribute, BRAND_LOGO_UPLOAD, validateUpload } from "@/lib/fileUpload";
 import { ImageOff, Loader2, Upload, X } from "lucide-react";
 
 interface LogoUploadFieldProps {
@@ -46,7 +41,7 @@ export function LogoUploadField({ value, onChange, brandName, disabled }: LogoUp
     if (inputRef.current) inputRef.current.value = "";
     if (!file) return;
 
-    const validation = validateLogoFile(file);
+    const validation = validateUpload(file, BRAND_LOGO_UPLOAD);
     if (!validation.ok) {
       toast({ title: "Dosya kabul edilmedi", description: validation.message, variant: "destructive" });
       return;
@@ -113,13 +108,13 @@ export function LogoUploadField({ value, onChange, brandName, disabled }: LogoUp
           <input
             ref={inputRef}
             type="file"
-            accept={LOGO_ACCEPT_ATTRIBUTE}
+            accept={acceptAttribute(BRAND_LOGO_UPLOAD)}
             className="hidden"
             onChange={handleFile}
           />
 
           <p className="text-xs text-muted-foreground">
-            {LOGO_FORMAT_LABEL} · en fazla {MAX_LOGO_BYTES / (1024 * 1024)} MB
+            {BRAND_LOGO_UPLOAD.formatLabel} · en fazla {BRAND_LOGO_UPLOAD.maxBytes / (1024 * 1024)} MB
           </p>
 
           <Input

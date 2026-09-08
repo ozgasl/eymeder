@@ -1,4 +1,15 @@
 import { supabase } from "@/integrations/supabase/client";
+import {
+  buildObjectPath,
+  GALLERY_PHOTO_UPLOAD,
+  GALLERY_VIDEO_UPLOAD,
+  validateUpload,
+} from "@/lib/fileUpload";
+
+/** The rules a gallery upload is held to depend on which kind the member picked. */
+export function galleryUploadPreset(mediaType: "photo" | "video") {
+  return mediaType === "video" ? GALLERY_VIDEO_UPLOAD : GALLERY_PHOTO_UPLOAD;
+}
 
 export const galleryService = {
   async uploadMedia(file: File, metadata: {
@@ -11,18 +22,26 @@ export const galleryService = {
     const { data: user } = await supabase.auth.getUser();
     if (!user.user) return { data: null, error: new Error("User not found") };
 
-    // Upload file to Supabase Storage
-    const fileExt = file.name.split(".").pop();
-    const fileName = `${user.user.id}/${Date.now()}.${fileExt}`;
-    
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from("media")
-      .upload(fileName, file);
+    // Checked against the kind the member chose, so picking a video while
+    // "Fotoğraf" is selected is refused with that as the reason. The bucket
+    // enforces the same limits: this upload runs from the client.
+    const preset = galleryUploadPreset(metadata.media_type);
+    const validation = validateUpload(file, preset);
+    if (!validation.ok) {
+      return { data: null, error: new Error(validation.message) };
+    }
+
+    // Extension from the MIME type, not from the browser-reported file name.
+    const fileName = buildObjectPath(user.user.id, file.type, preset);
+
+    const { error: uploadError } = await supabase.storage
+      .from(preset.bucket)
+      .upload(fileName, file, { contentType: file.type });
 
     if (uploadError) return { data: null, error: uploadError };
 
     const { data: { publicUrl } } = supabase.storage
-      .from("media")
+      .from(preset.bucket)
       .getPublicUrl(fileName);
 
     // Create media record

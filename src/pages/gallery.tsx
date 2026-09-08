@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { galleryService } from "@/services/galleryService";
+import { galleryService, galleryUploadPreset } from "@/services/galleryService";
+import { acceptAttribute, validateUpload } from "@/lib/fileUpload";
 import { useAccessControl } from "@/hooks/useAccessControl";
 import { Upload, Image as ImageIcon, Video, Heart, Loader2, Filter } from "lucide-react";
 
@@ -45,9 +46,20 @@ export default function GalleryPage() {
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Checked here as well as in the service, so the reason arrives when the
+    // file is picked rather than after waiting for an upload to fail.
+    const validation = validateUpload(file, galleryUploadPreset(mediaType));
+    if (!validation.ok) {
+      e.target.value = "";
+      setSelectedFile(null);
+      toast({ title: "Dosya kabul edilmedi", description: validation.message, variant: "destructive" });
+      return;
     }
+
+    setSelectedFile(file);
   };
 
   const handleUpload = async () => {
@@ -70,9 +82,11 @@ export default function GalleryPage() {
     });
 
     if (error) {
+      // The real reason matters here: it is usually a rejected file, not a
+      // mystery. Swallowing it left the member with nothing to act on.
       toast({
-        title: "Hata",
-        description: "Medya yüklenemedi",
+        title: "Medya yüklenemedi",
+        description: error.message || "Bilinmeyen bir hata oluştu.",
         variant: "destructive",
       });
     } else {
@@ -135,7 +149,14 @@ export default function GalleryPage() {
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="media-type">Tip</Label>
-                      <Select value={mediaType} onValueChange={(v: "photo" | "video") => setMediaType(v)}>
+                      <Select
+                        value={mediaType}
+                        onValueChange={(v: "photo" | "video") => {
+                          setMediaType(v);
+                          // The picked file was validated against the old kind.
+                          setSelectedFile(null);
+                        }}
+                      >
                         <SelectTrigger id="media-type">
                           <SelectValue />
                         </SelectTrigger>
@@ -151,9 +172,13 @@ export default function GalleryPage() {
                       <Input
                         id="file"
                         type="file"
-                        accept={mediaType === "photo" ? "image/*" : "video/*"}
+                        accept={acceptAttribute(galleryUploadPreset(mediaType))}
                         onChange={handleFileSelect}
                       />
+                      <p className="text-xs text-muted-foreground">
+                        {galleryUploadPreset(mediaType).formatLabel} · en fazla{" "}
+                        {galleryUploadPreset(mediaType).maxBytes / (1024 * 1024)} MB
+                      </p>
                     </div>
 
                     <div className="space-y-2">

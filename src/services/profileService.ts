@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { AVATAR_UPLOAD, buildObjectPath, validateUpload } from "@/lib/fileUpload";
 
 export interface Profile {
   id: string;
@@ -217,6 +218,12 @@ export const profileService = {
   },
 
   // Upload avatar
+  //
+  // Nothing calls this yet — the profile page takes an avatar URL as text — but
+  // it is validated all the same, so whoever wires up a real picker doesn't
+  // inherit an unchecked upload. The `avatars` bucket enforces the same limits
+  // (see 20260908200000_avatars_media_bucket_limits.sql), which is what protects
+  // the bucket regardless of which code path uploads.
   async uploadAvatar(file: File): Promise<{ data: string | null; error: any }> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -225,20 +232,24 @@ export const profileService = {
         return { data: null, error: new Error("Kullanıcı oturumu bulunamadı") };
       }
 
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      const validation = validateUpload(file, AVATAR_UPLOAD);
+      if (!validation.ok) {
+        return { data: null, error: new Error(validation.message) };
+      }
+
+      // Extension from the MIME type, not from the browser-reported file name.
+      const filePath = buildObjectPath(user.id, file.type, AVATAR_UPLOAD);
 
       const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(filePath, file);
+        .from(AVATAR_UPLOAD.bucket)
+        .upload(filePath, file, { contentType: file.type });
 
       if (uploadError) {
         return { data: null, error: uploadError };
       }
 
       const { data: { publicUrl } } = supabase.storage
-        .from("avatars")
+        .from(AVATAR_UPLOAD.bucket)
         .getPublicUrl(filePath);
 
       // Update profile with new avatar URL
