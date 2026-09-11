@@ -25,6 +25,7 @@ export interface Profile {
   university_status: string | null;
   university_graduation_year: number | null;
   profession: string | null;
+  profession_group: string | null;
   company: string | null;
   country: string | null;
   city: string | null;
@@ -38,6 +39,28 @@ export interface Profile {
   mentorship_areas: string[] | null;
   created_at: string;
   updated_at: string;
+  // Not a `profiles` column — attached by getMyProfile/getProfileById/
+  // getAllProfiles from profile_universities (own rows) or
+  // member_profile_universities (someone else's, column-masked).
+  profile_universities?: ProfileUniversity[];
+}
+
+export interface ProfileUniversity {
+  id: string;
+  profile_id: string;
+  university: string;
+  // "studying" | "graduated" in practice (DB CHECK constraint), typed as
+  // string here because the generated Supabase Row type doesn't narrow it.
+  status: string | null;
+  graduation_year: number | null;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface ProfileUniversityInput {
+  university: string;
+  status: "studying" | "graduated" | null;
+  graduation_year: number | null;
 }
 
 export interface ProfileUpdate {
@@ -49,6 +72,7 @@ export interface ProfileUpdate {
   university_status?: string | null;
   university_graduation_year?: number | null;
   profession?: string | null;
+  profession_group?: string | null;
   company?: string | null;
   country?: string | null;
   city?: string | null;
@@ -67,6 +91,7 @@ export interface SearchFilters {
   graduation_year?: number;
   department?: string;
   profession?: string;
+  profession_group?: string;
   city?: string;
 }
 
@@ -92,8 +117,22 @@ export const profileService = {
         .eq("id", user.id)
         .single();
 
-      console.log("Get my profile:", { data, error });
-      return { data, error };
+      if (error || !data) {
+        console.log("Get my profile:", { data, error });
+        return { data, error };
+      }
+
+      // Own rows: read `profile_universities` directly, not the masked view —
+      // same reasoning as reading `profiles` instead of `member_profiles` above.
+      const { data: universities } = await supabase
+        .from("profile_universities")
+        .select("*")
+        .eq("profile_id", user.id)
+        .order("sort_order", { ascending: true });
+
+      const result = { ...data, profile_universities: universities || [] };
+      console.log("Get my profile:", { data: result, error });
+      return { data: result, error };
     } catch (error: any) {
       console.error("Get my profile error:", error);
       return { data: null, error };
@@ -115,8 +154,22 @@ export const profileService = {
         .eq("id", userId)
         .single();
 
-      console.log("Get profile by ID:", { data, error });
-      return { data, error };
+      if (error || !data) {
+        console.log("Get profile by ID:", { data, error });
+        return { data, error };
+      }
+
+      // Someone else's rows go through the masked view, same as the profile
+      // itself came through member_profiles rather than profiles.
+      const { data: universities } = await supabase
+        .from("member_profile_universities")
+        .select("*")
+        .eq("profile_id", userId)
+        .order("sort_order", { ascending: true });
+
+      const result = { ...data, profile_universities: universities || [] };
+      console.log("Get profile by ID:", { data: result, error });
+      return { data: result, error };
     } catch (error: any) {
       console.error("Get profile by ID error:", error);
       return { data: null, error };
@@ -141,6 +194,47 @@ export const profileService = {
 
     console.log("updateMyProfile:", { data, error });
     return { data, error };
+  },
+
+  // Replace the signed-in member's university list. Delete-then-insert rather
+  // than diffing: a member edits a handful of rows at a time in one form
+  // submit, so there's no meaningful "which row is which" to preserve, and a
+  // full replace is simpler than upserting against ids the UI doesn't track
+  // between adds/removes/reorders.
+  async replaceMyUniversities(
+    universities: ProfileUniversityInput[]
+  ): Promise<{ error: any }> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: { message: "Not authenticated" } };
+
+    const { error: deleteError } = await supabase
+      .from("profile_universities")
+      .delete()
+      .eq("profile_id", user.id);
+
+    if (deleteError) {
+      console.error("Replace my universities (delete) error:", deleteError);
+      return { error: deleteError };
+    }
+
+    if (universities.length === 0) {
+      return { error: null };
+    }
+
+    const { error: insertError } = await supabase
+      .from("profile_universities")
+      .insert(
+        universities.map((u, index) => ({
+          ...u,
+          profile_id: user.id,
+          sort_order: index,
+        }))
+      );
+
+    if (insertError) {
+      console.error("Replace my universities (insert) error:", insertError);
+    }
+    return { error: insertError };
   },
 
   // Search and filter alumni directory
@@ -288,8 +382,35 @@ export const profileService = {
         .select("*")
         .order("created_at", { ascending: false });
 
-      console.log("Get all profiles:", { data, error });
-      return { data: data || [], error };
+      if (error || !data) {
+        console.log("Get all profiles:", { data, error });
+        return { data: data || [], error };
+      }
+
+      const ids = data.map((p) => p.id).filter((id): id is string => !!id);
+      const { data: universities } = ids.length
+        ? await supabase
+            .from("member_profile_universities")
+            .select("*")
+            .in("profile_id", ids)
+            .order("sort_order", { ascending: true })
+        : { data: [] as any[] };
+
+      const universitiesByProfile = new Map<string, ProfileUniversity[]>();
+      for (const u of universities || []) {
+        if (!u.profile_id) continue;
+        const list = universitiesByProfile.get(u.profile_id) || [];
+        list.push(u);
+        universitiesByProfile.set(u.profile_id, list);
+      }
+
+      const result = data.map((p) => ({
+        ...p,
+        profile_universities: (p.id && universitiesByProfile.get(p.id)) || [],
+      }));
+
+      console.log("Get all profiles:", { data: result, error });
+      return { data: result, error };
     } catch (error: any) {
       console.error("Get all profiles error:", error);
       return { data: [], error };

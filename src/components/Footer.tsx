@@ -55,14 +55,14 @@ export function Footer() {
             <h3 className="text-white font-semibold text-lg">Hızlı Erişim</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="/about/baskanin-mesaji" className="text-sm hover:text-white transition-colors">
+                <a href="https://eymeder.com/baskanin-mesaji" target="_blank" rel="noopener noreferrer" className="text-sm hover:text-white transition-colors">
                   Başkanın Mesajı
-                </Link>
+                </a>
               </li>
               <li>
-                <Link href="/about/yonetim-kurulu" className="text-sm hover:text-white transition-colors">
+                <a href="https://eymeder.com/yonetim-kurulu" target="_blank" rel="noopener noreferrer" className="text-sm hover:text-white transition-colors">
                   Yönetim Kurulu
-                </Link>
+                </a>
               </li>
               <li>
                 <Link href="/directory" className="text-sm hover:text-white transition-colors">

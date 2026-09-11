@@ -1495,6 +1495,7 @@ export type Database = {
           mentorship_areas: string[] | null
           phone: string | null
           profession: string | null
+          profession_group: string | null
           school_number: string | null
           twitter_url: string | null
           university: string | null
@@ -1527,6 +1528,7 @@ export type Database = {
           mentorship_areas?: string[] | null
           phone?: string | null
           profession?: string | null
+          profession_group?: string | null
           school_number?: string | null
           twitter_url?: string | null
           university?: string | null
@@ -1559,6 +1561,7 @@ export type Database = {
           mentorship_areas?: string[] | null
           phone?: string | null
           profession?: string | null
+          profession_group?: string | null
           school_number?: string | null
           twitter_url?: string | null
           university?: string | null
@@ -1592,6 +1595,44 @@ export type Database = {
             foreignKeyName: "roles_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profile_universities: {
+        Row: {
+          created_at: string | null
+          graduation_year: number | null
+          id: string
+          profile_id: string
+          sort_order: number
+          status: string | null
+          university: string
+        }
+        Insert: {
+          created_at?: string | null
+          graduation_year?: number | null
+          id?: string
+          profile_id: string
+          sort_order?: number
+          status?: string | null
+          university: string
+        }
+        Update: {
+          created_at?: string | null
+          graduation_year?: number | null
+          id?: string
+          profile_id?: string
+          sort_order?: number
+          status?: string | null
+          university?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_universities_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1698,12 +1739,25 @@ export type Database = {
           mentorship_areas: string[] | null
           phone: string | null
           profession: string | null
+          profession_group: string | null
           school_number: string | null
           twitter_url: string | null
           university: string | null
           university_graduation_year: number | null
           university_status: string | null
           updated_at: string | null
+        }
+        Relationships: []
+      }
+      member_profile_universities: {
+        Row: {
+          created_at: string | null
+          graduation_year: number | null
+          id: string | null
+          profile_id: string | null
+          sort_order: number | null
+          status: string | null
+          university: string | null
         }
         Relationships: []
       }

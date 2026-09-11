@@ -1,0 +1,37 @@
+// Fixed taxonomy for "Meslek Grubu" (profession group). Members pick from this
+// list instead of free text, so it stays usable as a filter — unlike
+// `profession`, which is free text and never normalized. Single source of
+// truth for both the profile edit form and the directory filter.
+export const PROFESSION_GROUPS: string[] = [
+  "Mühendislik ve Teknoloji",
+  "Yazılım ve Bilişim",
+  "Sağlık ve Tıp",
+  "Eğitim ve Akademi",
+  "Hukuk",
+  "Finans, Bankacılık ve Muhasebe",
+  "Pazarlama, Reklam ve İletişim",
+  "Satış ve İş Geliştirme",
+  "İnsan Kaynakları",
+  "Medya, Yayıncılık ve Gazetecilik",
+  "Sanat ve Tasarım",
+  "Mimarlık ve İç Mimarlık",
+  "Turizm, Otelcilik ve Gastronomi",
+  "Perakende ve E-ticaret",
+  "İnşaat ve Gayrimenkul",
+  "Enerji ve Doğal Kaynaklar",
+  "Tarım ve Gıda",
+  "Lojistik, Ulaştırma ve Tedarik Zinciri",
+  "Üretim ve İmalat",
+  "Kamu Sektörü ve Devlet",
+  "Sivil Toplum ve STK",
+  "Girişimcilik / Kendi İşi",
+  "Danışmanlık",
+  "Havacılık ve Savunma Sanayii",
+  "Telekomünikasyon",
+  "Sigortacılık",
+  "Spor ve Rekreasyon",
+  "Güvenlik (Asker/Polis)",
+  "Öğrenci",
+  "Emekli",
+  "Diğer",
+];

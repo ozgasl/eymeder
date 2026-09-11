@@ -14,6 +14,7 @@ import { useAccessControl } from "@/hooks/useAccessControl";
 import { AccessRestricted } from "@/components/AccessRestricted";
 import { Loader2, Search, MapPin, Briefcase, GraduationCap, Building, Filter, MessageSquare, Mail, Phone, Linkedin, Twitter, Instagram, Facebook, Globe } from "lucide-react";
 import { getSocialHandle } from "@/lib/socialLinks";
+import { PROFESSION_GROUPS } from "@/lib/professionGroups";
 
 export default function DirectoryPage() {
   const { loading, isDernekUyesi } = useAccessControl();
@@ -35,6 +36,7 @@ export default function DirectoryPage() {
   const [countryFilter, setCountryFilter] = useState("all");
   const [universityFilter, setUniversityFilter] = useState("all");
   const [professionFilter, setProfessionFilter] = useState("all");
+  const [professionGroupFilter, setProfessionGroupFilter] = useState("all");
   const [companyFilter, setCompanyFilter] = useState("all");
 
   useEffect(() => {
@@ -58,15 +60,16 @@ export default function DirectoryPage() {
     const matchesHighSchoolYear = highSchoolYearFilter === "all" || highSchoolYearFilter === "" || member.graduation_year?.toString() === highSchoolYearFilter;
     const matchesCity = cityFilter === "all" || cityFilter === "" || member.city === cityFilter;
     const matchesCountry = countryFilter === "all" || countryFilter === "" || member.country === countryFilter;
-    const matchesUniversity = universityFilter === "all" || universityFilter === "" || member.university?.toLowerCase().includes(universityFilter.toLowerCase());
+    const matchesUniversity = universityFilter === "all" || universityFilter === "" || member.profile_universities?.some((u: any) => u.university?.toLowerCase().includes(universityFilter.toLowerCase()));
     const matchesProfession = professionFilter === "all" || professionFilter === "" || member.profession?.toLowerCase().includes(professionFilter.toLowerCase());
+    const matchesProfessionGroup = professionGroupFilter === "all" || professionGroupFilter === "" || member.profession_group === professionGroupFilter;
     const matchesCompany = companyFilter === "all" || companyFilter === "" || member.company?.toLowerCase().includes(companyFilter.toLowerCase());
 
-    return matchesSearch && matchesHighSchoolYear && matchesCity && matchesCountry && matchesUniversity && matchesProfession && matchesCompany;
+    return matchesSearch && matchesHighSchoolYear && matchesCity && matchesCountry && matchesUniversity && matchesProfession && matchesProfessionGroup && matchesCompany;
   });
 
   // Extract unique values for dropdowns
-  const uniqueUniversities = Array.from(new Set(members.map(m => m.university).filter(Boolean)));
+  const uniqueUniversities = Array.from(new Set(members.flatMap(m => (m.profile_universities || []).map((u: any) => u.university)).filter(Boolean)));
   const uniqueProfessions = Array.from(new Set(members.map(m => m.profession).filter(Boolean)));
   const uniqueCompanies = Array.from(new Set(members.map(m => m.company).filter(Boolean)));
   const uniqueCountries = Array.from(new Set(members.map(m => m.country).filter(Boolean)));
@@ -258,6 +261,23 @@ export default function DirectoryPage() {
                   </div>
 
                   <div className="space-y-2">
+                    <Label htmlFor="profession-group-filter">Meslek Grubu</Label>
+                    <Select value={professionGroupFilter} onValueChange={setProfessionGroupFilter}>
+                      <SelectTrigger id="profession-group-filter" aria-label="Meslek grubuna göre filtrele">
+                        <SelectValue placeholder="Tüm meslek grupları" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tümü</SelectItem>
+                        {PROFESSION_GROUPS.map((group) => (
+                          <SelectItem key={group} value={group}>
+                            {group}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
                     <Label htmlFor="company-filter">Şirket</Label>
                     <Select value={companyFilter} onValueChange={setCompanyFilter}>
                       <SelectTrigger id="company-filter" aria-label="Şirkete göre filtrele">
@@ -284,6 +304,7 @@ export default function DirectoryPage() {
                       setCountryFilter("all");
                       setUniversityFilter("all");
                       setProfessionFilter("all");
+                      setProfessionGroupFilter("all");
                       setCompanyFilter("all");
                     }}
                     aria-label="Tüm filtreleri temizle"
@@ -409,12 +430,18 @@ export default function DirectoryPage() {
                                         <dd className="text-sm">{person.graduation_year}</dd>
                                       </div>
                                     )}
-                                    {person.university && (
+                                    {person.profile_universities && person.profile_universities.length > 0 && (
                                       <div className="space-y-1">
                                         <dt className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                                           <GraduationCap className="h-4 w-4" aria-hidden="true" /> Üniversite
                                         </dt>
-                                        <dd className="text-sm">{person.university} {person.university_status === 'studying' ? '(Okuyor)' : '(Mezun)'}</dd>
+                                        <dd className="text-sm space-y-0.5">
+                                          {person.profile_universities.map((u: any, i: number) => (
+                                            <div key={i}>
+                                              {u.university}{u.status ? ` (${u.status === "studying" ? "Okuyor" : "Mezun"}${u.status === "graduated" && u.graduation_year ? `, ${u.graduation_year}` : ""})` : ""}
+                                            </div>
+                                          ))}
+                                        </dd>
                                       </div>
                                     )}
                                     {person.profession && (
