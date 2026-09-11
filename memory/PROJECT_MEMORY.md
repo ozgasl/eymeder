@@ -694,6 +694,84 @@ davranışın aynısını alıyor: boş küme.
 
 ## Oturum günlüğü
 
+### 2026-09-11/12 — Bugfix 4: footer linkleri, Meslek Grubu, çoklu üniversite, avatar yükleme + üniversite standardizasyonu
+
+PR [#28](https://github.com/ozgasl/eymeder/pull/28) ve
+[#29](https://github.com/ozgasl/eymeder/pull/29) — ikisi de merge edildi.
+
+**Oturum başında önemli bir bulgu**: local `main` origin'in 30 commit
+gerisindeymiş (aynı gün atılmış `profiles` RLS + `member_profiles` maskeleme
+view'i dahil — bkz. yukarıdaki "✅ Kapandı" bölümleri). Plan bu eski
+varsayımla ("profiles'ta RLS yok") onaylanmıştı; uygulamaya geçmeden hemen
+önce fark edilip `origin/main`'den taze bir branch açılarak düzeltildi. **Yeni
+kural**: bir sonraki oturumda işe başlamadan önce `git fetch` +
+`git log --oneline main..origin/main` ile karşılaştır, local `main`'e
+körlemesine güvenme — bu makinede birden fazla oturum/worktree aynı repoyu
+kullanıyor ve local `main` sessizce eskiyebiliyor.
+
+**PR #28 — 4 bağımsız talep**:
+- Footer'daki "Başkanın Mesajı"/"Yönetim Kurulu" linkleri dahili `/about/...`
+  sayfalarına, üst menüdekiler `eymeder.com`'a gidiyordu (birbirinden farklı,
+  kullanıcının "footer yanlış" varsayımının TERSİ çıktı — footer aslında
+  kendi sayfalarına gidiyordu). Kullanıcı kararı: footer, üst menüyle
+  tutarlı olacak şekilde harici linke çevrildi.
+- **`profiles.profession_group`**: sabit taksonomi (`src/lib/professionGroups.ts`,
+  ~30 kategori), mevcut serbest metin `profession`'a dokunulmadı.
+  `member_profiles` view'i aynı `member_sees_full_profile()` maskesiyle
+  güncellendi. Backfill, kullanıcının SQL Editor'den çıkardığı distinct
+  `profession` listesine göre elle eşlendi (`20260911200000`).
+- **`profile_universities` tablosu**: tek `university`/`university_status`/
+  `university_graduation_year` yerine (eski kolonlar bu PR'da SİLİNMEDİ,
+  bilinçli olarak ertelendi). Okuma erişimi `profiles`/`member_profiles`'daki
+  aynı ayrımı koruyor: üniversite adı her giriş yapmış üyeye açık, durum/
+  mezuniyet yılı sadece sahibi/dernek üyesi/staff'a — yeni bir
+  `member_profile_universities` view'iyle, `member_sees_full_profile()`
+  tekrar kullanılarak.
+- `profileService.uploadAvatar` zaten vardı ve doğrulanmıştı (`AVATAR_UPLOAD`
+  preset, `src/lib/fileUpload.ts`) ama hiçbir UI çağırmıyordu — profil
+  sayfasına dosya seçici bağlandı, ek doğrulama yazmaya gerek kalmadı.
+
+**Bu PR'da rastlanan iki SQL hatası (ikisi de dosya hiç başarıyla
+çalışmadığı için aynı dosyada düzeltildi, yeni migration açılmadı)**:
+1. `CREATE OR REPLACE VIEW` yeni kolonu SELECT listesinin EN SONUNA eklemek
+   zorunda — `updated_at`'ten önce eklenince Postgres bunu "son kolonu yeniden
+   adlandırma" sayıp `42P16` verdi.
+2. Bir `UNION ALL`'da bir kolonun HER İKİ dalında da yalnızca çıplak `NULL`
+   varsa, Postgres tipini `text`'e varsayıyor — `integer` hedef kolona
+   (`graduation_year`) yazılırken `42804` verdi. Çözüm: `NULL::integer` gibi
+   açık cast.
+
+**PR #29 — üniversite isimlerini standartlaştırma** (kullanıcının PR #28'i
+merge ettikten hemen sonraki talebi): distinct `university` listesi
+çıkarıldı, iki üniversite adında ("İstanbul Üniversitesi", "Marmara
+Üniversitesi") görünmeyen sondaki boşluk yüzünden ikişer varyant olduğu
+bulundu (aynı sınıf hata, bkz. aşağıdaki yeni ders). Kullanıcı kararları:
+üniversite adı + bölüm ayrı alanlar olsun (bölüm serbest metin), çift
+üniversiteli tek bir kayıt (`ODTÜ Felsefe / Yıldız Teknik Üniveristesi
+İngilizce İşletme`) iki satıra bölünsün, ve üniversite alanı YÖK'ün resmi
+listesinden (kullanıcının verdiği `yok.gov.tr/tr/university?type=1/2`
+adresinden WebFetch ile çekildi, 202 kurum) aranabilir bir seçim kutusuna
+(`UniversityCombobox`, command/popover tabanlı) çevrilsin — listede olmayan
+bir değer yine de yazılıp kaydedilebiliyor ve `getKnownUniversities()` ile
+sonraki üyelere de öneri oluyor.
+
+## 🔥 Ders: Serbest metin karşılaştırmalarında `TRIM()` şart, körlemesine tam eşleşme yeterli değil (2026-09-11/12)
+
+İki ayrı backfill'de (Meslek Grubu, üniversite adları) SQL Editor'de
+görüntülenen bir tabloya bakıp oradan kopyalanan "distinct değer" string'leri,
+tam eşleşmeli bir `CASE`/`WHERE` migration'ında BEKLENMEDİK şekilde
+eşleşmedi — sebep, üye tarafından girilen değerin sonunda görünmeyen bir
+boşluk olmasıydı (`encode(convert_to(col, 'UTF8'), 'hex')` ile doğrulandı,
+her ikisinde de sonda `20`). SQL Editor'ün ve markdown tablolarının
+render'ı sondaki boşluğu görsel olarak yutuyor, "aynı görünen" iki değer
+aslında farklı byte dizisi oluyor.
+
+**Kural**: bir üye tarafından girilmiş serbest metin sütununu (distinct
+listesi insan tarafından okunup migration'a elle yazıldıysa) tam eşitlikle
+(`WHERE col = '...'`) değil `WHERE TRIM(col) = '...'` ile eşleştir — baştan.
+Yine de bir eşleme "az" tutarsa hızlı teşhis:
+`SELECT col, length(col), encode(convert_to(col, 'UTF8'), 'hex') FROM t WHERE <hedef> IS NULL`.
+
 ### 2026-09-11 — Bugfix 3: tier/role policy'leri, KVKK/çerez erişim bug'ı, avatar_url maskesi
 
 PR [#25](https://github.com/ozgasl/eymeder/pull/25) — merge edildi.
