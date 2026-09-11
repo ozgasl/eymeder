@@ -3,9 +3,12 @@ import type { Database } from "@/integrations/supabase/types";
 
 export const mentorshipService = {
   async getMentors() {
+    // Explicit columns, not "*": this list is what the mentorship page shows,
+    // and the row otherwise carried every member's email and phone into the
+    // browser of anyone who opened the page.
     const { data, error } = await supabase
       .from("profiles")
-      .select("*")
+      .select("id, full_name, avatar_url, profession, company, mentor_bio, mentorship_areas, department, graduation_year")
       .eq("is_mentor", true);
     return { data, error };
   },
@@ -36,8 +39,8 @@ export const mentorshipService = {
       .from("mentorship_requests")
       .select(`
         *,
-        mentor:profiles!mentorship_requests_mentor_id_fkey(*),
-        mentee:profiles!mentorship_requests_mentee_id_fkey(*)
+        mentor:profiles!mentorship_requests_mentor_id_fkey(id, full_name, avatar_url, profession, company),
+        mentee:profiles!mentorship_requests_mentee_id_fkey(id, full_name, avatar_url, department, graduation_year)
       `)
       .or(`mentor_id.eq.${user.user.id},mentee_id.eq.${user.user.id}`)
       .order("created_at", { ascending: false });

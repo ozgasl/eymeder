@@ -199,16 +199,58 @@ oku. Her oturum sonunda kendi bölümünü buraya ekle (üstte en yeni).
   `connected_member:profiles!brands_connected_member_id_fkey(...)` join'i
   ile ismini getiriyor.
 
-## ⚠️ Bilinen, ÇÖZÜLMEMİŞ güvenlik açığı
+## 🔥 Ders: Kolon seviyesi REVOKE, tablo seviyesi GRANT varken HİÇBİR ŞEY yapmaz (2026-09-11)
 
-**`profiles` tablosunda hiç RLS yok.** Yani herhangi bir authenticated (hatta
-belki anon) client, doğrudan Supabase REST API çağrısıyla TÜM üyelerin telefon,
-e-posta, LinkedIn gibi bilgilerini okuyabilir — dizin sayfası UI'da
-`dernek_uyesi`'ye kısıtlansa bile, bu sadece UI seviyesinde bir kısıtlama,
-veritabanı seviyesinde değil. Bunu düzeltmek, `profiles`'a dayanan çok sayıda
-mevcut okuma akışını (admin paneli, galeri, haberler yazar bilgisi, iş ilanı
-sahibi vb.) kırmadan yapılması gereken, dikkatli test isteyen ayrı bir iş.
-Henüz kimse elini sürmedi — sürerken bu notu güncelle.
+`20260830110000_lock_membership_tier_column.sql` şunu yazıyordu:
+`REVOKE UPDATE (membership_tier) ON profiles FROM authenticated;` — ve bu
+dosyada "kapatıldı" diye kayıtlıydı. **Hiçbir zaman etkisi olmadı.** Postgres
+yetkileri TOPLAMSALDIR: kolon seviyesi bir REVOKE, tablo seviyesi bir GRANT'i
+geri alamaz. Supabase `authenticated`'a public tablolarda tablo seviyesi UPDATE
+verdiği için `has_column_privilege('authenticated','profiles','membership_tier',
+'UPDATE')` hep `true` kaldı — yani **herhangi bir üye kendini `dernek_uyesi`
+yapabiliyordu** (dizin, indirim kodları, iş ilanı, grup, mesajlaşma).
+
+**Nasıl bulundu**: yerel Postgres'te Supabase'in rollerini (`anon`,
+`authenticated`, `service_role`) ve varsayılan `GRANT ALL`'unu kurup `SET ROLE`
+ile test ederek. Supabase SQL Editor superuser çalıştığı için bunu ASLA
+göstermez — bu, RLS recursion dersinin tekrarı: **yetki/politika değişikliğini
+gerçek rolle test et.**
+
+**Doğru düzeltme iki yoldan biri**:
+1. `REVOKE UPDATE ON profiles FROM authenticated` + izinli kolonlara tek tek
+   `GRANT UPDATE (...)` — Postgres zorlar ama liste her yeni profil alanında
+   güncellenmeli, unutulursa profil formu kırılır.
+2. `BEFORE UPDATE` trigger'ı korunacak kolonları OLD değerine geri yazar
+   (seçilen yol: liste kısa ve sabit, yeni düzenlenebilir alan eklenince
+   kendiliğinden çalışır).
+
+**Trigger'da SECURITY DEFINER KULLANMA**: o modda `current_user` fonksiyon
+SAHİBİNİ döndürür, çağıran rolü değil — `current_user IN ('authenticated',
+'anon')` kontrolü hiç eşleşmez ve trigger sessizce hiçbir şey korumaz. Bu da
+testte yakalandı (ilk sürüm tam olarak böyle yazılmıştı).
+
+## ⚠️ Bilinen açık: `profiles` okuma hâlâ kolon bazlı kısıtlı DEĞİL
+
+**Aşama 1 tamamlandı** (`20260911100000_profiles_rls.sql`): RLS açık,
+`authenticated` tüm satırları OKUR, herkes yalnızca KENDİ satırını günceller,
+kimse silemez, `anon` hiçbir profili okuyamaz. Sistem alanları
+(`membership_tier`, `fonzip_*`, `graduation_year`, `school_number`) trigger ile
+korunur. Herkese açık `/brands` sayfasındaki "Bağlantılı mezun" adı
+`brand_connected_members` view'i ile yaşıyor (yalnızca markaya bağlanmış
+üyelerin id+ad'ı, `security_invoker = false`, anon'a GRANT'li) —
+`brandService` bunu embed ile değil AYRI SORGU ile okuyup birleştiriyor, çünkü
+PostgREST'in bir view'i FK üzerinden embed edip edemediği doğrulanamadı ve
+herkese açık sayfayı ona bağlamak istemedik.
+
+**Kalan (Aşama 2)**: giriş yapmış her üye hâlâ herkesin e-posta/telefonunu
+okuyabiliyor. Kullanıcı kararı: **`Dernek Üyesi` etiketi olanlar her şeyi,
+olmayanlar (Mezun/Bağışçı) yalnızca mezuniyet yılını** görsün. ⚠️ Bu kararın
+harfi harfine uygulanması haber/galeri/iş ilanı/grup/etkinlik embed'lerindeki
+**yazar adlarını da siler** — bu sayfalar `full_name`/`avatar_url` gösteriyor.
+Aşama 2'ye başlamadan bu çelişki kullanıcıyla netleştirilmeli.
+RLS satır bazlı olduğu için çözüm view/RPC gerektirir; 12 servisin embed'i
+yeniden yazılacak ve PostgREST'in view embed'i **önce tek bir servisle
+sınanmalı**.
 
 ## 🔥 Ders: Supabase RLS'te self-referencing policy → infinite recursion (42P17)
 

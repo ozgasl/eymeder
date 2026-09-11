@@ -115,6 +115,18 @@ supabase/
 └── migrations/      # Database schema migrations
 ```
 
+### Security
+
+`profiles` carries Row Level Security: a signed-in member reads every profile
+but writes only their own, nobody deletes one, and a logged-out visitor reads
+none (the public brands page gets the one name it shows through the
+`brand_connected_members` view). System-owned columns — `membership_tier`, the
+`fonzip_*` fields, `graduation_year`, `school_number` — are held to their
+previous values by a trigger for anything arriving as `authenticated`, so a
+member cannot promote themselves; the service role used by the admin API routes
+is unaffected. Restricting *which columns* a non-dues member can read is still
+open, and is tracked in `memory/PROJECT_MEMORY.md`.
+
 ## Project Memory
 
 `memory/PROJECT_MEMORY.md` tracks cross-session architectural decisions and

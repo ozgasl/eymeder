@@ -24,15 +24,8 @@ export const qrCodeService = {
     return this.getUserQRCode(user.id);
   },
 
-  // Verify QR code exists
-  async verifyQRCode(qrCode: string): Promise<{ data: UserQRCode | null; error: any }> {
-    const { data, error } = await supabase
-      .from("user_qr_codes")
-      .select("*, profiles(*)")
-      .eq("qr_code", qrCode)
-      .single();
-
-    console.log("verifyQRCode:", { data, error });
-    return { data, error };
-  },
+  // A verifyQRCode helper used to live here, selecting `*, profiles(*)` — every
+  // column of the matching member. Nothing called it, and the staff redemption
+  // flow resolves a QR code server-side in /api/admin/brand-codes/redeem, so it
+  // was removed rather than left as an all-columns read waiting to be wired up.
 };

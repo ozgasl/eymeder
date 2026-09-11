@@ -12,30 +12,65 @@ type Brand = Database["public"]["Tables"]["brands"]["Row"];
 type BrandInsert = Database["public"]["Tables"]["brands"]["Insert"];
 type BrandUpdate = Database["public"]["Tables"]["brands"]["Update"];
 
+/**
+ * Fills in each brand's `connected_member` from the `brand_connected_members`
+ * view, in the shape the pages already read (`brand.connected_member?.full_name`).
+ *
+ * This used to be a PostgREST embed on `profiles`, which stopped working for
+ * logged-out visitors once profiles got RLS — and the brands page is public.
+ * The view exposes only the names of members an admin deliberately linked to a
+ * brand, and it is read here as a separate query rather than an embed on the
+ * view, so the public page does not depend on PostgREST resolving a foreign
+ * key through a view.
+ */
+async function attachConnectedMembers(brands: any[]): Promise<any[]> {
+  const ids = Array.from(
+    new Set(brands.map((brand) => brand.connected_member_id).filter(Boolean)),
+  ) as string[];
+
+  if (ids.length === 0) {
+    return brands.map((brand) => ({ ...brand, connected_member: null }));
+  }
+
+  const { data, error } = await supabase
+    .from("brand_connected_members")
+    .select("id, full_name")
+    .in("id", ids);
+
+  // A missing name is not worth failing the brands page over.
+  if (error) console.error("attachConnectedMembers failed:", error);
+
+  const byId = new Map((data ?? []).map((member: any) => [member.id, member]));
+  return brands.map((brand) => ({
+    ...brand,
+    connected_member: brand.connected_member_id ? byId.get(brand.connected_member_id) ?? null : null,
+  }));
+}
+
 export const brandService = {
   // Get all active brands
   async getBrands(): Promise<{ data: Brand[] | null; error: any }> {
     const { data, error } = await supabase
       .from("brands")
-      .select("*, connected_member:profiles!brands_connected_member_id_fkey(id, full_name)")
+      .select("*")
       .eq("is_active", true)
       .order("display_order", { ascending: true })
       .order("name", { ascending: true });
 
-    console.log("getBrands:", { data, error });
-    return { data, error };
+    if (error || !data) return { data, error };
+    return { data: (await attachConnectedMembers(data)) as Brand[], error: null };
   },
 
   // Get all brands (admin)
   async getAllBrands(): Promise<{ data: Brand[] | null; error: any }> {
     const { data, error } = await supabase
       .from("brands")
-      .select("*, connected_member:profiles!brands_connected_member_id_fkey(id, full_name)")
+      .select("*")
       .order("display_order", { ascending: true })
       .order("name", { ascending: true });
 
-    console.log("getAllBrands:", { data, error });
-    return { data, error };
+    if (error || !data) return { data, error };
+    return { data: (await attachConnectedMembers(data)) as Brand[], error: null };
   },
 
   // Get brand by ID
