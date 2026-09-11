@@ -54,8 +54,11 @@ SELECT
   CASE WHEN public.member_sees_full_profile(p.id) THEN p.fonzip_membership_status END   AS fonzip_membership_status,
   CASE WHEN public.member_sees_full_profile(p.id) THEN p.fonzip_tags END                AS fonzip_tags,
   CASE WHEN public.member_sees_full_profile(p.id) THEN p.fonzip_checked_at END          AS fonzip_checked_at,
-  CASE WHEN public.member_sees_full_profile(p.id) THEN p.profession_group END           AS profession_group,
-  CASE WHEN public.member_sees_full_profile(p.id) THEN p.updated_at END                 AS updated_at
+  CASE WHEN public.member_sees_full_profile(p.id) THEN p.updated_at END                 AS updated_at,
+  -- Must stay LAST: CREATE OR REPLACE VIEW only allows appending new columns
+  -- at the end — putting this before `updated_at` renames the view's last
+  -- column instead of adding one, which Postgres rejects (42P16).
+  CASE WHEN public.member_sees_full_profile(p.id) THEN p.profession_group END           AS profession_group
 FROM public.profiles p
 WHERE auth.uid() IS NOT NULL;
 
