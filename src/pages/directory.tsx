@@ -439,7 +439,7 @@ export default function DirectoryPage() {
                                         <dd className="text-sm space-y-0.5">
                                           {person.profile_universities.map((u: any, i: number) => (
                                             <div key={i}>
-                                              {u.university}{u.status ? ` (${u.status === "studying" ? "Okuyor" : "Mezun"}${u.status === "graduated" && u.graduation_year ? `, ${u.graduation_year}` : ""})` : ""}
+                                              {u.university}{u.department ? ` — ${u.department}` : ""}{u.status ? ` (${u.status === "studying" ? "Okuyor" : "Mezun"}${u.status === "graduated" && u.graduation_year ? `, ${u.graduation_year}` : ""})` : ""}
                                             </div>
                                           ))}
                                         </dd>

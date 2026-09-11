@@ -49,6 +49,7 @@ export interface ProfileUniversity {
   id: string;
   profile_id: string;
   university: string;
+  department: string | null;
   // "studying" | "graduated" in practice (DB CHECK constraint), typed as
   // string here because the generated Supabase Row type doesn't narrow it.
   status: string | null;
@@ -59,6 +60,7 @@ export interface ProfileUniversity {
 
 export interface ProfileUniversityInput {
   university: string;
+  department: string | null;
   status: "studying" | "graduated" | null;
   graduation_year: number | null;
 }
@@ -235,6 +237,32 @@ export const profileService = {
       console.error("Replace my universities (insert) error:", insertError);
     }
     return { error: insertError };
+  },
+
+  // Universities already on file across all members, for the university
+  // combobox: any member who types one not in the static seed list
+  // (src/lib/turkishUniversities.ts) makes it a suggestion for everyone else
+  // from then on. Reads member_profile_universities (university name is
+  // unmasked there for any signed-in member), not profile_universities,
+  // since a member who isn't a dues-paying member can't read others' rows
+  // from the base table directly.
+  async getKnownUniversities(): Promise<{ data: string[]; error: any }> {
+    try {
+      const { data, error } = await supabase
+        .from("member_profile_universities")
+        .select("university")
+        .not("university", "is", null);
+
+      if (error) {
+        return { data: [], error };
+      }
+
+      const unique = [...new Set((data || []).map((u) => u.university).filter(Boolean) as string[])];
+      return { data: unique, error: null };
+    } catch (error: any) {
+      console.error("Get known universities error:", error);
+      return { data: [], error };
+    }
   },
 
   // Search and filter alumni directory
