@@ -740,7 +740,7 @@ PR [#25](https://github.com/ozgasl/eymeder/pull/25) — merge edildi.
   kuruldu (CI hep yeşil kaldı, review yorumu gelmedi).
 
 **Aynı gün, ikinci PR [#26](https://github.com/ozgasl/eymeder/pull/26) —
-hangi sayfalar public olmalı**: yukarıdaki
+hangi sayfalar public olmalı** (merge edildi): yukarıdaki
 "kapsam dışı" bulgunun takibi. Explore agent'ı her sayfayı (kaynak kodu,
 RLS/servis hazırlığı, Navigation/Footer'daki link deseni) inceledi; kullanıcı
 sayfa sayfa karar verdi — bkz. yukarıdaki "Hangi sayfalar giriş yapmadan
@@ -749,7 +749,14 @@ erişilebilir" mimari kararı. `_app.tsx` + `news.tsx`/`news/[id].tsx` +
 `20260911160000_private_group_content_rls.sql` eklendi (groups public
 olmasa da is_private bug'ı ayrıca kapatıldı, yerel Postgres'te 5/5
 doğrulandı). Playwright ile 9 senaryo (3 yeni public + jobs/groups/brands
-hâlâ kapalı + profile/directory/welcome/auth regresyon) doğrulandı.
+hâlâ kapalı + profile/directory/welcome/auth regresyon) doğrulandı; kullanıcı
+`20260911160000`'i uygulayıp preview'da ayrıca test etti.
+
+**Oturum kapanışı**: PR #25 ve #26 ikisi de merge edildi, ikisi de production'da
+doğrulandı (teşhis sorgusu / yerel Postgres / Playwright — "uyguladım" ifadesine
+tek başına güvenilmedi). Bu oturumda açılan hiçbir konu ertelenmedi; jobs/brands
+bilinçli olarak üyelere özel bırakıldı (bkz. yukarıdaki mimari karar). Sıradaki
+oturum için bekleyen bir şey yok — yeni bir talep gelene kadar bu dosya güncel.
 
 ### 2026-09-11 — `profiles` RLS (Aşama 1 + 2), galeri yükleme hatası, storage policy'leri
 
