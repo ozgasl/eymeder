@@ -70,7 +70,8 @@ export default function DirectoryPage() {
 
   // Extract unique values for dropdowns
   const uniqueUniversities = Array.from(new Set(members.flatMap(m => (m.profile_universities || []).map((u: any) => u.university)).filter(Boolean)));
-  const uniqueProfessions = Array.from(new Set(members.map(m => m.profession).filter(Boolean)));
+  const uniqueProfessions = Array.from(new Set(members.map(m => m.profession).filter(Boolean))).sort((a: any, b: any) => a.localeCompare(b, "tr"));
+  const sortedProfessionGroups = [...PROFESSION_GROUPS].sort((a, b) => a.localeCompare(b, "tr"));
   const uniqueCompanies = Array.from(new Set(members.map(m => m.company).filter(Boolean)));
   const uniqueCountries = Array.from(new Set(members.map(m => m.country).filter(Boolean)));
 
@@ -251,7 +252,7 @@ export default function DirectoryPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Tümü</SelectItem>
-                        {PROFESSION_GROUPS.map((group) => (
+                        {sortedProfessionGroups.map((group) => (
                           <SelectItem key={group} value={group}>
                             {group}
                           </SelectItem>
