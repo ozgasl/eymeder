@@ -55,10 +55,13 @@ WITH src AS (
   FROM profile_universities
   WHERE TRIM(university) = 'ODTÜ Felsefe / Yıldız Teknik Üniveristesi İngilizce İşletme'
 )
+-- Explicit casts: a bare NULL with nothing else to infer a type from
+-- defaults to text across a UNION, which then fails to insert into the
+-- integer graduation_year column (42804) — cast both branches the same way.
 INSERT INTO profile_universities (profile_id, university, department, status, graduation_year, sort_order)
-SELECT profile_id, 'Orta Doğu Teknik Üniversitesi', 'Felsefe', NULL, NULL, sort_order FROM src
+SELECT profile_id, 'Orta Doğu Teknik Üniversitesi', 'Felsefe', NULL::text, NULL::integer, sort_order FROM src
 UNION ALL
-SELECT profile_id, 'Yıldız Teknik Üniversitesi', 'İngilizce İşletme', NULL, NULL, sort_order + 1 FROM src;
+SELECT profile_id, 'Yıldız Teknik Üniversitesi', 'İngilizce İşletme', NULL::text, NULL::integer, sort_order + 1 FROM src;
 
 DELETE FROM profile_universities
 WHERE TRIM(university) = 'ODTÜ Felsefe / Yıldız Teknik Üniveristesi İngilizce İşletme';
