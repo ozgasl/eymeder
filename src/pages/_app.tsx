@@ -14,7 +14,12 @@ function isPublicPath(pathname: string): boolean {
     pathname === "/welcome" ||
     pathname === "/kvkk" ||
     pathname === "/cerez-politikasi" ||
-    pathname.startsWith("/auth/")
+    pathname.startsWith("/auth/") ||
+    pathname === "/news" ||
+    pathname.startsWith("/news/") ||
+    pathname === "/events" ||
+    pathname.startsWith("/events/") ||
+    pathname === "/gallery"
   );
 }
 

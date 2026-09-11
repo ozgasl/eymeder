@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
 import Head from "next/head";
 import { SEO } from "@/components/SEO";
 import { Navigation } from "@/components/Navigation";
@@ -18,8 +19,9 @@ import { useAccessControl } from "@/hooks/useAccessControl";
 import { Upload, Image as ImageIcon, Video, Heart, Loader2, Filter } from "lucide-react";
 
 export default function GalleryPage() {
+  const router = useRouter();
   const { toast } = useToast();
-  const { loading, isStaff } = useAccessControl();
+  const { loading, isStaff, user } = useAccessControl({ redirectIfUnauthenticated: false });
   const [uploading, setUploading] = useState(false);
   const [media, setMedia] = useState<any[]>([]);
 
@@ -105,6 +107,10 @@ export default function GalleryPage() {
   };
 
   const handleLike = async (mediaId: string) => {
+    if (!user) {
+      router.push("/auth/login");
+      return;
+    }
     await galleryService.likeMedia(mediaId);
     loadMedia();
   };

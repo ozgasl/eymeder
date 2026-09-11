@@ -119,13 +119,21 @@ supabase/
 
 `profiles` carries Row Level Security: a signed-in member reads every profile
 but writes only their own, nobody deletes one, and a logged-out visitor reads
-none (the public brands page gets the one name it shows through the
-`brand_connected_members` view). System-owned columns — `membership_tier`, the
-`fonzip_*` fields, `graduation_year`, `school_number` — are held to their
-previous values by a trigger for anything arriving as `authenticated`, so a
-member cannot promote themselves; the service role used by the admin API routes
-is unaffected. Restricting *which columns* a non-dues member can read is still
-open, and is tracked in `memory/PROJECT_MEMORY.md`.
+none. System-owned columns — `membership_tier`, the `fonzip_*` fields,
+`graduation_year`, `school_number` — are held to their previous values by a
+trigger for anything arriving as `authenticated`, so a member cannot promote
+themselves; the service role used by the admin API routes is unaffected.
+Restricting *which columns* a non-dues member can read is still open, and is
+tracked in `memory/PROJECT_MEMORY.md`.
+
+Most of the app requires a session (`src/pages/_app.tsx`'s `isPublicPath`
+gate). **News, events, and the gallery are reachable without one** — viewing
+only, member-only actions (posting, RSVPing, applying, liking) redirect to
+login. Jobs, groups, and brands stay behind login; `groups` in particular
+mixes public and private groups in the same table, so a private group's
+posts and member list are restricted to its members regardless of the page's
+own public/private status (`public.is_group_member()`, see
+`memory/PROJECT_MEMORY.md`).
 
 ## Project Memory
 
