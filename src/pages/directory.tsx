@@ -69,7 +69,7 @@ export default function DirectoryPage() {
   });
 
   // Extract unique values for dropdowns
-  const uniqueUniversities = Array.from(new Set(members.flatMap(m => (m.profile_universities || []).map((u: any) => u.university)).filter(Boolean)));
+  const uniqueUniversities = Array.from(new Set(members.flatMap(m => (m.profile_universities || []).map((u: any) => u.university)).filter(Boolean))).sort((a: any, b: any) => a.localeCompare(b, "tr"));
   const uniqueProfessions = Array.from(new Set(members.map(m => m.profession).filter(Boolean))).sort((a: any, b: any) => a.localeCompare(b, "tr"));
   const sortedProfessionGroups = [...PROFESSION_GROUPS].sort((a, b) => a.localeCompare(b, "tr"));
   const uniqueCompanies = Array.from(new Set(members.map(m => m.company).filter(Boolean)));
