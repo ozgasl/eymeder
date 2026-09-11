@@ -739,7 +739,8 @@ PR [#25](https://github.com/ozgasl/eymeder/pull/25) — merge edildi.
 - **PR #25 GitHub aktivitesine abone olundu**, saatlik sessiz check-in'ler
   kuruldu (CI hep yeşil kaldı, review yorumu gelmedi).
 
-**Aynı gün, ikinci PR — hangi sayfalar public olmalı**: yukarıdaki
+**Aynı gün, ikinci PR [#26](https://github.com/ozgasl/eymeder/pull/26) —
+hangi sayfalar public olmalı**: yukarıdaki
 "kapsam dışı" bulgunun takibi. Explore agent'ı her sayfayı (kaynak kodu,
 RLS/servis hazırlığı, Navigation/Footer'daki link deseni) inceledi; kullanıcı
 sayfa sayfa karar verdi — bkz. yukarıdaki "Hangi sayfalar giriş yapmadan
