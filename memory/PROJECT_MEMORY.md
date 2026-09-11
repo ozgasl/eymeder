@@ -242,7 +242,28 @@ korunur. Herkese açık `/brands` sayfasındaki "Bağlantılı mezun" adı
 PostgREST'in bir view'i FK üzerinden embed edip edemediği doğrulanamadı ve
 herkese açık sayfayı ona bağlamak istemedik.
 
-**Kalan (Aşama 2)**: giriş yapmış her üye hâlâ herkesin e-posta/telefonunu
+**Aşama 2 kuralı NETLEŞTİ (kullanıcı, 2026-09-11)**: `Dernek Üyesi` etiketi
+olan **her şeyi**; olmayan (Mezun/Bağışçı/Fahri) başka bir üyenin yalnızca
+**Ad Soyad (`full_name`), Okul (`university`), Mezuniyet yılı
+(`graduation_year`)** bilgisini görür. Kendi satırını herkes tam görür, staff
+de her şeyi görür. Arayüz etiketleri kolon eşlemesini kesinleştirdi:
+`graduation_year` = "Lise Mezuniyet", `department` = "Lise Bölümü",
+`university` = "Üniversite".
+- **`avatar_url` maskelenenler arasında** (kullanıcının listesinde yok). Sonucu:
+  dernek üyesi olmayan, haber/galeri/grup sayfalarında yazar fotoğrafı yerine
+  baş harf görür (`AvatarFallback` zaten var, kırılmıyor). Tek satırlık karar,
+  geri alınabilir.
+- Uygulama: `public.member_profiles` view'i (`20260911110000`), kural tek
+  yerde `public.member_sees_full_profile(profile_id)` fonksiyonunda.
+  **Maskelenen kolon filtre olarak da kullanılamıyor** (yerel testte
+  `where email = '...'` 0 satır) — yoksa maskeleme bir "oracle" bırakırdı.
+- **Sıra bilinçli**: önce yalnızca `galleryService` view'e geçirildi (canary),
+  `profiles` politikaları hiç değişmedi. Sebep: PostgREST'in bir view'i taban
+  tablonun FK'si üzerinden embed edip edemediği canlı API olmadan
+  doğrulanamıyor. Galeri preview'da çalışırsa kalan 11 servis + `profiles`
+  SELECT daraltması ikinci PR'da.
+
+**Kalan (Aşama 2, ikinci adım)**: giriş yapmış her üye hâlâ herkesin e-posta/telefonunu
 okuyabiliyor. Kullanıcı kararı: **`Dernek Üyesi` etiketi olanlar her şeyi,
 olmayanlar (Mezun/Bağışçı) yalnızca mezuniyet yılını** görsün. ⚠️ Bu kararın
 harfi harfine uygulanması haber/galeri/iş ilanı/grup/etkinlik embed'lerindeki

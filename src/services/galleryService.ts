@@ -1,4 +1,14 @@
 import { supabase } from "@/integrations/supabase/client";
+
+// The uploader is read through `member_profiles`, not `profiles`: that view
+// masks every column a member without the "Dernek Üyesi" tag may not see, so
+// the gallery shows such a member the uploader's name but not their photo.
+// Aliased back to `profiles` so the page reads the same shape as before.
+//
+// This is the first service moved over, on purpose: whether PostgREST can
+// embed a view through its base table's foreign key is the one part of this
+// design that cannot be checked without a live API. The rest follow once the
+// gallery is confirmed working.
 import {
   buildObjectPath,
   GALLERY_PHOTO_UPLOAD,
@@ -67,7 +77,7 @@ export const galleryService = {
       .from("media_gallery")
       .select(`
         *,
-        profiles!media_gallery_user_id_fkey(full_name, avatar_url)
+        profiles:member_profiles!media_gallery_user_id_fkey(full_name, avatar_url)
       `)
       .order("created_at", { ascending: false });
 
@@ -90,7 +100,7 @@ export const galleryService = {
       .from("media_gallery")
       .select(`
         *,
-        profiles!media_gallery_user_id_fkey(full_name, avatar_url)
+        profiles:member_profiles!media_gallery_user_id_fkey(full_name, avatar_url)
       `)
       .eq("id", id)
       .single();
