@@ -644,6 +644,11 @@ davranışın aynısını alıyor: boş küme.
 
 ### 2026-09-11 — `profiles` RLS (Aşama 1 + 2), galeri yükleme hatası, storage policy'leri
 
+PR: [#22](https://github.com/ozgasl/eymeder/pull/22) (Aşama 1) ve
+[#23](https://github.com/ozgasl/eymeder/pull/23) (Aşama 2 + storage) — ikisi de
+merge edildi, migration'lar kullanıcı tarafından production'da çalıştırıldı ve
+preview'da test edildi.
+
 - **Aşama 1** (`20260911100000_profiles_rls.sql`, PR
   [#22](https://github.com/ozgasl/eymeder/pull/22)): `profiles` üzerinde RLS
   açıldı, SELECT giriş yapmış herkese, UPDATE sadece kendi satırına. Bu sırada
