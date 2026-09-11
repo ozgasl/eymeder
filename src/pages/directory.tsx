@@ -244,23 +244,6 @@ export default function DirectoryPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="profession-filter">Meslek</Label>
-                    <Select value={professionFilter} onValueChange={setProfessionFilter}>
-                      <SelectTrigger id="profession-filter" aria-label="Mesleğe göre filtrele">
-                        <SelectValue placeholder="Tüm meslekler" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Tümü</SelectItem>
-                        {uniqueProfessions.map((prof: any) => (
-                          <SelectItem key={prof} value={prof}>
-                            {prof}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
                     <Label htmlFor="profession-group-filter">Meslek Grubu</Label>
                     <Select value={professionGroupFilter} onValueChange={setProfessionGroupFilter}>
                       <SelectTrigger id="profession-group-filter" aria-label="Meslek grubuna göre filtrele">
@@ -271,6 +254,23 @@ export default function DirectoryPage() {
                         {PROFESSION_GROUPS.map((group) => (
                           <SelectItem key={group} value={group}>
                             {group}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="profession-filter">Meslek</Label>
+                    <Select value={professionFilter} onValueChange={setProfessionFilter}>
+                      <SelectTrigger id="profession-filter" aria-label="Mesleğe göre filtrele">
+                        <SelectValue placeholder="Tüm meslekler" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tümü</SelectItem>
+                        {uniqueProfessions.map((prof: any) => (
+                          <SelectItem key={prof} value={prof}>
+                            {prof}
                           </SelectItem>
                         ))}
                       </SelectContent>
