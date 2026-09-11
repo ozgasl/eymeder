@@ -4,6 +4,7 @@ import {
   AVATAR_UPLOAD,
   BRAND_LOGO_UPLOAD,
   buildObjectPath,
+  describeStorageFailure,
   GALLERY_PHOTO_UPLOAD,
   GALLERY_VIDEO_UPLOAD,
   IMAGE_TYPES,
@@ -205,5 +206,44 @@ describe("preset limits match the bucket migration", () => {
   it("shares one bucket between gallery photos and videos", () => {
     expect(GALLERY_PHOTO_UPLOAD.bucket).toBe("media");
     expect(GALLERY_VIDEO_UPLOAD.bucket).toBe("media");
+  });
+});
+
+describe("describeStorageFailure", () => {
+  it("says the upload was refused by storage, not by the table", () => {
+    const message = describeStorageFailure("media", {
+      message: "new row violates row-level security policy",
+    });
+
+    expect(message).toContain("media");
+    expect(message).toContain("depolama");
+    // The original sentence stays readable, so the real error is not hidden.
+    expect(message).toContain("new row violates row-level security policy");
+  });
+
+  it("names a missing bucket as a missing bucket", () => {
+    expect(describeStorageFailure("media", { message: "Bucket not found" }))
+      .toContain("kovası bulunamadı");
+  });
+
+  it("separates the size limit from the type limit", () => {
+    expect(
+      describeStorageFailure("media", {
+        message: "The object exceeded the maximum allowed size",
+      }),
+    ).toContain("boyut sınırını");
+
+    expect(describeStorageFailure("media", { message: "invalid_mime_type" }))
+      .toContain("türü");
+  });
+
+  it("still produces a message when the error carries none", () => {
+    expect(describeStorageFailure("avatars", null)).toContain("avatars");
+    expect(describeStorageFailure("avatars", { message: "  " })).toContain("yüklenemedi");
+  });
+
+  it("passes an unrecognised error through", () => {
+    expect(describeStorageFailure("avatars", { message: "network error" }))
+      .toContain("network error");
   });
 });

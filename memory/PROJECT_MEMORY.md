@@ -553,7 +553,83 @@ denetlerken her zaman `TabsList` ↔ `TabsContent` eşleşmesini iki yönlü
 kontrol et** — bir `TabsContent` yazıp `TabsTrigger`'ı eklemeyi unutmak,
 konsolda hiçbir hata vermeyen, sessiz bir UI bug'ı.
 
+## 🔥 Ders: "new row violates row-level security policy" hangi adımdan geliyor? (2026-09-11)
+
+Galeriye görsel yüklemesi bu mesajla başarısız oldu. Mesaj tek başına **hangi
+adımın** reddedildiğini söylemiyor, çünkü iki ayrı adım aynı cümleyi üretiyor:
+
+1. `storage.objects`'e dosya satırı eklemek (Storage API),
+2. `media_gallery`'ye kayıt satırı eklemek (PostgREST).
+
+İlk tahminim tablo tarafıydı ve **yanlıştı**. Teşhis sorgusu şunu gösterdi:
+- `media_gallery`'nin tek INSERT policy'si `auth_insert_media WITH CHECK
+  (auth.uid() = user_id)`,
+- yükleyen kullanıcı `ozgasl@gmail.com`, rolü `admin`, kendi `user_id`'siyle
+  satır ekliyor → bu policy reddedemez.
+
+Geriye `storage.objects` kalıyor. `avatars` ve `media` kovaları dashboard'dan
+elle açılmıştı ve bu repodan **hiçbir storage policy'leri yoktu**
+(`20260908190000` sadece `brand-logos` için yazmıştı, `20260908200000` ise
+bilerek sadece limit koymuş, policy'lere dokunmamıştı).
+
+**İki kalıcı ders:**
+
+- Bir hata mesajı iki farklı katmandan aynı şekilde gelebiliyorsa, tahmin etme
+  — **koddan ayırt edilebilir hale getir**. `describeStorageFailure()`
+  (`src/lib/fileUpload.ts`) artık storage adımını kova adıyla etiketliyor,
+  `media_gallery` hatası da "Galeri kaydı oluşturulamadı:" öneki alıyor. Bir
+  sonraki hata raporu tek bakışta hangi katman olduğunu söyleyecek.
+- Storage policy'si ilgili tablonun policy'sinden **daha sıkı olmamalı**. Burada
+  `media` için staff-only yazsaydım, tablonun kabul edeceği sıradan üyenin
+  yüklemesi storage'da reddedilirdi. `20260911120000` bu yüzden "kendi klasörü"
+  kuralını kullanıyor (`(storage.foldername(name))[1] = auth.uid()::text`) —
+  tablodaki `auth.uid() = user_id` kuralının storage karşılığı.
+
+Not: policy'ler aynı komut için **OR'lanır**, isimler de yeni. Yani bu migration
+tamamen ekleyicidir; dashboard'da göremediğim mevcut bir kural varsa onu
+bozmaz, sadece bugün reddedilen yüklemelere izin verir.
+
+## 🚨 Uygulanmamış migration: `20260830100000_tier_role_access_policies.sql` (2026-09-11'de fark edildi)
+
+Yukarıdaki teşhis sırasında ortaya çıktı: production'da `media_gallery`'nin
+INSERT policy'si hâlâ eski `auth_insert_media`. Yani bu migration'ın yarattığı
+**7 policy'nin hiçbiri canlıda yok**:
+
+`staff_create_events`, `staff_insert_news`, `staff_insert_media`,
+`dernek_uyesi_create_jobs`, `dernek_uyesi_create_groups`,
+`dernek_uyesi_send_messages`, `dernek_uyesi_create_mentorship_requests`.
+
+**Sonuç**: 2026-08-30'da "uçtan uca uygulandı" diye kaydedilen üye tipi/rol
+kısıtlamaları veritabanında değil, **sadece arayüzde** var. Giriş yapmış
+herhangi bir üye API'yi doğrudan çağırarak etkinlik/haber/medya/ilan/grup
+oluşturabilir. Bu oturumdaki **üçüncü** "uygulandı sanılan ama uygulanmamış"
+migration. Kullanıcıya bildirildi; yeniden çalıştırılması öneriliyor.
+
 ## Oturum günlüğü
+
+### 2026-09-11 — `profiles` RLS (Aşama 1 + 2), galeri yükleme hatası, storage policy'leri
+
+- **Aşama 1** (`20260911100000_profiles_rls.sql`, PR
+  [#22](https://github.com/ozgasl/eymeder/pull/22)): `profiles` üzerinde RLS
+  açıldı, SELECT giriş yapmış herkese, UPDATE sadece kendi satırına. Bu sırada
+  `REVOKE UPDATE (membership_tier)`'in **hiçbir zaman işe yaramadığı** bulundu
+  (bkz. ders bölümü) — herhangi bir üye kendini `dernek_uyesi` yapabiliyordu.
+  BEFORE UPDATE trigger'ı ile kapatıldı. Trigger'ın ilk hâli `SECURITY DEFINER`
+  olduğu için `current_user` fonksiyon sahibini döndürüyordu ve hiçbir şeyi
+  korumuyordu; kaldırıldı.
+- **Aşama 2** (`20260911110000_member_profiles_view.sql`): `member_profiles`
+  view'ı + `member_sees_full_profile()`. Dernek üyesi olmayanlar ad, soyad,
+  okul ve mezuniyet yılını görüyor; diğer 24 kolon maskeleniyor. Galeri ilk
+  taşınan servis — çünkü **PostgREST'in bir view'ı base tablonun FK'i üzerinden
+  embed edip edemeyeceği** bu tasarımın tek doğrulanmamış parçası (canary).
+- **Galeri yükleme hatası**: "new row violates row-level security policy".
+  Kök neden tablo değil storage çıktı (bkz. ders bölümü).
+  `20260911120000_avatars_media_storage_policies.sql` ile `avatars` ve `media`
+  kovalarına public read + kendi klasörüne yazma + staff silme/değiştirme
+  policy'leri eklendi. Hata mesajları artık katmanı söylüyor.
+- **Açık kalan**: canary sorusu (galeride 0 satır olduğu için hâlâ
+  cevaplanmadı), `avatar_url` maskeleme kararının teyidi, uygulanmamış
+  `20260830100000` migration'ının yeniden çalıştırılması.
 
 ### 2026-09-08 — Yanlış graduation_year taraması (Bugfix 2 oturumu, ikinci talep)
 

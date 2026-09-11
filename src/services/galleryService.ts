@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 // gallery is confirmed working.
 import {
   buildObjectPath,
+  describeStorageFailure,
   GALLERY_PHOTO_UPLOAD,
   GALLERY_VIDEO_UPLOAD,
   validateUpload,
@@ -48,7 +49,14 @@ export const galleryService = {
       .from(preset.bucket)
       .upload(fileName, file, { contentType: file.type });
 
-    if (uploadError) return { data: null, error: uploadError };
+    // Named, because the storage step and the record step below are refused
+    // with the same sentence when a row-level policy rejects them.
+    if (uploadError) {
+      return {
+        data: null,
+        error: new Error(describeStorageFailure(preset.bucket, uploadError)),
+      };
+    }
 
     const { data: { publicUrl } } = supabase.storage
       .from(preset.bucket)
@@ -69,7 +77,14 @@ export const galleryService = {
       .select()
       .single();
 
-    return { data, error };
+    if (error) {
+      return {
+        data: null,
+        error: new Error(`Galeri kaydı oluşturulamadı: ${error.message}`),
+      };
+    }
+
+    return { data, error: null };
   },
 
   async getAllMedia(filters?: { type?: string; year?: number; userId?: string }) {

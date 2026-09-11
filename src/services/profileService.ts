@@ -1,6 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
-import { AVATAR_UPLOAD, buildObjectPath, validateUpload } from "@/lib/fileUpload";
+import {
+  AVATAR_UPLOAD,
+  buildObjectPath,
+  describeStorageFailure,
+  validateUpload,
+} from "@/lib/fileUpload";
 
 export interface Profile {
   id: string;
@@ -235,7 +240,10 @@ export const profileService = {
         .upload(filePath, file, { contentType: file.type });
 
       if (uploadError) {
-        return { data: null, error: uploadError };
+        return {
+          data: null,
+          error: new Error(describeStorageFailure(AVATAR_UPLOAD.bucket, uploadError)),
+        };
       }
 
       const { data: { publicUrl } } = supabase.storage
