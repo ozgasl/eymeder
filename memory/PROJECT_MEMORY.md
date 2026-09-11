@@ -696,8 +696,9 @@ davranışın aynısını alıyor: boş küme.
 
 ### 2026-09-11/12 — Bugfix 4: footer linkleri, Meslek Grubu, çoklu üniversite, avatar yükleme + üniversite standardizasyonu
 
-PR [#28](https://github.com/ozgasl/eymeder/pull/28) ve
-[#29](https://github.com/ozgasl/eymeder/pull/29) — ikisi de merge edildi.
+PR [#28](https://github.com/ozgasl/eymeder/pull/28),
+[#29](https://github.com/ozgasl/eymeder/pull/29) ve
+[#30](https://github.com/ozgasl/eymeder/pull/30) — üçü de merge edildi.
 
 **Oturum başında önemli bir bulgu**: local `main` origin'in 30 commit
 gerisindeymiş (aynı gün atılmış `profiles` RLS + `member_profiles` maskeleme
@@ -754,6 +755,21 @@ adresinden WebFetch ile çekildi, 202 kurum) aranabilir bir seçim kutusuna
 (`UniversityCombobox`, command/popover tabanlı) çevrilsin — listede olmayan
 bir değer yine de yazılıp kaydedilebiliyor ve `getKnownUniversities()` ile
 sonraki üyelere de öneri oluyor.
+
+**PR #30 — aynı hata tekrarladı, bu kez kalıcı önlem eklendi**: PR #29'un
+backfill'i doğrulandıktan SONRA dizin filtresinde "İstanbul Teknik
+Üniversitesi" ve "Yıldız Teknik Üniversitesi" ikişer kez görünmeye başladı —
+canlı uygulama üzerinden (muhtemelen kullanıcı test ederken) eklenen yeni bir
+satırda yine sonda bir boşluk oluşmuştu. Client zaten kaydetmeden önce
+`.trim()` yapıyordu (`profile.tsx`), yani hatanın tam nereden sızdığı
+netleşmedi, ama bunu bir daha ASLA tartışma konusu yapmamak için
+`profile_universities`'e bir `BEFORE INSERT OR UPDATE` trigger'ı eklendi
+(`20260912120000_profile_universities_trim_guard.sql`) — `university`/
+`department` artık hangi yoldan yazılırsa yazılsın DB seviyesinde trim
+ediliyor. **Ders**: client-side trim yeterli değilmiş gibi davran, aynı
+hatanın üçüncü kez çıkması pahalıya patlar (bir backfill + bir filtre
+şikayeti + tekrar backfill) — bir üye tarafından serbest yazılan metin
+sütunu varsa, o sütuna trigger ile trim ekle, sadece formda değil.
 
 ## 🔥 Ders: Serbest metin karşılaştırmalarında `TRIM()` şart, körlemesine tam eşleşme yeterli değil (2026-09-11/12)
 
