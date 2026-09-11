@@ -31,12 +31,8 @@ export default function EventDetailPage() {
 
   const checkAuth = async () => {
     const currentUser = await authService.getCurrentUser();
-    if (!currentUser) {
-      router.push("/auth/login");
-    } else {
-      setUser(currentUser);
-      loadEvent();
-    }
+    setUser(currentUser);
+    loadEvent();
   };
 
   const loadEvent = async () => {
@@ -57,7 +53,11 @@ export default function EventDetailPage() {
 
   const handleRSVP = async (status: "attending" | "maybe" | "not_attending") => {
     if (!id || typeof id !== "string") return;
-    
+    if (!user) {
+      router.push("/auth/login");
+      return;
+    }
+
     setRsvpLoading(true);
 
     const { error } = await eventService.rsvpToEvent(id, status);
@@ -81,7 +81,11 @@ export default function EventDetailPage() {
 
   const handleRemoveRSVP = async () => {
     if (!id || typeof id !== "string") return;
-    
+    if (!user) {
+      router.push("/auth/login");
+      return;
+    }
+
     setRsvpLoading(true);
 
     const { error } = await eventService.removeRSVP(id);

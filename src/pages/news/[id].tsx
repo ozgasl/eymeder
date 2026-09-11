@@ -32,12 +32,8 @@ export default function NewsDetailPage() {
 
   const checkAuth = async () => {
     const currentUser = await authService.getCurrentUser();
-    if (!currentUser) {
-      router.push("/auth/login");
-    } else {
-      setUser(currentUser);
-      setLoading(false);
-    }
+    setUser(currentUser);
+    setLoading(false);
   };
 
   const loadNews = async () => {

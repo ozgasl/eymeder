@@ -198,6 +198,44 @@ oku. Her oturum sonunda kendi bölümünü buraya ekle (üstte en yeni).
   üyelerden dropdown ile seçiliyor, `brandService.ts`'teki sorgular
   `connected_member:profiles!brands_connected_member_id_fkey(...)` join'i
   ile ismini getiriyor.
+- **Hangi sayfalar giriş yapmadan erişilebilir (Bugfix 3, 2026-09-11 kullanıcı
+  kararı)**: `src/pages/_app.tsx`'teki `isPublicPath()` site geneli gate'i
+  (29 Ağustos'ta eklendi) `/welcome`/`/auth/*` dışındaki HER şeyi engelliyordu
+  — DB tarafı (RLS, `member_profiles` view'ının anon GRANT'i) çoktan
+  anon-hazırdı ama hiçbir sayfa buna hiç güvenmemişti. Karar: **news, events,
+  gallery** → public (görüntüleme herkese açık; haber/etkinlik/galeri
+  yükleme zaten staff-only RLS ile korunuyor, RSVP/beğeni/başvuru gibi
+  üye-only aksiyonlar anonim tıklarsa sessizce başarısız olmak yerine
+  `/auth/login`'e yönlendiriyor). **jobs, groups, brands** → kullanıcı kararı
+  ile üyelere özel kaldı (brands için bu, `brand_connected_members`
+  view'ının orijinal "herkese açık" tasarımının **bilinçli bir tersine
+  çevrilmesi** — view hâlâ duruyor ama artık fiilen sadece authenticated
+  erişimde kullanılıyor).
+  - **İki ayrı engel katmanı var, ikisi de düzeltilmeli**: `_app.tsx`'in
+    `isPublicPath()`'i VE her sayfanın kendi `checkAuth()`/`useAccessControl()`
+    çağrısı ayrı ayrı `/auth/login`'e yönlendiriyordu. Sadece birini
+    düzeltmek yetmez.
+  - **`*/create` sayfalarına (news/create, events/create) dokunmaya gerek
+    yok**: `useAccessControl()` varsayılan `redirectIfUnauthenticated: true`
+    ile zaten kendi kendini koruyor — `_app.tsx`'te public sayılsalar bile
+    anonim ziyaretçi o sayfanın kendi hook'u tarafından login'e yönlendirilir.
+  - **`groups` neden public YAPILMADI**: `is_private` alanı tamamen
+    kozmetikti — `group_posts`/`group_members`'ın `USING (true)` SELECT
+    policy'leri `is_private`'a hiç bakmıyordu, yani özel bir grubun içeriği
+    zaten **her authenticated kullanıcıya** açıktı (anon sorusundan bağımsız
+    bir bug). `20260911160000_private_group_content_rls.sql` bunu kapattı:
+    `public.is_group_member(group_id, user_id)` (SECURITY DEFINER/STABLE,
+    is_staff/is_dernek_uyesi ile aynı desen — kendi tablosunu sorgulayan bir
+    policy'nin recursion'a girmemesi için) + `group_posts`/`group_members`
+    SELECT policy'leri artık `is_private = false OR is_group_member(...)`.
+    `groups` tablosunun kendi `public_read_groups USING (true)` policy'si
+    BİLİNÇLİ OLARAK dokunulmadı — özel bir grubun var oluşu/adı görünmesi
+    (Facebook'un özel grupları aramada göstermesi gibi) içeriğinden ayrı,
+    daha az riskli bir açıklık sayıldı. **Groups sayfası public yapılmadı**
+    (kullanıcı kararı) ama bu düzeltme yine de gerekliydi çünkü açık,
+    anon'dan bağımsız bir üyeler-arası veri sızıntısıydı. Yerel Postgres
+    16'da anon/authenticated (üye/üye-olmayan) roller ve `auth.uid()`
+    stub'ıyla 5/5 senaryo doğrulandı.
 
 ## 🔥 Ders: Kolon seviyesi REVOKE, tablo seviyesi GRANT varken HİÇBİR ŞEY yapmaz (2026-09-11)
 
@@ -249,8 +287,12 @@ taban tablonun FK'i üzerinden embed edebiliyor (canary galeri ile doğrulandı,
 bkz. yukarıdaki "✅ Cevap") — kalan 11 servis + `getProfileById`,
 `searchAlumni`, `getAllProfiles`, `getDepartments`, `getCities`, `getMentors`
 hepsi `member_profiles`'a taşındı, yerel Postgres 16'da 10/10 senaryo
-doğrulandı. Herkese açık `/brands` sayfasındaki "Bağlantılı mezun" adı ayrı,
-kendi `brand_connected_members` view'iyle yaşıyor (değişmedi).
+doğrulandı. `/brands` sayfasındaki "Bağlantılı mezun" adı ayrı, kendi
+`brand_connected_members` view'iyle yaşıyor (değişmedi) — ama bu view'ın
+kendisinin var oluş sebebi olan "`/brands` herkese açık" tasarımı Bugfix 3
+oturumunda kullanıcı tarafından tersine çevrildi, aşağıdaki "public sayfalar"
+bölümüne bak: `/brands` artık giriş ister, view şu an fiilen sadece
+authenticated erişimde kullanılıyor.
 
 **`avatar_url` maskesi kaldırıldı (Bugfix 3 oturumu, kullanıcı kararı)**:
 `full_name` zaten herkese açıkken fotoğrafı ayrıca maskelemenin ek bir
@@ -654,7 +696,7 @@ davranışın aynısını alıyor: boş küme.
 
 ### 2026-09-11 — Bugfix 3: tier/role policy'leri, KVKK/çerez erişim bug'ı, avatar_url maskesi
 
-PR [#25](https://github.com/ozgasl/eymeder/pull/25) (draft, henüz merge edilmedi).
+PR [#25](https://github.com/ozgasl/eymeder/pull/25) — merge edildi.
 
 - **Bayat hafıza kaydı güncellendi**: "profiles okuma hâlâ kısıtlı DEĞİL"
   bölümü PR #22/#23 ile kapandığı için "✅ Kapandı"ya çevrildi.
@@ -669,13 +711,13 @@ PR [#25](https://github.com/ozgasl/eymeder/pull/25) (draft, henüz merge edilmed
   zorunlu KVKK onay linkini de kırıyordu (rıza öncesi metni okumak imkansız
   oluyordu). `/kvkk` ve `/cerez-politikasi` istisna edildi; regresyon testi
   (Playwright, headless) korumalı sayfaların hâlâ yönlendiğini doğruladı.
-  **Bilinçli olarak kapsam dışı bırakıldı**: aynı gate `/brands`, `/news`,
-  `/events`, `/jobs`, `/groups`, `/gallery` sayfalarını da engelliyor —
-  PROJECT_MEMORY'nin 9/11 RLS tasarımı bunların giriş yapmadan erişilebilir
-  OLDUĞUNU varsayıyordu (anon GRANT + `WHERE auth.uid() IS NOT NULL` deseni
-  tam olarak bunun için), bu varsayım muhtemelen hiç doğru olmadı. Kullanıcı
-  şimdilik sadece KVKK/çerez'i istedi; hangi sayfaların gerçekten public
-  olması gerektiği netleşmedi — **sıradaki oturum için iyi bir aday**.
+  **Aynı gate `/brands`, `/news`, `/events`, `/jobs`, `/groups`, `/gallery`
+  sayfalarını da engelliyordu** — PROJECT_MEMORY'nin 9/11 RLS tasarımı
+  bunların giriş yapmadan erişilebilir OLDUĞUNU varsayıyordu (anon GRANT +
+  `WHERE auth.uid() IS NOT NULL` deseni tam olarak bunun için), bu varsayım
+  hiç doğru olmamış. Aynı oturumda, ayrı bir talep olarak karara bağlanıp
+  düzeltildi — bkz. yukarıdaki "Hangi sayfalar giriş yapmadan erişilebilir"
+  mimari kararı ve aşağıdaki ikinci PR notu.
 - **Asıl iş — `20260830100000_tier_role_access_policies.sql` hiç
   uygulanmamıştı** (bkz. yukarıdaki "✅ Kapandı" bölümü): teşhis sorgusuyla
   doğrulanıp, `is_staff()`/`is_dernek_uyesi()` kullanacak şekilde yeniden
@@ -696,6 +738,17 @@ PR [#25](https://github.com/ozgasl/eymeder/pull/25) (draft, henüz merge edilmed
   CLI'da elle bir Bash izin kuralı eklemesi gerekiyor, ben ekleyemiyorum.
 - **PR #25 GitHub aktivitesine abone olundu**, saatlik sessiz check-in'ler
   kuruldu (CI hep yeşil kaldı, review yorumu gelmedi).
+
+**Aynı gün, ikinci PR — hangi sayfalar public olmalı**: yukarıdaki
+"kapsam dışı" bulgunun takibi. Explore agent'ı her sayfayı (kaynak kodu,
+RLS/servis hazırlığı, Navigation/Footer'daki link deseni) inceledi; kullanıcı
+sayfa sayfa karar verdi — bkz. yukarıdaki "Hangi sayfalar giriş yapmadan
+erişilebilir" mimari kararı. `_app.tsx` + `news.tsx`/`news/[id].tsx` +
+`events.tsx`/`events/[id].tsx` + `gallery.tsx` düzenlendi,
+`20260911160000_private_group_content_rls.sql` eklendi (groups public
+olmasa da is_private bug'ı ayrıca kapatıldı, yerel Postgres'te 5/5
+doğrulandı). Playwright ile 9 senaryo (3 yeni public + jobs/groups/brands
+hâlâ kapalı + profile/directory/welcome/auth regresyon) doğrulandı.
 
 ### 2026-09-11 — `profiles` RLS (Aşama 1 + 2), galeri yükleme hatası, storage policy'leri
 

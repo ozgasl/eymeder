@@ -30,19 +30,15 @@ export default function EventsPage() {
   const [fonzipEvents, setFonzipEvents] = useState<FonzipEvent[]>([]);
 
   useEffect(() => {
-    checkAuth();
+    init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const checkAuth = async () => {
+  const init = async () => {
     const currentUser = await authService.getCurrentUser();
-    if (!currentUser) {
-      router.push("/auth/login");
-    } else {
-      setUser(currentUser);
-      loadEvents();
-      loadFonzipEvents();
-      setLoading(false);
-    }
+    setUser(currentUser);
+    await Promise.all([loadEvents(), loadFonzipEvents()]);
+    setLoading(false);
   };
 
   const loadEvents = async () => {
@@ -119,12 +115,14 @@ export default function EventsPage() {
                   </Button>
                 </div>
 
-                <Button asChild>
-                  <Link href="/events/create">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Etkinlik Oluştur
-                  </Link>
-                </Button>
+                {user && (
+                  <Button asChild>
+                    <Link href="/events/create">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Etkinlik Oluştur
+                    </Link>
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -195,9 +193,11 @@ export default function EventsPage() {
                 <CardContent className="py-12 text-center">
                   <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <p className="text-muted-foreground">Yaklaşan etkinlik bulunmuyor</p>
-                  <Button asChild className="mt-4">
-                    <Link href="/events/create">İlk Etkinliği Oluştur</Link>
-                  </Button>
+                  {user && (
+                    <Button asChild className="mt-4">
+                      <Link href="/events/create">İlk Etkinliği Oluştur</Link>
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ) : viewMode === "calendar" ? (

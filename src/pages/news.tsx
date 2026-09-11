@@ -23,18 +23,15 @@ export default function NewsPage() {
   const [news, setNews] = useState<any[]>([]);
 
   useEffect(() => {
-    checkAuth();
+    init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const checkAuth = async () => {
+  const init = async () => {
     const currentUser = await authService.getCurrentUser();
-    if (!currentUser) {
-      router.push("/auth/login");
-    } else {
-      setUser(currentUser);
-      loadNews();
-      setLoading(false);
-    }
+    setUser(currentUser);
+    await loadNews();
+    setLoading(false);
   };
 
   const loadNews = async () => {
@@ -68,10 +65,12 @@ export default function NewsPage() {
               </h1>
               <p className="text-muted-foreground">Eyüboğlu mezunlarının başarı hikayeleri ve haberler</p>
             </div>
-            <Button onClick={() => router.push("/news/create")}>
-              <Plus className="h-4 w-4 mr-2" />
-              Haber Ekle
-            </Button>
+            {user && (
+              <Button onClick={() => router.push("/news/create")}>
+                <Plus className="h-4 w-4 mr-2" />
+                Haber Ekle
+              </Button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -118,10 +117,12 @@ export default function NewsPage() {
               <CardContent className="p-12 text-center">
                 <Newspaper className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground">Henüz haber yok</p>
-                <Button className="mt-4" onClick={() => router.push("/news/create")}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  İlk Haberi Ekle
-                </Button>
+                {user && (
+                  <Button className="mt-4" onClick={() => router.push("/news/create")}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    İlk Haberi Ekle
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}
