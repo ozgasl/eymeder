@@ -1603,6 +1603,7 @@ export type Database = {
       profile_universities: {
         Row: {
           created_at: string | null
+          department: string | null
           graduation_year: number | null
           id: string
           profile_id: string
@@ -1612,6 +1613,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          department?: string | null
           graduation_year?: number | null
           id?: string
           profile_id: string
@@ -1621,6 +1623,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          department?: string | null
           graduation_year?: number | null
           id?: string
           profile_id?: string
@@ -1752,6 +1755,7 @@ export type Database = {
       member_profile_universities: {
         Row: {
           created_at: string | null
+          department: string | null
           graduation_year: number | null
           id: string | null
           profile_id: string | null

@@ -69,7 +69,7 @@ export default function DirectoryPage() {
   });
 
   // Extract unique values for dropdowns
-  const uniqueUniversities = Array.from(new Set(members.flatMap(m => (m.profile_universities || []).map((u: any) => u.university)).filter(Boolean)));
+  const uniqueUniversities = Array.from(new Set(members.flatMap(m => (m.profile_universities || []).map((u: any) => u.university)).filter(Boolean))).sort((a: any, b: any) => a.localeCompare(b, "tr"));
   const uniqueProfessions = Array.from(new Set(members.map(m => m.profession).filter(Boolean))).sort((a: any, b: any) => a.localeCompare(b, "tr"));
   const sortedProfessionGroups = [...PROFESSION_GROUPS].sort((a, b) => a.localeCompare(b, "tr"));
   const uniqueCompanies = Array.from(new Set(members.map(m => m.company).filter(Boolean)));
@@ -439,7 +439,7 @@ export default function DirectoryPage() {
                                         <dd className="text-sm space-y-0.5">
                                           {person.profile_universities.map((u: any, i: number) => (
                                             <div key={i}>
-                                              {u.university}{u.status ? ` (${u.status === "studying" ? "Okuyor" : "Mezun"}${u.status === "graduated" && u.graduation_year ? `, ${u.graduation_year}` : ""})` : ""}
+                                              {u.university}{u.department ? ` — ${u.department}` : ""}{u.status ? ` (${u.status === "studying" ? "Okuyor" : "Mezun"}${u.status === "graduated" && u.graduation_year ? `, ${u.graduation_year}` : ""})` : ""}
                                             </div>
                                           ))}
                                         </dd>

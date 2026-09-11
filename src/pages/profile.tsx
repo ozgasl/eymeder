@@ -18,9 +18,12 @@ import { Loader2, User, Briefcase, GraduationCap, MapPin, Phone, Globe, Linkedin
 import { buildSocialUrl, getSocialHandle } from "@/lib/socialLinks";
 import { PROFESSION_GROUPS } from "@/lib/professionGroups";
 import { AVATAR_UPLOAD, acceptAttribute, validateUpload } from "@/lib/fileUpload";
+import { TURKISH_UNIVERSITIES } from "@/lib/turkishUniversities";
+import { UniversityCombobox } from "@/components/UniversityCombobox";
 
 interface UniversityEntry {
   university: string;
+  department: string;
   status: string;
   graduation_year: string;
 }
@@ -40,6 +43,7 @@ export default function ProfilePage() {
   const [graduationYear, setGraduationYear] = useState("");
   const [department, setDepartment] = useState("");
   const [universities, setUniversities] = useState<UniversityEntry[]>([]);
+  const [universityOptions, setUniversityOptions] = useState<string[]>(TURKISH_UNIVERSITIES);
   const [profession, setProfession] = useState("");
   const [professionGroup, setProfessionGroup] = useState("");
   const [company, setCompany] = useState("");
@@ -57,7 +61,15 @@ export default function ProfilePage() {
 
   useEffect(() => {
     checkAuth();
+    loadUniversityOptions();
   }, []);
+
+  const loadUniversityOptions = async () => {
+    const { data } = await profileService.getKnownUniversities();
+    if (data && data.length > 0) {
+      setUniversityOptions((prev) => Array.from(new Set([...prev, ...data])).sort((a, b) => a.localeCompare(b, "tr")));
+    }
+  };
 
   const checkAuth = async () => {
     const currentUser = await authService.getCurrentUser();
@@ -81,6 +93,7 @@ export default function ProfilePage() {
       setUniversities(
         (data.profile_universities || []).map((u) => ({
           university: u.university,
+          department: u.department || "",
           status: u.status || "",
           graduation_year: u.graduation_year?.toString() || "",
         }))
@@ -130,6 +143,7 @@ export default function ProfilePage() {
         .filter((u) => u.university.trim())
         .map((u) => ({
           university: u.university.trim(),
+          department: u.department.trim() || null,
           status: (u.status || null) as "studying" | "graduated" | null,
           graduation_year:
             u.status === "graduated" && u.graduation_year ? parseInt(u.graduation_year) : null,
@@ -153,7 +167,7 @@ export default function ProfilePage() {
   };
 
   const handleAddUniversity = () => {
-    setUniversities([...universities, { university: "", status: "", graduation_year: "" }]);
+    setUniversities([...universities, { university: "", department: "", status: "", graduation_year: "" }]);
   };
 
   const handleRemoveUniversity = (index: number) => {
@@ -355,65 +369,79 @@ export default function ProfilePage() {
                   <div className="space-y-4">
                     <Label>Üniversiteler</Label>
                     {universities.map((entry, index) => (
-                      <div key={index} className="grid gap-4 md:grid-cols-[2fr_1fr_1fr_auto] items-end border rounded-md p-4">
-                        <div className="space-y-2">
-                          <Label htmlFor={`university-${index}`}>Üniversite</Label>
-                          <Input
-                            id={`university-${index}`}
-                            value={entry.university}
-                            onChange={(e) => handleUniversityChange(index, "university", e.target.value)}
-                            placeholder="Üniversite adı"
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor={`university-status-${index}`}>Durum</Label>
-                          <Select
-                            value={entry.status}
-                            onValueChange={(value) => handleUniversityChange(index, "status", value)}
+                      <div key={index} className="space-y-4 border rounded-md p-4">
+                        <div className="flex gap-2 items-end">
+                          <div className="flex-1 space-y-2">
+                            <Label htmlFor={`university-${index}`}>Üniversite</Label>
+                            <UniversityCombobox
+                              id={`university-${index}`}
+                              aria-label="Üniversite seç veya yaz"
+                              value={entry.university}
+                              onChange={(value) => handleUniversityChange(index, "university", value)}
+                              options={universityOptions}
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveUniversity(index)}
+                            aria-label="Üniversiteyi kaldır"
                           >
-                            <SelectTrigger id={`university-status-${index}`} aria-label="Üniversite durumu seç">
-                              <SelectValue placeholder="Seçin" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="studying">Okuyor</SelectItem>
-                              <SelectItem value="graduated">Mezun</SelectItem>
-                            </SelectContent>
-                          </Select>
+                            <X className="h-4 w-4" aria-hidden="true" />
+                          </Button>
                         </div>
 
-                        {entry.status === "graduated" && (
+                        <div className="grid gap-4 md:grid-cols-3">
                           <div className="space-y-2">
-                            <Label htmlFor={`university-year-${index}`}>Mezuniyet Yılı</Label>
+                            <Label htmlFor={`university-department-${index}`}>Bölüm</Label>
+                            <Input
+                              id={`university-department-${index}`}
+                              value={entry.department}
+                              onChange={(e) => handleUniversityChange(index, "department", e.target.value)}
+                              placeholder="Bölüm adı"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor={`university-status-${index}`}>Durum</Label>
                             <Select
-                              value={entry.graduation_year}
-                              onValueChange={(value) => handleUniversityChange(index, "graduation_year", value)}
+                              value={entry.status}
+                              onValueChange={(value) => handleUniversityChange(index, "status", value)}
                             >
-                              <SelectTrigger id={`university-year-${index}`} aria-label="Üniversite mezuniyet yılı seç">
+                              <SelectTrigger id={`university-status-${index}`} aria-label="Üniversite durumu seç">
                                 <SelectValue placeholder="Seçin" />
                               </SelectTrigger>
                               <SelectContent>
-                                {Array.from({ length: 60 }, (_, i) => new Date().getFullYear() - i).map(
-                                  (year) => (
-                                    <SelectItem key={year} value={year.toString()}>
-                                      {year}
-                                    </SelectItem>
-                                  )
-                                )}
+                                <SelectItem value="studying">Okuyor</SelectItem>
+                                <SelectItem value="graduated">Mezun</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
-                        )}
 
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoveUniversity(index)}
-                          aria-label="Üniversiteyi kaldır"
-                        >
-                          <X className="h-4 w-4" aria-hidden="true" />
-                        </Button>
+                          {entry.status === "graduated" && (
+                            <div className="space-y-2">
+                              <Label htmlFor={`university-year-${index}`}>Mezuniyet Yılı</Label>
+                              <Select
+                                value={entry.graduation_year}
+                                onValueChange={(value) => handleUniversityChange(index, "graduation_year", value)}
+                              >
+                                <SelectTrigger id={`university-year-${index}`} aria-label="Üniversite mezuniyet yılı seç">
+                                  <SelectValue placeholder="Seçin" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {Array.from({ length: 60 }, (_, i) => new Date().getFullYear() - i).map(
+                                    (year) => (
+                                      <SelectItem key={year} value={year.toString()}>
+                                        {year}
+                                      </SelectItem>
+                                    )
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                     <Button type="button" variant="secondary" onClick={handleAddUniversity} aria-label="Üniversite ekle">
