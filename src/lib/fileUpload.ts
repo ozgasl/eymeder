@@ -220,3 +220,38 @@ export function objectPathFromUrl(url: string | null | undefined, preset: Upload
 export function isManagedUrl(url: string | null | undefined, preset: UploadPreset): boolean {
   return objectPathFromUrl(url, preset) !== null;
 }
+
+/**
+ * An upload rejected by a storage policy and a table row rejected by a table
+ * policy both report "new row violates row-level security policy", so a failed
+ * gallery upload gave no way to tell which of the two steps was refused — the
+ * last one cost a whole diagnostic round on the wrong table. Name the step and
+ * the bucket in the message, and keep the original sentence so the underlying
+ * error is still readable.
+ */
+export function describeStorageFailure(
+  bucket: string,
+  error: { message?: string | null } | null | undefined,
+): string {
+  const raw = (error?.message ?? "").trim();
+
+  if (/row-level security/i.test(raw)) {
+    return `Dosya "${bucket}" kovasına yüklenemedi: depolama izinleri bu yüklemeye kapalı (${raw}).`;
+  }
+
+  if (/bucket not found/i.test(raw)) {
+    return `Dosya yüklenemedi: "${bucket}" kovası bulunamadı.`;
+  }
+
+  if (/exceeded the maximum allowed size|payload too large/i.test(raw)) {
+    return `Dosya "${bucket}" kovasının boyut sınırını aşıyor (${raw}).`;
+  }
+
+  if (/mime type|invalid_mime_type/i.test(raw)) {
+    return `Dosya türü "${bucket}" kovasında kabul edilmiyor (${raw}).`;
+  }
+
+  return raw
+    ? `Dosya "${bucket}" kovasına yüklenemedi: ${raw}`
+    : `Dosya "${bucket}" kovasına yüklenemedi.`;
+}

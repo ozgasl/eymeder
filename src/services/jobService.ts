@@ -12,7 +12,7 @@ export const jobService = {
       .from("job_postings")
       .select(`
         *,
-        poster:profiles!job_postings_posted_by_fkey(id, full_name, company, profession)
+        poster:member_profiles!job_postings_posted_by_fkey(id, full_name, company, profession)
       `)
       .eq("is_active", true)
       .order("created_at", { ascending: false });
@@ -25,7 +25,7 @@ export const jobService = {
       .from("job_postings")
       .select(`
         *,
-        poster:profiles!job_postings_posted_by_fkey(id, full_name, company, profession, avatar_url),
+        poster:member_profiles!job_postings_posted_by_fkey(id, full_name, company, profession, avatar_url),
         applications:job_applications(count)
       `)
       .eq("id", jobId)
@@ -105,7 +105,7 @@ export const jobService = {
       .from("job_applications")
       .select(`
         *,
-        applicant:profiles!job_applications_applicant_id_fkey(id, full_name, profession, city, avatar_url)
+        applicant:member_profiles!job_applications_applicant_id_fkey(id, full_name, profession, city, avatar_url)
       `)
       .eq("job_id", jobId)
       .order("applied_at", { ascending: false });

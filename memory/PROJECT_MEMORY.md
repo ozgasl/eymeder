@@ -242,7 +242,28 @@ korunur. Herkese açık `/brands` sayfasındaki "Bağlantılı mezun" adı
 PostgREST'in bir view'i FK üzerinden embed edip edemediği doğrulanamadı ve
 herkese açık sayfayı ona bağlamak istemedik.
 
-**Kalan (Aşama 2)**: giriş yapmış her üye hâlâ herkesin e-posta/telefonunu
+**Aşama 2 kuralı NETLEŞTİ (kullanıcı, 2026-09-11)**: `Dernek Üyesi` etiketi
+olan **her şeyi**; olmayan (Mezun/Bağışçı/Fahri) başka bir üyenin yalnızca
+**Ad Soyad (`full_name`), Okul (`university`), Mezuniyet yılı
+(`graduation_year`)** bilgisini görür. Kendi satırını herkes tam görür, staff
+de her şeyi görür. Arayüz etiketleri kolon eşlemesini kesinleştirdi:
+`graduation_year` = "Lise Mezuniyet", `department` = "Lise Bölümü",
+`university` = "Üniversite".
+- **`avatar_url` maskelenenler arasında** (kullanıcının listesinde yok). Sonucu:
+  dernek üyesi olmayan, haber/galeri/grup sayfalarında yazar fotoğrafı yerine
+  baş harf görür (`AvatarFallback` zaten var, kırılmıyor). Tek satırlık karar,
+  geri alınabilir.
+- Uygulama: `public.member_profiles` view'i (`20260911110000`), kural tek
+  yerde `public.member_sees_full_profile(profile_id)` fonksiyonunda.
+  **Maskelenen kolon filtre olarak da kullanılamıyor** (yerel testte
+  `where email = '...'` 0 satır) — yoksa maskeleme bir "oracle" bırakırdı.
+- **Sıra bilinçli**: önce yalnızca `galleryService` view'e geçirildi (canary),
+  `profiles` politikaları hiç değişmedi. Sebep: PostgREST'in bir view'i taban
+  tablonun FK'si üzerinden embed edip edemediği canlı API olmadan
+  doğrulanamıyor. Galeri preview'da çalışırsa kalan 11 servis + `profiles`
+  SELECT daraltması ikinci PR'da.
+
+**Kalan (Aşama 2, ikinci adım)**: giriş yapmış her üye hâlâ herkesin e-posta/telefonunu
 okuyabiliyor. Kullanıcı kararı: **`Dernek Üyesi` etiketi olanlar her şeyi,
 olmayanlar (Mezun/Bağışçı) yalnızca mezuniyet yılını** görsün. ⚠️ Bu kararın
 harfi harfine uygulanması haber/galeri/iş ilanı/grup/etkinlik embed'lerindeki
@@ -532,7 +553,129 @@ denetlerken her zaman `TabsList` ↔ `TabsContent` eşleşmesini iki yönlü
 kontrol et** — bir `TabsContent` yazıp `TabsTrigger`'ı eklemeyi unutmak,
 konsolda hiçbir hata vermeyen, sessiz bir UI bug'ı.
 
+## 🔥 Ders: "new row violates row-level security policy" hangi adımdan geliyor? (2026-09-11)
+
+Galeriye görsel yüklemesi bu mesajla başarısız oldu. Mesaj tek başına **hangi
+adımın** reddedildiğini söylemiyor, çünkü iki ayrı adım aynı cümleyi üretiyor:
+
+1. `storage.objects`'e dosya satırı eklemek (Storage API),
+2. `media_gallery`'ye kayıt satırı eklemek (PostgREST).
+
+İlk tahminim tablo tarafıydı ve **yanlıştı**. Teşhis sorgusu şunu gösterdi:
+- `media_gallery`'nin tek INSERT policy'si `auth_insert_media WITH CHECK
+  (auth.uid() = user_id)`,
+- yükleyen kullanıcı `ozgasl@gmail.com`, rolü `admin`, kendi `user_id`'siyle
+  satır ekliyor → bu policy reddedemez.
+
+Geriye `storage.objects` kalıyor. `avatars` ve `media` kovaları dashboard'dan
+elle açılmıştı ve bu repodan **hiçbir storage policy'leri yoktu**
+(`20260908190000` sadece `brand-logos` için yazmıştı, `20260908200000` ise
+bilerek sadece limit koymuş, policy'lere dokunmamıştı).
+
+**İki kalıcı ders:**
+
+- Bir hata mesajı iki farklı katmandan aynı şekilde gelebiliyorsa, tahmin etme
+  — **koddan ayırt edilebilir hale getir**. `describeStorageFailure()`
+  (`src/lib/fileUpload.ts`) artık storage adımını kova adıyla etiketliyor,
+  `media_gallery` hatası da "Galeri kaydı oluşturulamadı:" öneki alıyor. Bir
+  sonraki hata raporu tek bakışta hangi katman olduğunu söyleyecek.
+- Storage policy'si ilgili tablonun policy'sinden **daha sıkı olmamalı**. Burada
+  `media` için staff-only yazsaydım, tablonun kabul edeceği sıradan üyenin
+  yüklemesi storage'da reddedilirdi. `20260911120000` bu yüzden "kendi klasörü"
+  kuralını kullanıyor (`(storage.foldername(name))[1] = auth.uid()::text`) —
+  tablodaki `auth.uid() = user_id` kuralının storage karşılığı.
+
+Not: policy'ler aynı komut için **OR'lanır**, isimler de yeni. Yani bu migration
+tamamen ekleyicidir; dashboard'da göremediğim mevcut bir kural varsa onu
+bozmaz, sadece bugün reddedilen yüklemelere izin verir.
+
+## 🚨 Uygulanmamış migration: `20260830100000_tier_role_access_policies.sql` (2026-09-11'de fark edildi)
+
+Yukarıdaki teşhis sırasında ortaya çıktı: production'da `media_gallery`'nin
+INSERT policy'si hâlâ eski `auth_insert_media`. Yani bu migration'ın yarattığı
+**7 policy'nin hiçbiri canlıda yok**:
+
+`staff_create_events`, `staff_insert_news`, `staff_insert_media`,
+`dernek_uyesi_create_jobs`, `dernek_uyesi_create_groups`,
+`dernek_uyesi_send_messages`, `dernek_uyesi_create_mentorship_requests`.
+
+**Sonuç**: 2026-08-30'da "uçtan uca uygulandı" diye kaydedilen üye tipi/rol
+kısıtlamaları veritabanında değil, **sadece arayüzde** var. Giriş yapmış
+herhangi bir üye API'yi doğrudan çağırarak etkinlik/haber/medya/ilan/grup
+oluşturabilir. Bu oturumdaki **üçüncü** "uygulandı sanılan ama uygulanmamış"
+migration. Kullanıcıya bildirildi; yeniden çalıştırılması öneriliyor.
+
+## ✅ Cevap: PostgREST bir view'ı taban tablonun FK'i üzerinden EMBED EDEBİLİYOR (2026-09-11)
+
+`member_profiles` tasarımının canlı API olmadan doğrulanamayan tek parçası buydu
+ve **çalışıyor**:
+
+```
+media_gallery.select("*, profiles:member_profiles!media_gallery_user_id_fkey(full_name, avatar_url)")
+```
+
+Galeri kartında yükleyenin adı göründü. Yani `profiles` yerine `member_profiles`
+koymak için ilişki adını (`!<fk_adı>`) korumak yeterli; view'ın kendi
+`Relationships: []` olması engel değil. Bu yüzden kalan 11 servis aynı desenle
+taşındı.
+
+**Desen**: takma adı olan embed'de sadece tablo adı değişir
+(`creator:profiles!fk` → `creator:member_profiles!fk`); takma adı OLMAYAN
+embed'e takma ad **eklenmeli** (`profiles!fk` → `profiles:member_profiles!fk`),
+yoksa dönen anahtar `member_profiles` olur ve sayfayı bozar.
+
+## 🔥 Ders: View'a GRANT verilmemesi "boş sonuç" değil, **isteğin tamamının hatası** demek (2026-09-11)
+
+`member_profiles` ilk hâlinde sadece `authenticated`'a GRANT edilmişti. Haber,
+etkinlik, ilan, grup ve galeri sayfaları **oturum açmadan da** açılıyor. Eksik
+GRANT ile PostgREST `permission denied for view member_profiles` döndürür ve
+**sayfanın kendi satırlarını da** düşürür — sadece yazarın adını değil.
+
+RLS'te eksik policy ile GRANT'in davranışı **farklı**:
+- Tabloda anon için policy yok → **0 satır**, embed `null`, sayfa çalışır.
+- View'da anon için GRANT yok → **istek komple hata**, sayfa boş.
+
+Çözüm: `GRANT SELECT ... TO anon` **ve** view'a `WHERE auth.uid() IS NOT NULL`.
+View `security_invoker = false` olduğu için filtresiz GRANT gerçek bir sızıntı
+olurdu (her üyenin adı herkese açılırdı); filtreyle birlikte anon bugünkü
+davranışın aynısını alıyor: boş küme.
+
 ## Oturum günlüğü
+
+### 2026-09-11 — `profiles` RLS (Aşama 1 + 2), galeri yükleme hatası, storage policy'leri
+
+- **Aşama 1** (`20260911100000_profiles_rls.sql`, PR
+  [#22](https://github.com/ozgasl/eymeder/pull/22)): `profiles` üzerinde RLS
+  açıldı, SELECT giriş yapmış herkese, UPDATE sadece kendi satırına. Bu sırada
+  `REVOKE UPDATE (membership_tier)`'in **hiçbir zaman işe yaramadığı** bulundu
+  (bkz. ders bölümü) — herhangi bir üye kendini `dernek_uyesi` yapabiliyordu.
+  BEFORE UPDATE trigger'ı ile kapatıldı. Trigger'ın ilk hâli `SECURITY DEFINER`
+  olduğu için `current_user` fonksiyon sahibini döndürüyordu ve hiçbir şeyi
+  korumuyordu; kaldırıldı.
+- **Aşama 2** (`20260911110000_member_profiles_view.sql`): `member_profiles`
+  view'ı + `member_sees_full_profile()`. Dernek üyesi olmayanlar ad, soyad,
+  okul ve mezuniyet yılını görüyor; diğer 24 kolon maskeleniyor. Galeri ilk
+  taşınan servis — çünkü **PostgREST'in bir view'ı base tablonun FK'i üzerinden
+  embed edip edemeyeceği** bu tasarımın tek doğrulanmamış parçası (canary).
+- **Galeri yükleme hatası**: "new row violates row-level security policy".
+  Kök neden tablo değil storage çıktı (bkz. ders bölümü).
+  `20260911120000_avatars_media_storage_policies.sql` ile `avatars` ve `media`
+  kovalarına public read + kendi klasörüne yazma + staff silme/değiştirme
+  policy'leri eklendi. Hata mesajları artık katmanı söylüyor.
+- **Canary cevaplandı**: embed çalışıyor (bkz. yukarıdaki bölüm). Ardından
+  **Aşama 2 / 2** yapıldı: 22 embed + `getProfileById`, `searchAlumni`,
+  `getAllProfiles`, `getDepartments`, `getCities`, `getMentors`
+  `member_profiles`'a taşındı; `profiles` SELECT politikası
+  `kendi satırı OR dernek_uyesi OR staff` olarak daraltıldı
+  (`20260911130000_profiles_read_narrowing.sql`). Yerel Postgres 16'da 10/10
+  senaryo doğrulandı.
+- **Bilerek `profiles`'ta bırakılanlar** (hepsi kendi satırı, yeni politika
+  zaten izin veriyor): `getMyProfile`, `updateMyProfile`, `Navigation`,
+  `useAccessControl`, `gamificationService.checkAndAwardBadges`. Sunucu tarafı
+  (`pages/api/**`, `lib/requireMember.ts`) service-role kullanıyor, RLS'i
+  baypas ediyor.
+- **Açık kalan**: `avatar_url` maskeleme kararının teyidi, uygulanmamış
+  `20260830100000` migration'ının yeniden çalıştırılması.
 
 ### 2026-09-08 — Yanlış graduation_year taraması (Bugfix 2 oturumu, ikinci talep)
 

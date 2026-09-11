@@ -1672,6 +1672,41 @@ export type Database = {
       }
     }
     Views: {
+      member_profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          city: string | null
+          company: string | null
+          country: string | null
+          created_at: string | null
+          department: string | null
+          email: string | null
+          facebook_url: string | null
+          fonzip_checked_at: string | null
+          fonzip_membership_status: string | null
+          fonzip_tags: string | null
+          full_name: string | null
+          graduation_year: number | null
+          high_school_graduation_year: number | null
+          id: string | null
+          instagram_url: string | null
+          is_mentor: boolean | null
+          linkedin_url: string | null
+          membership_tier: string | null
+          mentor_bio: string | null
+          mentorship_areas: string[] | null
+          phone: string | null
+          profession: string | null
+          school_number: string | null
+          twitter_url: string | null
+          university: string | null
+          university_graduation_year: number | null
+          university_status: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
       brand_connected_members: {
         Row: {
           full_name: string | null

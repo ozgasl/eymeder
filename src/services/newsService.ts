@@ -28,7 +28,7 @@ export const newsService = {
       .from("news")
       .select(`
         *,
-        profiles!news_author_id_fkey(full_name, avatar_url)
+        profiles:member_profiles!news_author_id_fkey(full_name, avatar_url)
       `)
       .eq("published", true)
       .order("created_at", { ascending: false });
@@ -41,7 +41,7 @@ export const newsService = {
       .from("news")
       .select(`
         *,
-        profiles!news_author_id_fkey(full_name, avatar_url)
+        profiles:member_profiles!news_author_id_fkey(full_name, avatar_url)
       `)
       .eq("id", id)
       .single();

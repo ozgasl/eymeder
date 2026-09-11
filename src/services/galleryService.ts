@@ -1,6 +1,17 @@
 import { supabase } from "@/integrations/supabase/client";
+
+// The uploader is read through `member_profiles`, not `profiles`: that view
+// masks every column a member without the "Dernek Üyesi" tag may not see, so
+// the gallery shows such a member the uploader's name but not their photo.
+// Aliased back to `profiles` so the page reads the same shape as before.
+//
+// This is the first service moved over, on purpose: whether PostgREST can
+// embed a view through its base table's foreign key is the one part of this
+// design that cannot be checked without a live API. The rest follow once the
+// gallery is confirmed working.
 import {
   buildObjectPath,
+  describeStorageFailure,
   GALLERY_PHOTO_UPLOAD,
   GALLERY_VIDEO_UPLOAD,
   validateUpload,
@@ -38,7 +49,14 @@ export const galleryService = {
       .from(preset.bucket)
       .upload(fileName, file, { contentType: file.type });
 
-    if (uploadError) return { data: null, error: uploadError };
+    // Named, because the storage step and the record step below are refused
+    // with the same sentence when a row-level policy rejects them.
+    if (uploadError) {
+      return {
+        data: null,
+        error: new Error(describeStorageFailure(preset.bucket, uploadError)),
+      };
+    }
 
     const { data: { publicUrl } } = supabase.storage
       .from(preset.bucket)
@@ -59,7 +77,14 @@ export const galleryService = {
       .select()
       .single();
 
-    return { data, error };
+    if (error) {
+      return {
+        data: null,
+        error: new Error(`Galeri kaydı oluşturulamadı: ${error.message}`),
+      };
+    }
+
+    return { data, error: null };
   },
 
   async getAllMedia(filters?: { type?: string; year?: number; userId?: string }) {
@@ -67,7 +92,7 @@ export const galleryService = {
       .from("media_gallery")
       .select(`
         *,
-        profiles!media_gallery_user_id_fkey(full_name, avatar_url)
+        profiles:member_profiles!media_gallery_user_id_fkey(full_name, avatar_url)
       `)
       .order("created_at", { ascending: false });
 
@@ -90,7 +115,7 @@ export const galleryService = {
       .from("media_gallery")
       .select(`
         *,
-        profiles!media_gallery_user_id_fkey(full_name, avatar_url)
+        profiles:member_profiles!media_gallery_user_id_fkey(full_name, avatar_url)
       `)
       .eq("id", id)
       .single();

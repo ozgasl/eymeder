@@ -78,8 +78,8 @@ export const messageService = {
         .from("messages")
         .select(`
           *,
-          sender:profiles!messages_sender_id_fkey(id, full_name, avatar_url),
-          receiver:profiles!messages_receiver_id_fkey(id, full_name, avatar_url)
+          sender:member_profiles!messages_sender_id_fkey(id, full_name, avatar_url),
+          receiver:member_profiles!messages_receiver_id_fkey(id, full_name, avatar_url)
         `)
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .order("created_at", { ascending: false });
@@ -243,7 +243,7 @@ export const messageService = {
         .from("connections")
         .select(`
           *,
-          requester:profiles!connections_requester_id_fkey(id, full_name, avatar_url, profession)
+          requester:member_profiles!connections_requester_id_fkey(id, full_name, avatar_url, profession)
         `)
         .eq("receiver_id", user.id)
         .eq("status", "pending")
@@ -293,8 +293,8 @@ export const messageService = {
         .from("connections")
         .select(`
           *,
-          requester:profiles!connections_requester_id_fkey(id, full_name, avatar_url, profession, city),
-          receiver:profiles!connections_receiver_id_fkey(id, full_name, avatar_url, profession, city)
+          requester:member_profiles!connections_requester_id_fkey(id, full_name, avatar_url, profession, city),
+          receiver:member_profiles!connections_receiver_id_fkey(id, full_name, avatar_url, profession, city)
         `)
         .or(`requester_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .eq("status", "accepted")

@@ -13,7 +13,7 @@ export const eventService = {
       .from("events")
       .select(`
         *,
-        profiles!events_organizer_id_fkey(id, full_name, avatar_url),
+        profiles:member_profiles!events_organizer_id_fkey(id, full_name, avatar_url),
         event_attendees(count)
       `)
       .order("event_date", { ascending: true });
@@ -28,7 +28,7 @@ export const eventService = {
       .from("events")
       .select(`
         *,
-        profiles!events_organizer_id_fkey(id, full_name, avatar_url),
+        profiles:member_profiles!events_organizer_id_fkey(id, full_name, avatar_url),
         event_attendees(count)
       `)
       .gte("event_date", new Date().toISOString())
@@ -44,11 +44,11 @@ export const eventService = {
       .from("events")
       .select(`
         *,
-        organizer:profiles!events_organizer_id_fkey(id, full_name, avatar_url),
+        organizer:member_profiles!events_organizer_id_fkey(id, full_name, avatar_url),
         event_attendees(
           id,
           status,
-          user:profiles!event_attendees_user_id_fkey(id, full_name, avatar_url)
+          user:member_profiles!event_attendees_user_id_fkey(id, full_name, avatar_url)
         )
       `)
       .eq("id", eventId)
