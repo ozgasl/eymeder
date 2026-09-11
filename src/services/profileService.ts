@@ -107,6 +107,9 @@ export const profileService = {
   },
 
   // Update current user's profile
+  // Note: there is deliberately no "update any profile" helper. profiles RLS
+  // only lets a member write their own row, and staff changes go through the
+  // admin API routes with the service role.
   async updateMyProfile(updates: ProfileUpdate): Promise<{ data: Profile | null; error: any }> {
     const { data: { user } } = await supabase.auth.getUser();
     
@@ -120,19 +123,6 @@ export const profileService = {
       .single();
 
     console.log("updateMyProfile:", { data, error });
-    return { data, error };
-  },
-
-  // Update any profile (Admin only)
-  async updateProfileById(userId: string, updates: ProfileUpdate): Promise<{ data: Profile | null; error: any }> {
-    const { data, error } = await supabase
-      .from("profiles")
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq("id", userId)
-      .select()
-      .single();
-
-    console.log("updateProfileById:", { data, error });
     return { data, error };
   },
 

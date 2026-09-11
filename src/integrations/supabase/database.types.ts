@@ -1672,7 +1672,13 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      brand_connected_members: {
+        Row: {
+          full_name: string | null
+          id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       decrement_media_likes: { Args: { media_id: string }; Returns: undefined }
