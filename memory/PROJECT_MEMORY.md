@@ -229,49 +229,35 @@ SAHİBİNİ döndürür, çağıran rolü değil — `current_user IN ('authenti
 'anon')` kontrolü hiç eşleşmez ve trigger sessizce hiçbir şey korumaz. Bu da
 testte yakalandı (ilk sürüm tam olarak böyle yazılmıştı).
 
-## ⚠️ Bilinen açık: `profiles` okuma hâlâ kolon bazlı kısıtlı DEĞİL
+## ✅ Kapandı: `profiles` okuma artık kolon bazlı kısıtlı (2026-09-11, PR #22 + #23)
 
-**Aşama 1 tamamlandı** (`20260911100000_profiles_rls.sql`): RLS açık,
-`authenticated` tüm satırları OKUR, herkes yalnızca KENDİ satırını günceller,
-kimse silemez, `anon` hiçbir profili okuyamaz. Sistem alanları
-(`membership_tier`, `fonzip_*`, `graduation_year`, `school_number`) trigger ile
-korunur. Herkese açık `/brands` sayfasındaki "Bağlantılı mezun" adı
-`brand_connected_members` view'i ile yaşıyor (yalnızca markaya bağlanmış
-üyelerin id+ad'ı, `security_invoker = false`, anon'a GRANT'li) —
-`brandService` bunu embed ile değil AYRI SORGU ile okuyup birleştiriyor, çünkü
-PostgREST'in bir view'i FK üzerinden embed edip edemediği doğrulanamadı ve
-herkese açık sayfayı ona bağlamak istemedik.
+Aşama 1 + Aşama 2, ikisi de production'da (kullanıcı tarafından çalıştırıldı,
+Vercel preview'da test edildi): RLS açık, `authenticated` tüm satırları OKUR
+(politika `kendi satırı OR dernek_uyesi OR staff` — `20260911130000`), herkes
+yalnızca KENDİ satırını günceller, kimse silemez, `anon` hiçbir profili
+okuyamaz. Sistem alanları (`membership_tier`, `fonzip_*`, `graduation_year`,
+`school_number`) trigger ile korunur (bkz. yukarıdaki REVOKE/GRANT dersi).
 
-**Aşama 2 kuralı NETLEŞTİ (kullanıcı, 2026-09-11)**: `Dernek Üyesi` etiketi
-olan **her şeyi**; olmayan (Mezun/Bağışçı/Fahri) başka bir üyenin yalnızca
-**Ad Soyad (`full_name`), Okul (`university`), Mezuniyet yılı
-(`graduation_year`)** bilgisini görür. Kendi satırını herkes tam görür, staff
-de her şeyi görür. Arayüz etiketleri kolon eşlemesini kesinleştirdi:
-`graduation_year` = "Lise Mezuniyet", `department` = "Lise Bölümü",
-`university` = "Üniversite".
-- **`avatar_url` maskelenenler arasında** (kullanıcının listesinde yok). Sonucu:
-  dernek üyesi olmayan, haber/galeri/grup sayfalarında yazar fotoğrafı yerine
-  baş harf görür (`AvatarFallback` zaten var, kırılmıyor). Tek satırlık karar,
-  geri alınabilir.
-- Uygulama: `public.member_profiles` view'i (`20260911110000`), kural tek
-  yerde `public.member_sees_full_profile(profile_id)` fonksiyonunda.
-  **Maskelenen kolon filtre olarak da kullanılamıyor** (yerel testte
-  `where email = '...'` 0 satır) — yoksa maskeleme bir "oracle" bırakırdı.
-- **Sıra bilinçli**: önce yalnızca `galleryService` view'e geçirildi (canary),
-  `profiles` politikaları hiç değişmedi. Sebep: PostgREST'in bir view'i taban
-  tablonun FK'si üzerinden embed edip edemediği canlı API olmadan
-  doğrulanamıyor. Galeri preview'da çalışırsa kalan 11 servis + `profiles`
-  SELECT daraltması ikinci PR'da.
+`Dernek Üyesi` etiketi olan **her şeyi**; olmayan (Mezun/Bağışçı/Fahri) başka
+bir üyenin yalnızca **Ad Soyad (`full_name`), Okul (`university`), Mezuniyet
+yılı (`graduation_year`)** bilgisini görür. Kendi satırını herkes tam görür,
+staff de her şeyi görür. Uygulama: `public.member_profiles` view'i
+(`20260911110000`), kural tek yerde `public.member_sees_full_profile(profile_id)`
+fonksiyonunda; view'a `GRANT` + `WHERE auth.uid() IS NOT NULL` eksik olsaydı
+sayfanın tamamı düşerdi (bkz. yukarıdaki GRANT dersi). PostgREST bir view'ı
+taban tablonun FK'i üzerinden embed edebiliyor (canary galeri ile doğrulandı,
+bkz. yukarıdaki "✅ Cevap") — kalan 11 servis + `getProfileById`,
+`searchAlumni`, `getAllProfiles`, `getDepartments`, `getCities`, `getMentors`
+hepsi `member_profiles`'a taşındı, yerel Postgres 16'da 10/10 senaryo
+doğrulandı. Herkese açık `/brands` sayfasındaki "Bağlantılı mezun" adı ayrı,
+kendi `brand_connected_members` view'iyle yaşıyor (değişmedi).
 
-**Kalan (Aşama 2, ikinci adım)**: giriş yapmış her üye hâlâ herkesin e-posta/telefonunu
-okuyabiliyor. Kullanıcı kararı: **`Dernek Üyesi` etiketi olanlar her şeyi,
-olmayanlar (Mezun/Bağışçı) yalnızca mezuniyet yılını** görsün. ⚠️ Bu kararın
-harfi harfine uygulanması haber/galeri/iş ilanı/grup/etkinlik embed'lerindeki
-**yazar adlarını da siler** — bu sayfalar `full_name`/`avatar_url` gösteriyor.
-Aşama 2'ye başlamadan bu çelişki kullanıcıyla netleştirilmeli.
-RLS satır bazlı olduğu için çözüm view/RPC gerektirir; 12 servisin embed'i
-yeniden yazılacak ve PostgREST'in view embed'i **önce tek bir servisle
-sınanmalı**.
+**`avatar_url` maskesi kaldırıldı (Bugfix 3 oturumu, kullanıcı kararı)**:
+`full_name` zaten herkese açıkken fotoğrafı ayrıca maskelemenin ek bir
+gizlilik faydası olmadığına karar verildi. `20260911140000_member_profiles_show_avatar.sql`
+— `avatar_url`'i `full_name`/`university`/`graduation_year` ile aynı "her
+zaman görünür" gruba taşıyor, `20260911110000`/`20260911130000`'a
+dokunmuyor (ikisi de production'da, üzerine yeni migration).
 
 ## 🔥 Ders: Supabase RLS'te self-referencing policy → infinite recursion (42P17)
 
