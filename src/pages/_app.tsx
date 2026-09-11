@@ -10,7 +10,12 @@ import { supabase } from "@/integrations/supabase/client";
 import "@/styles/globals.css";
 
 function isPublicPath(pathname: string): boolean {
-  return pathname === "/welcome" || pathname.startsWith("/auth/");
+  return (
+    pathname === "/welcome" ||
+    pathname === "/kvkk" ||
+    pathname === "/cerez-politikasi" ||
+    pathname.startsWith("/auth/")
+  );
 }
 
 export default function App({ Component, pageProps }: AppProps) {
