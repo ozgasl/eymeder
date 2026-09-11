@@ -27,7 +27,7 @@ export const testimonialService = {
       .from("testimonials")
       .select(`
         *,
-        profiles!testimonials_user_id_fkey(full_name, avatar_url, profession, company)
+        profiles:member_profiles!testimonials_user_id_fkey(full_name, avatar_url, profession, company)
       `)
       .eq("approved", true)
       .order("created_at", { ascending: false });

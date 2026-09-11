@@ -605,6 +605,41 @@ herhangi bir üye API'yi doğrudan çağırarak etkinlik/haber/medya/ilan/grup
 oluşturabilir. Bu oturumdaki **üçüncü** "uygulandı sanılan ama uygulanmamış"
 migration. Kullanıcıya bildirildi; yeniden çalıştırılması öneriliyor.
 
+## ✅ Cevap: PostgREST bir view'ı taban tablonun FK'i üzerinden EMBED EDEBİLİYOR (2026-09-11)
+
+`member_profiles` tasarımının canlı API olmadan doğrulanamayan tek parçası buydu
+ve **çalışıyor**:
+
+```
+media_gallery.select("*, profiles:member_profiles!media_gallery_user_id_fkey(full_name, avatar_url)")
+```
+
+Galeri kartında yükleyenin adı göründü. Yani `profiles` yerine `member_profiles`
+koymak için ilişki adını (`!<fk_adı>`) korumak yeterli; view'ın kendi
+`Relationships: []` olması engel değil. Bu yüzden kalan 11 servis aynı desenle
+taşındı.
+
+**Desen**: takma adı olan embed'de sadece tablo adı değişir
+(`creator:profiles!fk` → `creator:member_profiles!fk`); takma adı OLMAYAN
+embed'e takma ad **eklenmeli** (`profiles!fk` → `profiles:member_profiles!fk`),
+yoksa dönen anahtar `member_profiles` olur ve sayfayı bozar.
+
+## 🔥 Ders: View'a GRANT verilmemesi "boş sonuç" değil, **isteğin tamamının hatası** demek (2026-09-11)
+
+`member_profiles` ilk hâlinde sadece `authenticated`'a GRANT edilmişti. Haber,
+etkinlik, ilan, grup ve galeri sayfaları **oturum açmadan da** açılıyor. Eksik
+GRANT ile PostgREST `permission denied for view member_profiles` döndürür ve
+**sayfanın kendi satırlarını da** düşürür — sadece yazarın adını değil.
+
+RLS'te eksik policy ile GRANT'in davranışı **farklı**:
+- Tabloda anon için policy yok → **0 satır**, embed `null`, sayfa çalışır.
+- View'da anon için GRANT yok → **istek komple hata**, sayfa boş.
+
+Çözüm: `GRANT SELECT ... TO anon` **ve** view'a `WHERE auth.uid() IS NOT NULL`.
+View `security_invoker = false` olduğu için filtresiz GRANT gerçek bir sızıntı
+olurdu (her üyenin adı herkese açılırdı); filtreyle birlikte anon bugünkü
+davranışın aynısını alıyor: boş küme.
+
 ## Oturum günlüğü
 
 ### 2026-09-11 — `profiles` RLS (Aşama 1 + 2), galeri yükleme hatası, storage policy'leri
@@ -627,8 +662,19 @@ migration. Kullanıcıya bildirildi; yeniden çalıştırılması öneriliyor.
   `20260911120000_avatars_media_storage_policies.sql` ile `avatars` ve `media`
   kovalarına public read + kendi klasörüne yazma + staff silme/değiştirme
   policy'leri eklendi. Hata mesajları artık katmanı söylüyor.
-- **Açık kalan**: canary sorusu (galeride 0 satır olduğu için hâlâ
-  cevaplanmadı), `avatar_url` maskeleme kararının teyidi, uygulanmamış
+- **Canary cevaplandı**: embed çalışıyor (bkz. yukarıdaki bölüm). Ardından
+  **Aşama 2 / 2** yapıldı: 22 embed + `getProfileById`, `searchAlumni`,
+  `getAllProfiles`, `getDepartments`, `getCities`, `getMentors`
+  `member_profiles`'a taşındı; `profiles` SELECT politikası
+  `kendi satırı OR dernek_uyesi OR staff` olarak daraltıldı
+  (`20260911130000_profiles_read_narrowing.sql`). Yerel Postgres 16'da 10/10
+  senaryo doğrulandı.
+- **Bilerek `profiles`'ta bırakılanlar** (hepsi kendi satırı, yeni politika
+  zaten izin veriyor): `getMyProfile`, `updateMyProfile`, `Navigation`,
+  `useAccessControl`, `gamificationService.checkAndAwardBadges`. Sunucu tarafı
+  (`pages/api/**`, `lib/requireMember.ts`) service-role kullanıyor, RLS'i
+  baypas ediyor.
+- **Açık kalan**: `avatar_url` maskeleme kararının teyidi, uygulanmamış
   `20260830100000` migration'ının yeniden çalıştırılması.
 
 ### 2026-09-08 — Yanlış graduation_year taraması (Bugfix 2 oturumu, ikinci talep)

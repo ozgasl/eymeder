@@ -72,6 +72,12 @@ export interface SearchFilters {
 
 export const profileService = {
   // Get current user's profile
+  // Deliberately reads `profiles`, not `member_profiles`: this is the member's
+  // OWN row, which the narrowed SELECT policy (20260911130000) always allows
+  // and which the profile edit form needs unmasked. The same goes for
+  // updateMyProfile below, Navigation and useAccessControl (own
+  // membership_tier) and gamificationService.checkAndAwardBadges (own row).
+  // Every read of SOMEONE ELSE goes through the view.
   async getMyProfile(): Promise<{ data: Profile | null; error: any }> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -95,10 +101,16 @@ export const profileService = {
   },
 
   // Get profile by ID
+  //
+  // Read through `member_profiles`, never `profiles`: this is how a member
+  // looks at SOMEONE ELSE, and the view is what decides which of that member's
+  // columns they may see. It exposes exactly the same column set, so the shape
+  // is unchanged — a member without the "Dernek Üyesi" tag simply gets null
+  // where the table would have had an e-mail or a phone number.
   async getProfileById(userId: string): Promise<{ data: Profile | null; error: any }> {
     try {
       const { data, error } = await supabase
-        .from("profiles")
+        .from("member_profiles")
         .select("*")
         .eq("id", userId)
         .single();
@@ -135,11 +147,14 @@ export const profileService = {
   async searchAlumni(filters: SearchFilters = {}): Promise<{ data: Profile[]; error: any }> {
     try {
       let query = supabase
-        .from("profiles")
+        .from("member_profiles")
         .select("*")
         .order("created_at", { ascending: false });
 
-      // Apply filters
+      // Filters run against the view's columns, so a masked column cannot be
+      // used as an oracle: searching by e-mail returns nothing for a member
+      // who is not allowed to see e-mail addresses, rather than confirming
+      // that some address is registered here.
       if (filters.searchTerm) {
         query = query.or(`full_name.ilike.%${filters.searchTerm}%,email.ilike.%${filters.searchTerm}%`);
       }
@@ -174,7 +189,7 @@ export const profileService = {
   async getDepartments(): Promise<{ data: string[]; error: any }> {
     try {
       const { data, error } = await supabase
-        .from("profiles")
+        .from("member_profiles")
         .select("department")
         .not("department", "is", null)
         .order("department");
@@ -195,7 +210,7 @@ export const profileService = {
   async getCities(): Promise<{ data: string[]; error: any }> {
     try {
       const { data, error } = await supabase
-        .from("profiles")
+        .from("member_profiles")
         .select("city")
         .not("city", "is", null)
         .order("city");
@@ -261,10 +276,15 @@ export const profileService = {
   },
 
   // Get all profiles
+  //
+  // The directory and the admin panel both read this. Through the view an
+  // admin still gets every column (member_sees_full_profile is true for
+  // staff), while a member without the "Dernek Üyesi" tag gets a directory of
+  // names, schools and graduation years — which is the rule.
   async getAllProfiles(): Promise<{ data: Profile[]; error: any }> {
     try {
       const { data, error } = await supabase
-        .from("profiles")
+        .from("member_profiles")
         .select("*")
         .order("created_at", { ascending: false });
 

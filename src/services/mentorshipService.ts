@@ -6,8 +6,12 @@ export const mentorshipService = {
     // Explicit columns, not "*": this list is what the mentorship page shows,
     // and the row otherwise carried every member's email and phone into the
     // browser of anyone who opened the page.
+    //
+    // `is_mentor` is one of the view's always-visible columns, so the filter
+    // still works for every member; the mentor's profession, company and
+    // mentor_bio come back null for a member without the "Dernek Üyesi" tag.
     const { data, error } = await supabase
-      .from("profiles")
+      .from("member_profiles")
       .select("id, full_name, avatar_url, profession, company, mentor_bio, mentorship_areas, department, graduation_year")
       .eq("is_mentor", true);
     return { data, error };
@@ -39,8 +43,8 @@ export const mentorshipService = {
       .from("mentorship_requests")
       .select(`
         *,
-        mentor:profiles!mentorship_requests_mentor_id_fkey(id, full_name, avatar_url, profession, company),
-        mentee:profiles!mentorship_requests_mentee_id_fkey(id, full_name, avatar_url, department, graduation_year)
+        mentor:member_profiles!mentorship_requests_mentor_id_fkey(id, full_name, avatar_url, profession, company),
+        mentee:member_profiles!mentorship_requests_mentee_id_fkey(id, full_name, avatar_url, department, graduation_year)
       `)
       .or(`mentor_id.eq.${user.user.id},mentee_id.eq.${user.user.id}`)
       .order("created_at", { ascending: false });

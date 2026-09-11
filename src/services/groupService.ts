@@ -32,7 +32,7 @@ export const groupService = {
       .from("groups")
       .select(`
         *,
-        creator:profiles!groups_created_by_fkey(id, full_name, avatar_url),
+        creator:member_profiles!groups_created_by_fkey(id, full_name, avatar_url),
         group_members(id)
       `)
       .order("created_at", { ascending: false });
@@ -45,12 +45,12 @@ export const groupService = {
       .from("groups")
       .select(`
         *,
-        creator:profiles!groups_created_by_fkey(id, full_name, avatar_url),
+        creator:member_profiles!groups_created_by_fkey(id, full_name, avatar_url),
         group_members(
           id,
           role,
           joined_at,
-          member:profiles!group_members_user_id_fkey(id, full_name, avatar_url, profession)
+          member:member_profiles!group_members_user_id_fkey(id, full_name, avatar_url, profession)
         )
       `)
       .eq("id", id)
@@ -94,7 +94,7 @@ export const groupService = {
       .from("group_posts")
       .select(`
         *,
-        author:profiles!group_posts_user_id_fkey(id, full_name, avatar_url, profession),
+        author:member_profiles!group_posts_user_id_fkey(id, full_name, avatar_url, profession),
         group_post_likes(id, user_id)
       `)
       .eq("group_id", groupId)

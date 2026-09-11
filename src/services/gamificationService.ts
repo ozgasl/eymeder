@@ -279,7 +279,7 @@ export const gamificationService = {
         .select(`
           user_id,
           points,
-          profiles!activity_points_user_id_fkey (
+          profiles:member_profiles!activity_points_user_id_fkey (
             full_name,
             avatar_url,
             profession
