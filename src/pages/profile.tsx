@@ -10,11 +10,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { authService } from "@/services/authService";
 import { profileService } from "@/services/profileService";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, User, Briefcase, GraduationCap, MapPin, Phone, Globe, Linkedin, Twitter, Instagram, Facebook, X } from "lucide-react";
+import { Loader2, User, Briefcase, GraduationCap, MapPin, Phone, Globe, Linkedin, Twitter, Instagram, Facebook, X, Plus } from "lucide-react";
 import { buildSocialUrl, getSocialHandle } from "@/lib/socialLinks";
+import { PROFESSION_GROUPS } from "@/lib/professionGroups";
+import { AVATAR_UPLOAD, acceptAttribute, validateUpload } from "@/lib/fileUpload";
+
+interface UniversityEntry {
+  university: string;
+  status: string;
+  graduation_year: string;
+}
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -26,12 +35,13 @@ export default function ProfilePage() {
   const [fullName, setFullName] = useState("");
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [graduationYear, setGraduationYear] = useState("");
   const [department, setDepartment] = useState("");
-  const [university, setUniversity] = useState("");
-  const [universityStatus, setUniversityStatus] = useState("");
-  const [universityGraduationYear, setUniversityGraduationYear] = useState("");
+  const [universities, setUniversities] = useState<UniversityEntry[]>([]);
   const [profession, setProfession] = useState("");
+  const [professionGroup, setProfessionGroup] = useState("");
   const [company, setCompany] = useState("");
   const [country, setCountry] = useState("");
   const [city, setCity] = useState("");
@@ -68,10 +78,15 @@ export default function ProfilePage() {
       setAvatarUrl(data.avatar_url || "");
       setGraduationYear(data.graduation_year?.toString() || "");
       setDepartment(data.department || "");
-      setUniversity(data.university || "");
-      setUniversityStatus(data.university_status || "");
-      setUniversityGraduationYear(data.university_graduation_year?.toString() || "");
+      setUniversities(
+        (data.profile_universities || []).map((u) => ({
+          university: u.university,
+          status: u.status || "",
+          graduation_year: u.graduation_year?.toString() || "",
+        }))
+      );
       setProfession(data.profession || "");
+      setProfessionGroup(data.profession_group || "");
       setCompany(data.company || "");
       setCountry(data.country || "");
       setCity(data.city || "");
@@ -95,10 +110,8 @@ export default function ProfilePage() {
       bio: bio || null,
       avatar_url: avatarUrl || null,
       department: department || null,
-      university: university || null,
-      university_status: universityStatus || null,
-      university_graduation_year: universityGraduationYear ? parseInt(universityGraduationYear) : null,
       profession: profession || null,
+      profession_group: professionGroup || null,
       company: company || null,
       country: country || null,
       city: city || null,
@@ -112,7 +125,18 @@ export default function ProfilePage() {
       mentorship_areas: isMentor && mentorshipAreas.length > 0 ? mentorshipAreas : null,
     });
 
-    if (error) {
+    const { error: universitiesError } = await profileService.replaceMyUniversities(
+      universities
+        .filter((u) => u.university.trim())
+        .map((u) => ({
+          university: u.university.trim(),
+          status: (u.status || null) as "studying" | "graduated" | null,
+          graduation_year:
+            u.status === "graduated" && u.graduation_year ? parseInt(u.graduation_year) : null,
+        }))
+    );
+
+    if (error || universitiesError) {
       toast({
         title: "Hata",
         description: "Profil güncellenemedi",
@@ -126,6 +150,57 @@ export default function ProfilePage() {
     }
 
     setSaving(false);
+  };
+
+  const handleAddUniversity = () => {
+    setUniversities([...universities, { university: "", status: "", graduation_year: "" }]);
+  };
+
+  const handleRemoveUniversity = (index: number) => {
+    setUniversities(universities.filter((_, i) => i !== index));
+  };
+
+  const handleUniversityChange = (
+    index: number,
+    field: keyof UniversityEntry,
+    value: string
+  ) => {
+    setUniversities(universities.map((u, i) => (i === index ? { ...u, [field]: value } : u)));
+  };
+
+  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validation = validateUpload(file, AVATAR_UPLOAD);
+    if (!validation.ok) {
+      toast({ title: "Hata", description: validation.message, variant: "destructive" });
+      e.target.value = "";
+      return;
+    }
+
+    setAvatarFile(file);
+  };
+
+  const handleAvatarUpload = async () => {
+    if (!avatarFile) return;
+    setUploadingAvatar(true);
+
+    const { data, error: uploadError } = await profileService.uploadAvatar(avatarFile);
+
+    if (uploadError) {
+      toast({
+        title: "Hata",
+        description: uploadError.message || "Fotoğraf yüklenemedi",
+        variant: "destructive",
+      });
+    } else if (data) {
+      setAvatarUrl(data);
+      setAvatarFile(null);
+      toast({ title: "Başarılı", description: "Profil fotoğrafı güncellendi" });
+    }
+
+    setUploadingAvatar(false);
   };
 
   const handleAddArea = () => {
@@ -200,6 +275,37 @@ export default function ProfilePage() {
                   </div>
 
                   <div className="space-y-2">
+                    <Label htmlFor="avatar_file">Profil Fotoğrafı Yükle</Label>
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-14 w-14 flex-shrink-0">
+                        <AvatarImage src={avatarUrl || undefined} alt="Profil fotoğrafı önizleme" />
+                        <AvatarFallback>{fullName?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 flex flex-col sm:flex-row gap-2">
+                        <Input
+                          id="avatar_file"
+                          type="file"
+                          accept={acceptAttribute(AVATAR_UPLOAD)}
+                          onChange={handleAvatarFileSelect}
+                          aria-describedby="avatar-file-desc"
+                        />
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={handleAvatarUpload}
+                          disabled={!avatarFile || uploadingAvatar}
+                        >
+                          {uploadingAvatar && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+                          {uploadingAvatar ? "Yükleniyor..." : "Yükle"}
+                        </Button>
+                      </div>
+                    </div>
+                    <p id="avatar-file-desc" className="text-xs text-muted-foreground">
+                      {AVATAR_UPLOAD.formatLabel}, en fazla {AVATAR_UPLOAD.maxBytes / (1024 * 1024)}MB. Yüklendiğinde hemen kaydedilir.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
                     <Label htmlFor="bio">Biyografi</Label>
                     <Textarea
                       id="bio"
@@ -246,50 +352,75 @@ export default function ProfilePage() {
                     </div>
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="university">Üniversite</Label>
-                      <Input
-                        id="university"
-                        value={university}
-                        onChange={(e) => setUniversity(e.target.value)}
-                        placeholder="Üniversite adı"
-                      />
-                    </div>
+                  <div className="space-y-4">
+                    <Label>Üniversiteler</Label>
+                    {universities.map((entry, index) => (
+                      <div key={index} className="grid gap-4 md:grid-cols-[2fr_1fr_1fr_auto] items-end border rounded-md p-4">
+                        <div className="space-y-2">
+                          <Label htmlFor={`university-${index}`}>Üniversite</Label>
+                          <Input
+                            id={`university-${index}`}
+                            value={entry.university}
+                            onChange={(e) => handleUniversityChange(index, "university", e.target.value)}
+                            placeholder="Üniversite adı"
+                          />
+                        </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="university_status">Üniversite Durumu</Label>
-                      <Select value={universityStatus} onValueChange={setUniversityStatus}>
-                        <SelectTrigger id="university_status" aria-label="Üniversite durumu seç">
-                          <SelectValue placeholder="Seçin" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="studying">Okuyor</SelectItem>
-                          <SelectItem value="graduated">Mezun</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`university-status-${index}`}>Durum</Label>
+                          <Select
+                            value={entry.status}
+                            onValueChange={(value) => handleUniversityChange(index, "status", value)}
+                          >
+                            <SelectTrigger id={`university-status-${index}`} aria-label="Üniversite durumu seç">
+                              <SelectValue placeholder="Seçin" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="studying">Okuyor</SelectItem>
+                              <SelectItem value="graduated">Mezun</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {entry.status === "graduated" && (
+                          <div className="space-y-2">
+                            <Label htmlFor={`university-year-${index}`}>Mezuniyet Yılı</Label>
+                            <Select
+                              value={entry.graduation_year}
+                              onValueChange={(value) => handleUniversityChange(index, "graduation_year", value)}
+                            >
+                              <SelectTrigger id={`university-year-${index}`} aria-label="Üniversite mezuniyet yılı seç">
+                                <SelectValue placeholder="Seçin" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Array.from({ length: 60 }, (_, i) => new Date().getFullYear() - i).map(
+                                  (year) => (
+                                    <SelectItem key={year} value={year.toString()}>
+                                      {year}
+                                    </SelectItem>
+                                  )
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveUniversity(index)}
+                          aria-label="Üniversiteyi kaldır"
+                        >
+                          <X className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button type="button" variant="secondary" onClick={handleAddUniversity} aria-label="Üniversite ekle">
+                      <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+                      Üniversite Ekle
+                    </Button>
                   </div>
-
-                  {universityStatus === "graduated" && (
-                    <div className="space-y-2">
-                      <Label htmlFor="university_graduation_year">Üniversite Mezuniyet Yılı</Label>
-                      <Select value={universityGraduationYear} onValueChange={setUniversityGraduationYear}>
-                        <SelectTrigger id="university_graduation_year" aria-label="Üniversite mezuniyet yılı seç">
-                          <SelectValue placeholder="Seçin" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: 60 }, (_, i) => new Date().getFullYear() - i).map(
-                            (year) => (
-                              <SelectItem key={year} value={year.toString()}>
-                                {year}
-                              </SelectItem>
-                            )
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
                 </fieldset>
 
                 {/* Profesyonel Bilgiler */}
@@ -318,6 +449,22 @@ export default function ProfilePage() {
                         onChange={(e) => setCompany(e.target.value)}
                         placeholder="Çalıştığınız veya son çalıştığınız şirket"
                       />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="profession_group">Meslek Grubu</Label>
+                      <Select value={professionGroup} onValueChange={setProfessionGroup}>
+                        <SelectTrigger id="profession_group" aria-label="Meslek grubu seç">
+                          <SelectValue placeholder="Seçin" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PROFESSION_GROUPS.map((group) => (
+                            <SelectItem key={group} value={group}>
+                              {group}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </fieldset>
