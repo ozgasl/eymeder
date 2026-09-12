@@ -21,9 +21,6 @@ export interface Profile {
   fonzip_tags: string | null;
   fonzip_checked_at: string | null;
   department: string | null;
-  university: string | null;
-  university_status: string | null;
-  university_graduation_year: number | null;
   profession: string | null;
   profession_group: string | null;
   company: string | null;
@@ -70,9 +67,6 @@ export interface ProfileUpdate {
   avatar_url?: string | null;
   bio?: string | null;
   department?: string | null;
-  university?: string | null;
-  university_status?: string | null;
-  university_graduation_year?: number | null;
   profession?: string | null;
   profession_group?: string | null;
   company?: string | null;

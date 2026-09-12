@@ -1498,9 +1498,6 @@ export type Database = {
           profession_group: string | null
           school_number: string | null
           twitter_url: string | null
-          university: string | null
-          university_graduation_year: number | null
-          university_status: string | null
           updated_at: string | null
         }
         Insert: {
@@ -1531,9 +1528,6 @@ export type Database = {
           profession_group?: string | null
           school_number?: string | null
           twitter_url?: string | null
-          university?: string | null
-          university_graduation_year?: number | null
-          university_status?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -1564,9 +1558,6 @@ export type Database = {
           profession_group?: string | null
           school_number?: string | null
           twitter_url?: string | null
-          university?: string | null
-          university_graduation_year?: number | null
-          university_status?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -1745,9 +1736,6 @@ export type Database = {
           profession_group: string | null
           school_number: string | null
           twitter_url: string | null
-          university: string | null
-          university_graduation_year: number | null
-          university_status: string | null
           updated_at: string | null
         }
         Relationships: []
