@@ -11,13 +11,12 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { profileService, type Profile, type SearchFilters } from "@/services/profileService";
 import { useAccessControl } from "@/hooks/useAccessControl";
-import { AccessRestricted } from "@/components/AccessRestricted";
 import { Loader2, Search, MapPin, Briefcase, GraduationCap, Building, Filter, MessageSquare, Mail, Phone, Linkedin, Twitter, Instagram, Facebook, Globe } from "lucide-react";
 import { getSocialHandle } from "@/lib/socialLinks";
 import { PROFESSION_GROUPS } from "@/lib/professionGroups";
 
 export default function DirectoryPage() {
-  const { loading, isDernekUyesi } = useAccessControl();
+  const { loading } = useAccessControl();
   const [searching, setSearching] = useState(false);
   const [alumni, setAlumni] = useState<Profile[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
@@ -40,10 +39,10 @@ export default function DirectoryPage() {
   const [companyFilter, setCompanyFilter] = useState("all");
 
   useEffect(() => {
-    if (!loading && isDernekUyesi) {
+    if (!loading) {
       loadMembers();
     }
-  }, [loading, isDernekUyesi]);
+  }, [loading]);
 
   const loadMembers = async () => {
     const { data, error } = await profileService.getAllProfiles();
@@ -120,21 +119,6 @@ export default function DirectoryPage() {
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
-    );
-  }
-
-  if (!isDernekUyesi) {
-    return (
-      <>
-        <SEO
-          title="Mezun Dizini - Mezunlar Derneği"
-          description="Mezunları keşfedin, bağlantılar kurun"
-        />
-        <div className="min-h-screen bg-background">
-          <Navigation />
-          <AccessRestricted featureName="Mezun Dizini" />
-        </div>
-      </>
     );
   }
 
