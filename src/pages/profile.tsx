@@ -342,7 +342,7 @@ export default function ProfilePage() {
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="high_school_year">Lise Mezuniyet Yılı</Label>
+                      <Label htmlFor="high_school_year">Mezuniyet Yılı</Label>
                       <Input
                         id="high_school_year"
                         value={graduationYear || "—"}
