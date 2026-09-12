@@ -53,10 +53,19 @@ export default function DirectoryPage() {
   };
 
   const filteredMembers = members.filter((member) => {
-    const matchesSearch = 
-      member.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      member.department?.toLowerCase().includes(searchQuery.toLowerCase());
-    
+    const query = searchQuery.toLowerCase();
+    const matchesSearch =
+      member.full_name?.toLowerCase().includes(query) ||
+      member.department?.toLowerCase().includes(query) ||
+      member.profession?.toLowerCase().includes(query) ||
+      member.profession_group?.toLowerCase().includes(query) ||
+      member.company?.toLowerCase().includes(query) ||
+      member.city?.toLowerCase().includes(query) ||
+      member.country?.toLowerCase().includes(query) ||
+      member.profile_universities?.some(
+        (u: any) => u.university?.toLowerCase().includes(query) || u.department?.toLowerCase().includes(query)
+      );
+
     const matchesHighSchoolYear = highSchoolYearFilter === "all" || highSchoolYearFilter === "" || member.graduation_year?.toString() === highSchoolYearFilter;
     const matchesCity = cityFilter === "all" || cityFilter === "" || member.city === cityFilter;
     const matchesCountry = countryFilter === "all" || countryFilter === "" || member.country === countryFilter;
@@ -159,7 +168,7 @@ export default function DirectoryPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="search">İsim veya Bölüm Ara</Label>
+                    <Label htmlFor="search">İsim, Üniversite, Meslek... Ara</Label>
                     <div className="relative">
                       <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
                       <Input
@@ -168,15 +177,15 @@ export default function DirectoryPage() {
                         className="pl-8"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        aria-label="İsim veya bölüm ara"
+                        aria-label="İsim, üniversite, bölüm, meslek, şirket, şehir veya ülkeye göre ara"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="hs-year-filter">Lise Mezuniyet Yılı</Label>
+                    <Label htmlFor="hs-year-filter">Mezuniyet Yılı</Label>
                     <Select value={highSchoolYearFilter} onValueChange={setHighSchoolYearFilter}>
-                      <SelectTrigger id="hs-year-filter" aria-label="Lise mezuniyet yılına göre filtrele">
+                      <SelectTrigger id="hs-year-filter" aria-label="Mezuniyet yılına göre filtrele">
                         <SelectValue placeholder="Tüm yıllar" />
                       </SelectTrigger>
                       <SelectContent>
