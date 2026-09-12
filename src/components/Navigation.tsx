@@ -157,6 +157,7 @@ export function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isDernekUyesi, setIsDernekUyesi] = useState(false);
   const [isStaff, setIsStaff] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     loadUser();
@@ -166,6 +167,7 @@ export function Navigation() {
     if (!user) {
       setIsDernekUyesi(false);
       setIsStaff(false);
+      setAvatarUrl(null);
       return;
     }
     loadAccess(user.id);
@@ -173,10 +175,11 @@ export function Navigation() {
 
   const loadAccess = async (userId: string) => {
     const [{ data: profile }, { data: roleRow }] = await Promise.all([
-      supabase.from("profiles").select("membership_tier").eq("id", userId).single(),
+      supabase.from("profiles").select("membership_tier, avatar_url").eq("id", userId).single(),
       supabase.from("roles").select("role").eq("user_id", userId).single(),
     ]);
     setIsDernekUyesi((profile as any)?.membership_tier === "dernek_uyesi");
+    setAvatarUrl((profile as any)?.avatar_url ?? null);
     const role = (roleRow as any)?.role;
     setIsStaff(role === "admin" || role === "moderator");
   };
@@ -403,7 +406,7 @@ export function Navigation() {
                 aria-haspopup="true"
               >
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src={user?.user_metadata?.avatar_url} alt={`${user?.email} profil resmi`} />
+                  <AvatarImage src={avatarUrl ?? undefined} alt={`${user?.email} profil resmi`} />
                   <AvatarFallback className="bg-primary text-primary-foreground">
                     {user?.email?.charAt(0).toUpperCase()}
                   </AvatarFallback>
