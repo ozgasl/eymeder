@@ -43,6 +43,19 @@ const nextConfig = {
     ],
   },
   allowedDevOrigins: ["*.daytona.work", "*.softgen.dev"],
+  // eyb-network.vercel.app is the original Vercel domain, kept live so old
+  // links/bookmarks still work — but network.eymeder.com is now the
+  // canonical address, so anyone hitting the old one is sent there.
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "eyb-network.vercel.app" }],
+        destination: "https://network.eymeder.com/:path*",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
