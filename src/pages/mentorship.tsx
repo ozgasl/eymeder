@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/router";
 import { SEO } from "@/components/SEO";
 import { Navigation } from "@/components/Navigation";
@@ -12,7 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { mentorshipService } from "@/services/mentorshipService";
 import { useAccessControl } from "@/hooks/useAccessControl";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Mail, Phone, Linkedin, Twitter, Instagram, Facebook, MapPin, Copy } from "lucide-react";
+import { getSocialHandle } from "@/lib/socialLinks";
 
 export default function MentorshipPage() {
   const router = useRouter();
@@ -68,6 +69,90 @@ export default function MentorshipPage() {
       await loadRequests();
     }
   };
+
+  const copyToClipboard = async (value: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast({ title: "Kopyalandı", description: `${label} panoya kopyalandı.` });
+    } catch {
+      toast({ title: "Kopyalanamadı", description: "Elle kopyalayabilirsiniz.", variant: "destructive" });
+    }
+  };
+
+  const renderContactRow = (icon: ReactNode, label: string, display: string, copyValue: string) => (
+    <button
+      type="button"
+      onClick={() => copyToClipboard(copyValue, label)}
+      className="flex w-full items-center gap-2 rounded-sm p-1 text-left text-sm hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
+    >
+      {icon}
+      <span className="truncate">{display}</span>
+      <Copy className="ml-auto h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
+    </button>
+  );
+
+  // A person as embedded on a mentorship_requests row (member_profiles fields,
+  // masked per the viewer's own tier just like everywhere else that view is used).
+  const renderMatchedProfile = (person: any, subtitle: string) => (
+    <Dialog>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="flex items-center gap-4 rounded-md border-0 bg-transparent p-0 text-left focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+          aria-label={`${person.full_name} profilini görüntüle`}
+        >
+          <Avatar className="h-12 w-12">
+            <AvatarImage src={person.avatar_url} />
+            <AvatarFallback>{person.full_name?.charAt(0)}</AvatarFallback>
+          </Avatar>
+          <div>
+            <h3 className="font-medium">{person.full_name}</h3>
+            <p className="text-sm text-muted-foreground">{subtitle}</p>
+          </div>
+        </button>
+      </DialogTrigger>
+      <DialogContent role="dialog" aria-labelledby={`mentorship-profile-title-${person.id}`}>
+        <DialogHeader>
+          <DialogTitle id={`mentorship-profile-title-${person.id}`}>Üye Profili</DialogTitle>
+          <DialogDescription>{person.full_name} isimli üyenin profil bilgileri.</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col items-center gap-4 py-4">
+          <Avatar className="h-24 w-24">
+            <AvatarImage src={person.avatar_url} alt={`${person.full_name} profil resmi`} />
+            <AvatarFallback className="bg-primary text-2xl text-primary-foreground">
+              {person.full_name?.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <div className="space-y-1 text-center">
+            <h2 className="text-xl font-bold">{person.full_name}</h2>
+            <p className="text-muted-foreground">{subtitle}</p>
+            {(person.city || person.country) && (
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <MapPin className="h-4 w-4" aria-hidden="true" />
+                {person.city}{person.country && `, ${person.country}`}
+              </div>
+            )}
+          </div>
+
+          {person.bio && (
+            <blockquote className="w-full rounded-lg bg-muted/50 p-4 text-center text-sm italic">"{person.bio}"</blockquote>
+          )}
+
+          {(person.email || person.phone || person.linkedin_url || person.twitter_url || person.instagram_url || person.facebook_url) && (
+            <div className="w-full space-y-1 border-t pt-4">
+              <h4 className="mb-2 text-sm font-medium">İletişim & Sosyal Medya</h4>
+              {person.email && renderContactRow(<Mail className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />, "E-posta", person.email, person.email)}
+              {person.phone && renderContactRow(<Phone className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />, "Telefon", person.phone, person.phone)}
+              {person.linkedin_url && renderContactRow(<Linkedin className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />, "LinkedIn bağlantısı", `@${getSocialHandle(person.linkedin_url)}`, person.linkedin_url)}
+              {person.twitter_url && renderContactRow(<Twitter className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />, "Twitter bağlantısı", `@${getSocialHandle(person.twitter_url)}`, person.twitter_url)}
+              {person.instagram_url && renderContactRow(<Instagram className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />, "Instagram bağlantısı", `@${getSocialHandle(person.instagram_url)}`, person.instagram_url)}
+              {person.facebook_url && renderContactRow(<Facebook className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />, "Facebook bağlantısı", `@${getSocialHandle(person.facebook_url)}`, person.facebook_url)}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 
   if (accessLoading || dataLoading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -162,16 +247,20 @@ export default function MentorshipPage() {
                   {myMentors.map((request) => (
                     <Card key={request.id}>
                       <CardContent className="flex items-center justify-between p-6">
-                        <div className="flex items-center gap-4">
-                          <Avatar className="h-12 w-12">
-                            <AvatarImage src={request.mentor?.avatar_url} />
-                            <AvatarFallback>{request.mentor?.full_name?.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <h3 className="font-medium">{request.mentor?.full_name}</h3>
-                            <p className="text-sm text-muted-foreground">Durum: <Badge variant={request.status === 'accepted' ? 'default' : request.status === 'rejected' ? 'destructive' : 'secondary'}>{request.status}</Badge></p>
+                        {request.status === "accepted" && request.mentor ? (
+                          renderMatchedProfile(request.mentor, `${request.mentor.profession || ""}${request.mentor.company ? ` at ${request.mentor.company}` : ""}`)
+                        ) : (
+                          <div className="flex items-center gap-4">
+                            <Avatar className="h-12 w-12">
+                              <AvatarImage src={request.mentor?.avatar_url} />
+                              <AvatarFallback>{request.mentor?.full_name?.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <h3 className="font-medium">{request.mentor?.full_name}</h3>
+                            </div>
                           </div>
-                        </div>
+                        )}
+                        <p className="text-sm text-muted-foreground">Durum: <Badge variant={request.status === 'accepted' ? 'default' : request.status === 'rejected' ? 'destructive' : 'secondary'}>{request.status}</Badge></p>
                       </CardContent>
                     </Card>
                   ))}
@@ -188,16 +277,20 @@ export default function MentorshipPage() {
                     <Card key={request.id}>
                       <CardContent className="p-6 space-y-4">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <Avatar className="h-12 w-12">
-                              <AvatarImage src={request.mentee?.avatar_url} />
-                              <AvatarFallback>{request.mentee?.full_name?.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <h3 className="font-medium">{request.mentee?.full_name}</h3>
-                              <p className="text-sm text-muted-foreground">{request.mentee?.department} - {request.mentee?.graduation_year}</p>
+                          {request.status === "accepted" && request.mentee ? (
+                            renderMatchedProfile(request.mentee, `${request.mentee.department || ""}${request.mentee.graduation_year ? ` - ${request.mentee.graduation_year}` : ""}`)
+                          ) : (
+                            <div className="flex items-center gap-4">
+                              <Avatar className="h-12 w-12">
+                                <AvatarImage src={request.mentee?.avatar_url} />
+                                <AvatarFallback>{request.mentee?.full_name?.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <h3 className="font-medium">{request.mentee?.full_name}</h3>
+                                <p className="text-sm text-muted-foreground">{request.mentee?.department} - {request.mentee?.graduation_year}</p>
+                              </div>
                             </div>
-                          </div>
+                          )}
                           <Badge variant={request.status === 'accepted' ? 'default' : request.status === 'rejected' ? 'destructive' : 'secondary'}>{request.status}</Badge>
                         </div>
                         <div className="bg-muted p-4 rounded-md text-sm">
