@@ -1764,6 +1764,16 @@ export type Database = {
     Functions: {
       decrement_media_likes: { Args: { media_id: string }; Returns: undefined }
       generate_order_number: { Args: never; Returns: string }
+      get_home_stats: {
+        Args: never
+        Returns: {
+          cohort_year: number | null
+          cohort_count: number | null
+          profession_group: string | null
+          profession_group_count: number | null
+          new_this_week_count: number
+        }[]
+      }
       increment_media_likes: { Args: { media_id: string }; Returns: undefined }
     }
     Enums: {
