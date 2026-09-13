@@ -56,12 +56,15 @@ export const mentorshipService = {
     const { data: user } = await supabase.auth.getUser();
     if (!user.user) return { data: null, error: new Error("User not found") };
 
+    // Contact fields (email/phone/bio/city/country/social) are included so an
+    // accepted match's profile card can show them — member_profiles still
+    // masks them to null per the viewer's own tier, same as everywhere else.
     const { data, error } = await supabase
       .from("mentorship_requests")
       .select(`
         *,
-        mentor:member_profiles!mentorship_requests_mentor_id_fkey(id, full_name, avatar_url, profession, company),
-        mentee:member_profiles!mentorship_requests_mentee_id_fkey(id, full_name, avatar_url, department, graduation_year)
+        mentor:member_profiles!mentorship_requests_mentor_id_fkey(id, full_name, avatar_url, profession, company, bio, city, country, email, phone, linkedin_url, twitter_url, instagram_url, facebook_url),
+        mentee:member_profiles!mentorship_requests_mentee_id_fkey(id, full_name, avatar_url, department, graduation_year, bio, city, country, email, phone, linkedin_url, twitter_url, instagram_url, facebook_url)
       `)
       .or(`mentor_id.eq.${user.user.id},mentee_id.eq.${user.user.id}`)
       .order("created_at", { ascending: false });
@@ -76,6 +79,25 @@ export const mentorshipService = {
       .eq("id", requestId)
       .select()
       .single();
+
+    if (!error && data && (status === "accepted" || status === "rejected")) {
+      const { data: mentorProfile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", data.mentor_id)
+        .single();
+
+      const mentorName = mentorProfile?.full_name || "Mentor";
+      await notificationService.createNotification(
+        data.mentee_id,
+        "mentorship_request",
+        status === "accepted" ? "Mentorluk Talebiniz Kabul Edildi" : "Mentorluk Talebiniz Reddedildi",
+        status === "accepted"
+          ? `${mentorName} mentorluk talebinizi kabul etti.`
+          : `${mentorName} mentorluk talebinizi reddetti.`,
+        "/mentorship"
+      );
+    }
 
     return { data, error };
   }
