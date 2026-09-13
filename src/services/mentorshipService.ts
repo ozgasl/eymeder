@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { notificationService } from "@/services/notificationService";
 
 export const mentorshipService = {
   async getMentors() {
@@ -31,6 +32,22 @@ export const mentorshipService = {
       })
       .select()
       .single();
+
+    if (!error) {
+      const { data: menteeProfile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.user.id)
+        .single();
+
+      await notificationService.createNotification(
+        mentorId,
+        "mentorship_request",
+        "Yeni Mentorluk Talebi",
+        `${menteeProfile?.full_name || "Bir üye"} size bir mentorluk talebi gönderdi.`,
+        "/mentorship"
+      );
+    }
 
     return { data, error };
   },
