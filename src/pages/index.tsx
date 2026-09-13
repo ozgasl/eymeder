@@ -7,37 +7,48 @@ import { Navigation } from "@/components/Navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { authService } from "@/services/authService";
+import { profileService, type HomeStats } from "@/services/profileService";
 import { supabase } from "@/integrations/supabase/client";
-import { 
-  Users, 
-  Calendar, 
-  Briefcase, 
-  Image, 
-  Newspaper, 
-  Star, 
-  UsersRound, 
-  Award, 
-  MessageSquare, 
-  UserPlus, 
+import {
+  Users,
+  Calendar,
+  Briefcase,
+  Image,
+  Newspaper,
+  Star,
+  UsersRound,
+  Award,
+  MessageSquare,
+  UserPlus,
   Tag,
   ArrowRight,
   ShoppingBag,
   Trophy,
   GraduationCap,
   Image as ImageIcon,
-  UserCheck
+  UserCheck,
+  TrendingUp
 } from "lucide-react";
 
 export default function Home() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
+  const [homeStats, setHomeStats] = useState<HomeStats | null>(null);
   const firstName: string | undefined = user?.user_metadata?.full_name?.trim().split(/\s+/)[0];
 
   useEffect(() => {
     setMounted(true);
     checkUser();
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setHomeStats(null);
+      return;
+    }
+    profileService.getHomeStats().then(({ data }) => setHomeStats(data));
+  }, [user]);
 
   const checkUser = async () => {
     try {
@@ -169,6 +180,49 @@ export default function Home() {
               </p>
               <div className="w-24 h-1 bg-gradient-to-r from-primary to-accent mx-auto mt-6 rounded-full" aria-hidden="true" />
             </div>
+
+            {/* Membership Stats */}
+            {user && homeStats && (
+              <section className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12" aria-label="Üyelik istatistikleri">
+                {homeStats.cohort_year != null && homeStats.cohort_count != null && (
+                  <Card className="border-0 ring-1 ring-border/50 bg-card">
+                    <CardContent className="p-6 flex items-center gap-4">
+                      <div className="p-4 rounded-2xl bg-blue-100 text-blue-600 flex-shrink-0" aria-hidden="true">
+                        <GraduationCap className="h-8 w-8" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold tracking-tight">{homeStats.cohort_count} kişi</p>
+                        <p className="text-sm text-muted-foreground">{homeStats.cohort_year} döneminden</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                {homeStats.profession_group && homeStats.profession_group_count != null && (
+                  <Card className="border-0 ring-1 ring-border/50 bg-card">
+                    <CardContent className="p-6 flex items-center gap-4">
+                      <div className="p-4 rounded-2xl bg-emerald-100 text-emerald-600 flex-shrink-0" aria-hidden="true">
+                        <Briefcase className="h-8 w-8" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold tracking-tight">{homeStats.profession_group_count} kişi</p>
+                        <p className="text-sm text-muted-foreground">{homeStats.profession_group} meslek grubundan</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                <Card className="border-0 ring-1 ring-border/50 bg-card">
+                  <CardContent className="p-6 flex items-center gap-4">
+                    <div className="p-4 rounded-2xl bg-cyan-100 text-cyan-600 flex-shrink-0" aria-hidden="true">
+                      <TrendingUp className="h-8 w-8" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold tracking-tight">{homeStats.new_this_week_count} yeni üye</p>
+                      <p className="text-sm text-muted-foreground">Son 1 haftada katıldı</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </section>
+            )}
 
             {/* Menu Grid */}
             <nav className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" aria-label="Platform özellikleri">

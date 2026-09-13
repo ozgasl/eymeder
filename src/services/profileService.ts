@@ -42,6 +42,14 @@ export interface Profile {
   profile_universities?: ProfileUniversity[];
 }
 
+export interface HomeStats {
+  cohort_year: number | null;
+  cohort_count: number | null;
+  profession_group: string | null;
+  profession_group_count: number | null;
+  new_this_week_count: number;
+}
+
 export interface ProfileUniversity {
   id: string;
   profile_id: string;
@@ -437,5 +445,16 @@ export const profileService = {
       console.error("Get all profiles error:", error);
       return { data: [], error };
     }
+  },
+
+  // Counts against the base `profiles` table via a SECURITY DEFINER RPC, not
+  // member_profiles: that view masks profession_group to NULL for anyone the
+  // signed-in member isn't privileged to see in full, which would undercount
+  // "kaç kişi aynı meslek grubundan" for a mezun_uye. The RPC only ever
+  // returns counts, never another member's row, so bypassing the mask here
+  // doesn't leak anything it's meant to protect.
+  async getHomeStats(): Promise<{ data: HomeStats | null; error: any }> {
+    const { data, error } = await supabase.rpc("get_home_stats").maybeSingle();
+    return { data: data as HomeStats | null, error };
   },
 };
