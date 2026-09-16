@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
 import { SEO } from "@/components/SEO";
 import { Navigation } from "@/components/Navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +17,7 @@ import { getSocialHandle } from "@/lib/socialLinks";
 import { PROFESSION_GROUPS } from "@/lib/professionGroups";
 
 export default function DirectoryPage() {
+  const router = useRouter();
   const { loading } = useAccessControl();
   const [searching, setSearching] = useState(false);
   const [alumni, setAlumni] = useState<Profile[]>([]);
@@ -43,6 +45,16 @@ export default function DirectoryPage() {
       loadMembers();
     }
   }, [loading]);
+
+  // Ana sayfadaki "X döneminden/meslek grubundan Y üye" karolarından gelen
+  // ön-filtre: /directory?graduationYear=1992 veya ?professionGroup=... .
+  useEffect(() => {
+    if (!router.isReady) return;
+    const { graduationYear, professionGroup } = router.query;
+    if (typeof graduationYear === "string") setHighSchoolYearFilter(graduationYear);
+    if (typeof professionGroup === "string") setProfessionGroupFilter(professionGroup);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.graduationYear, router.query.professionGroup]);
 
   const loadMembers = async () => {
     const { data, error } = await profileService.getAllProfiles();
