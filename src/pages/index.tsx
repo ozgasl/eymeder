@@ -185,30 +185,40 @@ export default function Home() {
             {user && homeStats && (
               <section className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12" aria-label="Üyelik istatistikleri">
                 {homeStats.cohort_year != null && homeStats.cohort_count != null && (
-                  <Card className="border-0 ring-1 ring-border/50 bg-card">
-                    <CardContent className="p-6 flex items-center gap-4">
-                      <div className="p-4 rounded-2xl bg-blue-100 text-blue-600 flex-shrink-0" aria-hidden="true">
-                        <GraduationCap className="h-8 w-8" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold tracking-tight">{homeStats.cohort_count} kişi</p>
-                        <p className="text-sm text-muted-foreground">{homeStats.cohort_year} döneminden</p>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <Link
+                    href={{ pathname: "/directory", query: { graduationYear: String(homeStats.cohort_year) } }}
+                    aria-label={`${homeStats.cohort_year} döneminden ${homeStats.cohort_count} üyeyi görüntüle`}
+                  >
+                    <Card className="border-0 ring-1 ring-border/50 bg-card cursor-pointer transition-shadow hover:shadow-lg focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2">
+                      <CardContent className="p-6 flex items-center gap-4">
+                        <div className="p-4 rounded-2xl bg-blue-100 text-blue-600 flex-shrink-0" aria-hidden="true">
+                          <GraduationCap className="h-8 w-8" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold tracking-tight">{homeStats.cohort_count} üye</p>
+                          <p className="text-sm text-muted-foreground">{homeStats.cohort_year} döneminden</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
                 )}
                 {homeStats.profession_group && homeStats.profession_group_count != null && (
-                  <Card className="border-0 ring-1 ring-border/50 bg-card">
-                    <CardContent className="p-6 flex items-center gap-4">
-                      <div className="p-4 rounded-2xl bg-emerald-100 text-emerald-600 flex-shrink-0" aria-hidden="true">
-                        <Briefcase className="h-8 w-8" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold tracking-tight">{homeStats.profession_group_count} kişi</p>
-                        <p className="text-sm text-muted-foreground">{homeStats.profession_group} meslek grubundan</p>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <Link
+                    href={{ pathname: "/directory", query: { professionGroup: homeStats.profession_group } }}
+                    aria-label={`${homeStats.profession_group} meslek grubundan ${homeStats.profession_group_count} üyeyi görüntüle`}
+                  >
+                    <Card className="border-0 ring-1 ring-border/50 bg-card cursor-pointer transition-shadow hover:shadow-lg focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2">
+                      <CardContent className="p-6 flex items-center gap-4">
+                        <div className="p-4 rounded-2xl bg-emerald-100 text-emerald-600 flex-shrink-0" aria-hidden="true">
+                          <Briefcase className="h-8 w-8" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold tracking-tight">{homeStats.profession_group_count} üye</p>
+                          <p className="text-sm text-muted-foreground">{homeStats.profession_group} meslek grubundan</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
                 )}
                 <Card className="border-0 ring-1 ring-border/50 bg-card">
                   <CardContent className="p-6 flex items-center gap-4">
