@@ -10,7 +10,8 @@ import { brandService } from "@/services/brandService";
 import { brandCodeService } from "@/services/brandCodeService";
 import { qrCodeService } from "@/services/qrCodeService";
 import { useAccessControl } from "@/hooks/useAccessControl";
-import { ExternalLink, Tag, QrCode, Loader2, Lock, Instagram, Twitter } from "lucide-react";
+import { getBrandMapsLink } from "@/lib/brandLocation";
+import { ExternalLink, Tag, QrCode, Loader2, Lock, Instagram, Twitter, MapPin } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { getSocialHandle } from "@/lib/socialLinks";
 import { isCodeUsable } from "@/lib/discountCode";
@@ -283,6 +284,18 @@ export default function BrandsPage() {
                         <p className="text-xs text-muted-foreground">
                           Bağlantılı mezun: <span className="font-medium">{brand.connected_member.full_name}</span>
                         </p>
+                      )}
+
+                      {getBrandMapsLink(brand) && (
+                        <a
+                          href={getBrandMapsLink(brand)!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-start gap-2 text-sm text-muted-foreground hover:text-foreground hover:underline"
+                        >
+                          <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
+                          <span>{brand.address || "Haritada göster"}</span>
+                        </a>
                       )}
 
                       {/* Website Link */}
