@@ -92,18 +92,15 @@ const FONZIP_TAG_NAMES: Record<number, string> = {
   1297468: "Yönetim",
 };
 
-type FonzipUserRow = { id: number; tags: number | null };
-
-// Runs a single-attribute Fonzip /users search. `tags` is a left-joined
-// field: requesting it in values_list returns one row per assigned tag (each
-// with the same `id` but a different numeric `tags` value), a single row
-// with `tags: null` if the member has no tags, or zero rows if nothing
-// matches. Fonzip enforces one active token per client credential pair, so
-// the token is cached in fonzip_token_cache rather than re-requested on
+// Runs a single Fonzip /users search and returns the matching user ids.
+// Tags are deliberately NOT requested via values_list: Fonzip now answers
+// 403 "Erişim izniniz yok" for any /users request that selects the `tags`
+// field (confirmed 2026-09-29; /tags and tag *filters* still work), which
+// made every membership check fail. See fetchTagNamesForUser for how tags are
+// read instead. Fonzip enforces one active token per client credential pair,
+// so the token is cached in fonzip_token_cache rather than re-requested on
 // every call.
-async function searchFonzipUsers(parameter: string, condition: string, value: string | number): Promise<FonzipUserRow[]> {
-  const token = await getAccessToken();
-
+async function postFonzipUsers(token: string, attributes: unknown[]): Promise<Array<{ id: number }>> {
   const res = await fetchWithTimeout(`${FONZIP_BASE_URL}/users`, {
     method: "POST",
     headers: {
@@ -113,16 +110,12 @@ async function searchFonzipUsers(parameter: string, condition: string, value: st
     body: JSON.stringify({
       search: {
         start_page: 1,
-        // Generous enough for a handful of tag rows (Fonzip has 5 tags
-        // total) across a couple of same-value accounts, without paging.
+        // Generous enough for a couple of same-value accounts, without paging.
         how_many: 20,
         order_by: "id",
-        filter: {
-          condition: "and",
-          attributes: [{ type: "default", parameter, condition, value }],
-        },
+        filter: { condition: "and", attributes },
       },
-      values_list: ["id", "tags"],
+      values_list: ["id"],
     }),
   });
 
@@ -136,27 +129,41 @@ async function searchFonzipUsers(parameter: string, condition: string, value: st
   return data.user_list ?? [];
 }
 
-// Turns rows from searchFonzipUsers into a result, refusing to guess when
-// they span more than one distinct Fonzip user (e.g. a shared phone number)
+// Reads a user's tags without selecting the `tags` field: for each known tag
+// id, asks whether a user with (id = userId AND tags = tagId) exists.
+async function fetchTagNamesForUser(token: string, userId: number): Promise<string[]> {
+  const checks = await Promise.all(
+    Object.entries(FONZIP_TAG_NAMES).map(async ([tagId, name]) => {
+      const rows = await postFonzipUsers(token, [
+        { type: "default", parameter: "id", condition: "eq", value: userId },
+        { type: "default", parameter: "tags", condition: "eq", value: Number(tagId) },
+      ]);
+      return rows.length > 0 ? name : null;
+    })
+  );
+  return checks.filter((name): name is string => name !== null);
+}
+
+// Searches by one attribute, then resolves tags. Refuses to guess when the
+// hits span more than one distinct Fonzip user (e.g. a shared phone number)
 // - misattributing another member's tags is worse than reporting "not found".
-function toSearchResult(rows: FonzipUserRow[]): FonzipUserSearchResult {
+async function searchFonzipMember(parameter: string, condition: string, value: string | number): Promise<FonzipUserSearchResult> {
+  const token = await getAccessToken();
+  const rows = await postFonzipUsers(token, [{ type: "default", parameter, condition, value }]);
+
   const distinctIds = new Set(rows.map((row) => row.id));
   if (distinctIds.size !== 1) {
     return { membershipFound: false, tags: [] };
   }
 
-  const tags = rows
-    .map((row) => (row.tags != null ? FONZIP_TAG_NAMES[row.tags] : undefined))
-    .filter((name): name is string => Boolean(name));
-
+  const tags = await fetchTagNamesForUser(token, rows[0].id);
   return { membershipFound: true, tags };
 }
 
 // Looks up a Fonzip user by their composite membership_no (see
 // buildFonzipMembershipNo).
 export async function findFonzipMember(membershipNo: number): Promise<FonzipUserSearchResult> {
-  const rows = await searchFonzipUsers("membership_no", "eq", membershipNo);
-  return toSearchResult(rows);
+  return searchFonzipMember("membership_no", "eq", membershipNo);
 }
 
 export interface FonzipContactMatchInput {
@@ -175,13 +182,13 @@ export interface FonzipContactMatchInput {
 export async function findFonzipMemberByContact(input: FonzipContactMatchInput): Promise<FonzipUserSearchResult> {
   const email = input.email.trim().toLowerCase();
   if (email) {
-    const byEmail = toSearchResult(await searchFonzipUsers("email", "eq", email));
+    const byEmail = await searchFonzipMember("email", "eq", email);
     if (byEmail.membershipFound) return byEmail;
   }
 
   const phoneDigits = input.phone?.replace(/\D/g, "").slice(-10);
   if (phoneDigits && phoneDigits.length === 10) {
-    const byPhone = toSearchResult(await searchFonzipUsers("phone", "contains", phoneDigits));
+    const byPhone = await searchFonzipMember("phone", "contains", phoneDigits);
     if (byPhone.membershipFound) return byPhone;
   }
 
