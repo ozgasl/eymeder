@@ -266,6 +266,7 @@ export type Database = {
       }
       brands: {
         Row: {
+          address: string | null
           category: string | null
           connected_member_id: string | null
           created_at: string | null
@@ -276,12 +277,14 @@ export type Database = {
           instagram_url: string | null
           is_active: boolean | null
           logo_url: string | null
+          maps_url: string | null
           name: string
           twitter_url: string | null
           updated_at: string | null
           website_url: string | null
         }
         Insert: {
+          address?: string | null
           category?: string | null
           connected_member_id?: string | null
           created_at?: string | null
@@ -292,12 +295,14 @@ export type Database = {
           instagram_url?: string | null
           is_active?: boolean | null
           logo_url?: string | null
+          maps_url?: string | null
           name: string
           twitter_url?: string | null
           updated_at?: string | null
           website_url?: string | null
         }
         Update: {
+          address?: string | null
           category?: string | null
           connected_member_id?: string | null
           created_at?: string | null
@@ -308,6 +313,7 @@ export type Database = {
           instagram_url?: string | null
           is_active?: boolean | null
           logo_url?: string | null
+          maps_url?: string | null
           name?: string
           twitter_url?: string | null
           updated_at?: string | null

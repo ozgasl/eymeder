@@ -48,9 +48,11 @@ import {
   Tag,
   RefreshCw,
   Instagram,
-  Twitter
+  Twitter,
+  MapPin
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getBrandMapsLink } from "@/lib/brandLocation";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -79,6 +81,8 @@ export default function AdminPage() {
     website_url: "",
     instagram_url: "",
     twitter_url: "",
+    address: "",
+    maps_url: "",
     connected_member_id: "",
     is_active: true,
     display_order: 0,
@@ -289,13 +293,15 @@ export default function AdminPage() {
       ...newBrand,
       instagram_url: newBrand.instagram_url ? buildSocialUrl("instagram", newBrand.instagram_url) : null,
       twitter_url: newBrand.twitter_url ? buildSocialUrl("twitter", newBrand.twitter_url) : null,
+      address: newBrand.address.trim() || null,
+      maps_url: newBrand.maps_url.trim() || null,
       connected_member_id: newBrand.connected_member_id || null,
     });
     if (!error) {
       toast({ title: "Marka eklendi" });
       setNewBrand({
         name: "", category: "Diğer", description: "", discount_info: "",
-        logo_url: "", website_url: "", instagram_url: "", twitter_url: "", connected_member_id: "",
+        logo_url: "", website_url: "", instagram_url: "", twitter_url: "", address: "", maps_url: "", connected_member_id: "",
         is_active: true, display_order: 0,
       });
       loadBrands();
@@ -318,6 +324,8 @@ export default function AdminPage() {
       ...editableFields,
       instagram_url: editingBrand.instagram_url ? buildSocialUrl("instagram", editingBrand.instagram_url) : null,
       twitter_url: editingBrand.twitter_url ? buildSocialUrl("twitter", editingBrand.twitter_url) : null,
+      address: editingBrand.address?.trim() || null,
+      maps_url: editingBrand.maps_url?.trim() || null,
       connected_member_id: editingBrand.connected_member_id || null,
     });
     if (!error) {
@@ -715,6 +723,16 @@ export default function AdminPage() {
                         <Input value={newBrand.twitter_url} onChange={(e) => setNewBrand({ ...newBrand, twitter_url: e.target.value })} placeholder="kullaniciadi" />
                       </div>
                     </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2"><MapPin className="h-4 w-4" /> Adres</Label>
+                        <Input value={newBrand.address} onChange={(e) => setNewBrand({ ...newBrand, address: e.target.value })} placeholder="Mahalle, cadde, ilçe/il" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Google Haritalar Bağlantısı</Label>
+                        <Input value={newBrand.maps_url} onChange={(e) => setNewBrand({ ...newBrand, maps_url: e.target.value })} placeholder="Haritalar > Paylaş > bağlantıyı yapıştır (opsiyonel)" />
+                      </div>
+                    </div>
                     <div className="space-y-2">
                       <Label>Bağlantılı Mezun</Label>
                       <Select value={newBrand.connected_member_id || "none"} onValueChange={(val) => setNewBrand({ ...newBrand, connected_member_id: val === "none" ? "" : val })}>
@@ -778,6 +796,10 @@ export default function AdminPage() {
                                     <Input value={editingBrand.instagram_url || ""} onChange={(e) => setEditingBrand({ ...editingBrand, instagram_url: e.target.value })} placeholder="Instagram kullanıcı adı" />
                                     <Input value={editingBrand.twitter_url || ""} onChange={(e) => setEditingBrand({ ...editingBrand, twitter_url: e.target.value })} placeholder="X kullanıcı adı" />
                                   </div>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <Input value={editingBrand.address || ""} onChange={(e) => setEditingBrand({ ...editingBrand, address: e.target.value })} placeholder="Adres" />
+                                    <Input value={editingBrand.maps_url || ""} onChange={(e) => setEditingBrand({ ...editingBrand, maps_url: e.target.value })} placeholder="Google Haritalar bağlantısı (opsiyonel)" />
+                                  </div>
                                   <Select value={editingBrand.connected_member_id || "none"} onValueChange={(val) => setEditingBrand({ ...editingBrand, connected_member_id: val === "none" ? "" : val })}>
                                     <SelectTrigger><SelectValue placeholder="Bağlantılı mezun seçin" /></SelectTrigger>
                                     <SelectContent>
@@ -811,6 +833,11 @@ export default function AdminPage() {
                                       {brand.twitter_url && (
                                         <a href={brand.twitter_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:underline">
                                           <Twitter className="h-3.5 w-3.5" /> @{getSocialHandle(brand.twitter_url)}
+                                        </a>
+                                      )}
+                                      {getBrandMapsLink(brand) && (
+                                        <a href={getBrandMapsLink(brand)!} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:underline">
+                                          <MapPin className="h-3.5 w-3.5" /> {brand.address || "Konum"}
                                         </a>
                                       )}
                                       {brand.connected_member?.full_name && (
