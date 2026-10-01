@@ -198,6 +198,40 @@ oku. Her oturum sonunda kendi bölümünü buraya ekle (üstte en yeni).
   üyelerden dropdown ile seçiliyor, `brandService.ts`'teki sorgular
   `connected_member:profiles!brands_connected_member_id_fkey(...)` join'i
   ile ismini getiriyor.
+- **`/brands` artık sadece dernek_uyesi + staff'a açık (2026-10-01, kullanıcı
+  kararı)**: mezun_uye sayfaya girince marka listesi yerine `AccessRestricted`
+  ("Dernek Üyesi Ol") ekranını görür, markalar hiç yüklenmez. Yönetim ekibi
+  (admin/moderator) dernek üyesi olmasa da listeyi görür, çünkü markaları
+  onlar yönetiyor. Ama **QR kodu ve indirim kodları yine sadece
+  `isDernekUyesi`**: bunlar avantajın kendisi, üye olmayan bir yönetici
+  kasada kullanamasın. Bu kısıtlama **sadece arayüzde**: `brands` tablosunun
+  `public_read_brands USING (true)` politikası bilinçli olarak değiştirilmedi
+  (asıl avantaj olan kodlar zaten RLS'le korunuyor, ana sayfadaki sayı da bu
+  sayede migration'sız sayılabiliyor). Menüdeki "İndirimli Markalar" ve ana
+  sayfa kartı herkese görünür kalıyor (tanıtım), tıklayan mezun_uye
+  kısıtlama ekranına düşer.
+- **Ana sayfa "N marka / Aktif indirim veriyor" karosu (2026-10-01)**: sayı
+  `brands.is_active = true` olan marka sayısı (`brandService.countActiveBrands`),
+  yani `/brands`'teki kart sayısıyla birebir aynı. "En az bir kullanılabilir
+  kodu olan marka" tanımı (B seçeneği) kullanıcıyla konuşuldu ve
+  reddedildi: kodsuz markalar da `/brands`'te indirim metniyle görünüyor,
+  sayı sayfayla tutarsız olurdu. Karo giriş yapmış herkese görünür, üye
+  olmayanlarda "Dernek üyelerine özel" kilidi var. Sayı `get_home_stats`'a
+  EKLENMEDİ (RETURNS TABLE değişikliği DROP gerektirir, ve o fonksiyon
+  kişiye özel sayılar için).
+- **Kısıtlama ekranının butonu `/fonzip-signup`'a gidiyor (2026-10-01,
+  kullanıcı kararı, bütün kısıtlı sayfalar)**: `AccessRestricted` eskiden
+  doğrudan Fonzip ödeme sayfasına "Aidatımı Öde" diyordu; hiç başvurmamış bir
+  mezun için ilk adım ödeme değil. Artık "Dernek Üyesi Ol" →
+  `/fonzip-signup` (başvuru + aidat + neden üye olmalıyım orada). Mentorluk
+  kartındaki üye-olmayan butonu da aynı hedefe çevrildi. Navigasyondaki
+  "Üyelik → Aidat Öde" bağlantısı olduğu gibi duruyor.
+  - **Bilinen açık, ayrı iş olarak bekliyor**: `membership_tier` sadece
+    kayıttaki kod doğrulamasında (`/api/auth/verify-code`) ve admin "Fonzip
+    yeniden kontrol" butonunda güncelleniyor. Kısıtlama ekranından gidip
+    aidatını ödeyen kişi, bir yönetici elle kontrol edene kadar kilitli
+    kalır. Önerilen çözüm: kısıtlama ekranına hız sınırlı "Üyeliğimi tekrar
+    kontrol et" butonu.
 - **Hangi sayfalar giriş yapmadan erişilebilir (Bugfix 3, 2026-09-11 kullanıcı
   kararı)**: `src/pages/_app.tsx`'teki `isPublicPath()` site geneli gate'i
   (29 Ağustos'ta eklendi) `/welcome`/`/auth/*` dışındaki HER şeyi engelliyordu

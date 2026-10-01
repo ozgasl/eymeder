@@ -61,6 +61,22 @@ export const brandService = {
     return { data: (await attachConnectedMembers(data)) as Brand[], error: null };
   },
 
+  /**
+   * How many partner brands are active, for the home page tile. Every brand
+   * carries a discount (`discount_info` is NOT NULL), so this is exactly the
+   * number of cards /brands shows. `brands` is readable by every signed-in
+   * user, so a mezun_uye gets the real figure even though the page itself is
+   * gated to dernek_uyesi.
+   */
+  async countActiveBrands(): Promise<{ count: number | null; error: any }> {
+    const { count, error } = await supabase
+      .from("brands")
+      .select("id", { count: "exact", head: true })
+      .eq("is_active", true);
+
+    return { count, error };
+  },
+
   // Get all brands (admin)
   async getAllBrands(): Promise<{ data: Brand[] | null; error: any }> {
     const { data, error } = await supabase

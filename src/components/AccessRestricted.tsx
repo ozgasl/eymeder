@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Lock, ShieldAlert } from "lucide-react";
@@ -33,10 +34,11 @@ export function AccessRestricted({ variant = "membership", featureName }: Access
         </CardHeader>
         {isMembership && (
           <CardContent>
+            {/* /fonzip-signup rather than straight to the dues payment: a mezun_uye
+                may never have applied, and that page offers both the
+                application form and the payment. */}
             <Button asChild>
-              <a href="https://fonzip.com/eymeder/odeme" target="_blank" rel="noopener noreferrer">
-                Aidatımı Öde
-              </a>
+              <Link href="/fonzip-signup">Dernek Üyesi Ol</Link>
             </Button>
           </CardContent>
         )}

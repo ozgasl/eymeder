@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/router";
+import Link from "next/link";
 import { SEO } from "@/components/SEO";
 import { Navigation } from "@/components/Navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -227,9 +228,7 @@ export default function MentorshipPage() {
                           </Dialog>
                         ) : (
                           <Button className="w-full" variant="outline" asChild>
-                            <a href="https://fonzip.com/eymeder/odeme" target="_blank" rel="noopener noreferrer">
-                              Aidat Öde, Mentorluk Talep Et
-                            </a>
+                            <Link href="/fonzip-signup">Dernek Üyesi Ol, Mentorluk Talep Et</Link>
                           </Button>
                         )}
                       </CardContent>

@@ -8,6 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { authService } from "@/services/authService";
 import { profileService, type HomeStats } from "@/services/profileService";
+import { brandService } from "@/services/brandService";
+import { useAccessControl } from "@/hooks/useAccessControl";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Users,
@@ -27,7 +29,8 @@ import {
   GraduationCap,
   Image as ImageIcon,
   UserCheck,
-  TrendingUp
+  TrendingUp,
+  Lock
 } from "lucide-react";
 
 export default function Home() {
@@ -35,6 +38,11 @@ export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
   const [homeStats, setHomeStats] = useState<HomeStats | null>(null);
+  const [activeBrandCount, setActiveBrandCount] = useState<number | null>(null);
+  // Only for the brands tile's "dernek üyelerine özel" hint — /brands enforces
+  // the same rule itself.
+  const { isDernekUyesi, isStaff } = useAccessControl({ redirectIfUnauthenticated: false });
+  const canSeeBrands = isDernekUyesi || isStaff;
   const firstName: string | undefined = user?.user_metadata?.full_name?.trim().split(/\s+/)[0];
 
   useEffect(() => {
@@ -45,9 +53,11 @@ export default function Home() {
   useEffect(() => {
     if (!user) {
       setHomeStats(null);
+      setActiveBrandCount(null);
       return;
     }
     profileService.getHomeStats().then(({ data }) => setHomeStats(data));
+    brandService.countActiveBrands().then(({ count }) => setActiveBrandCount(count));
   }, [user]);
 
   const checkUser = async () => {
@@ -182,9 +192,9 @@ export default function Home() {
             </div>
 
             {/* Membership Stats */}
-            {user && homeStats && (
-              <section className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12" aria-label="Üyelik istatistikleri">
-                {homeStats.cohort_year != null && homeStats.cohort_count != null && (
+            {user && (homeStats || activeBrandCount) && (
+              <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12" aria-label="Üyelik istatistikleri">
+                {homeStats?.cohort_year != null && homeStats.cohort_count != null && (
                   <Link
                     href={{ pathname: "/directory", query: { graduationYear: String(homeStats.cohort_year) } }}
                     aria-label={`${homeStats.cohort_year} döneminden ${homeStats.cohort_count} üyeyi görüntüle`}
@@ -202,7 +212,7 @@ export default function Home() {
                     </Card>
                   </Link>
                 )}
-                {homeStats.profession_group && homeStats.profession_group_count != null && (
+                {homeStats?.profession_group && homeStats.profession_group_count != null && (
                   <Link
                     href={{ pathname: "/directory", query: { professionGroup: homeStats.profession_group } }}
                     aria-label={`${homeStats.profession_group} meslek grubundan ${homeStats.profession_group_count} üyeyi görüntüle`}
@@ -220,17 +230,49 @@ export default function Home() {
                     </Card>
                   </Link>
                 )}
-                <Card className="border-0 ring-1 ring-border/50 bg-card">
-                  <CardContent className="p-6 flex items-center gap-4">
-                    <div className="p-4 rounded-2xl bg-cyan-100 text-cyan-600 flex-shrink-0" aria-hidden="true">
-                      <TrendingUp className="h-8 w-8" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold tracking-tight">{homeStats.new_this_week_count} yeni üye</p>
-                      <p className="text-sm text-muted-foreground">Son 1 haftada katıldı</p>
-                    </div>
-                  </CardContent>
-                </Card>
+                {homeStats && (
+                  <Card className="border-0 ring-1 ring-border/50 bg-card">
+                    <CardContent className="p-6 flex items-center gap-4">
+                      <div className="p-4 rounded-2xl bg-cyan-100 text-cyan-600 flex-shrink-0" aria-hidden="true">
+                        <TrendingUp className="h-8 w-8" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold tracking-tight">{homeStats.new_this_week_count} yeni üye</p>
+                        <p className="text-sm text-muted-foreground">Son 1 haftada katıldı</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                {/* Shown to every signed-in member; for a mezun_uye /brands
+                    answers with the "Dernek Üyesi Ol" screen. */}
+                {activeBrandCount ? (
+                  <Link
+                    href="/brands"
+                    aria-label={
+                      canSeeBrands
+                        ? `Aktif indirim veren ${activeBrandCount} anlaşmalı markayı görüntüle`
+                        : `${activeBrandCount} anlaşmalı marka aktif indirim veriyor, dernek üyelerine özel`
+                    }
+                  >
+                    <Card className="h-full border-0 ring-1 ring-border/50 bg-card cursor-pointer transition-shadow hover:shadow-lg focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2">
+                      <CardContent className="p-6 flex items-center gap-4">
+                        <div className="p-4 rounded-2xl bg-amber-100 text-amber-600 flex-shrink-0" aria-hidden="true">
+                          <Tag className="h-8 w-8" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold tracking-tight">{activeBrandCount} marka</p>
+                          <p className="text-sm text-muted-foreground">Aktif indirim veriyor</p>
+                          {!canSeeBrands && (
+                            <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                              <Lock className="h-3 w-3" aria-hidden="true" />
+                              Dernek üyelerine özel
+                            </p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ) : null}
               </section>
             )}
 
