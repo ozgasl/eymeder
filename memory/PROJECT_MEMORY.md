@@ -226,12 +226,27 @@ oku. Her oturum sonunda kendi bölümünü buraya ekle (üstte en yeni).
   `/fonzip-signup` (başvuru + aidat + neden üye olmalıyım orada). Mentorluk
   kartındaki üye-olmayan butonu da aynı hedefe çevrildi. Navigasyondaki
   "Üyelik → Aidat Öde" bağlantısı olduğu gibi duruyor.
-  - **Bilinen açık, ayrı iş olarak bekliyor**: `membership_tier` sadece
-    kayıttaki kod doğrulamasında (`/api/auth/verify-code`) ve admin "Fonzip
-    yeniden kontrol" butonunda güncelleniyor. Kısıtlama ekranından gidip
-    aidatını ödeyen kişi, bir yönetici elle kontrol edene kadar kilitli
-    kalır. Önerilen çözüm: kısıtlama ekranına hız sınırlı "Üyeliğimi tekrar
-    kontrol et" butonu.
+  - **"Üyeliğimi tekrar kontrol et" (2026-10-01)**: kısıtlama ekranında
+    (`AccessRestricted`) üyenin kendi Fonzip kontrolünü çalıştıran buton →
+    `POST /api/membership/recheck`. Eskiden `membership_tier` sadece kayıtta
+    ve admin "Fonzip yeniden kontrol"ünde güncelleniyordu, aidatını ödeyen
+    kişi yönetici bakana kadar kilitli kalıyordu. Kurallar
+    (`src/lib/membershipRecheckPolicy.ts`, testli):
+    - **Sadece yükseltir, asla düşürmez**: zaten `dernek_uyesi` olan biri
+      çağırırsa Fonzip'e gidilmez. Üye değil çıkarsa `fonzip_tags` /
+      `fonzip_membership_status` / `fonzip_checked_at` yazılır ama
+      `membership_tier`'a dokunulmaz — yönetimin elle verdiği tier'ı ezmesin.
+      Düşürme kararı yönetimde.
+    - **5 dakika bekleme** (`SELF_RECHECK_COOLDOWN_MS`), `fonzip_checked_at`
+      üzerinden: üye bu kolonu yazamıyor (profiles trigger'ı geri alıyor),
+      yani client'tan sıfırlanamaz. Migration gerekmedi. Fonzip yanıt
+      vermezse (503) kolon damgalanmadığı için bekleme de başlamaz —
+      bilinçli kabul: Fonzip kesintisinde art arda deneme mümkün.
+    - Fonzip sorgusu admin route'uyla ortak: `src/lib/fonzipRecheck.ts`
+      (`recheckFonzipMembership`) — yanıt yok (`no_answer`) hâlâ "üye
+      değil" sayılmıyor, profile hiçbir şey yazılmıyor.
+    - Route testi `src/lib/membershipRecheckRoute.test.ts`'te, `src/pages/api`
+      altında DEĞİL: Next.js oradaki her `.ts`'i API route'u olarak derler.
 - **Hangi sayfalar giriş yapmadan erişilebilir (Bugfix 3, 2026-09-11 kullanıcı
   kararı)**: `src/pages/_app.tsx`'teki `isPublicPath()` site geneli gate'i
   (29 Ağustos'ta eklendi) `/welcome`/`/auth/*` dışındaki HER şeyi engelliyordu

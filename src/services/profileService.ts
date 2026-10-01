@@ -453,6 +453,26 @@ export const profileService = {
   // "kaç kişi aynı meslek grubundan" for a mezun_uye. The RPC only ever
   // returns counts, never another member's row, so bypassing the mask here
   // doesn't leak anything it's meant to protect.
+  /**
+   * Re-runs the signed-in member's own Fonzip check (/api/membership/recheck).
+   * Resolves with the tier it ended on, or an error message in Turkish that
+   * can be shown as is (cooldown, Fonzip not answering, missing fields).
+   */
+  async recheckMyMembership(): Promise<{ tier: "dernek_uyesi" | "mezun_uye" | null; error: string | null }> {
+    const { data: { session } } = await supabase.auth.getSession();
+    try {
+      const res = await fetch("/api/membership/recheck", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session?.access_token || ""}` },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) return { tier: null, error: body.error || "Üyelik kontrolü yapılamadı." };
+      return { tier: body.tier ?? null, error: null };
+    } catch {
+      return { tier: null, error: "Üyelik kontrolü yapılamadı, bağlantınızı kontrol edip tekrar deneyin." };
+    }
+  },
+
   async getHomeStats(): Promise<{ data: HomeStats | null; error: any }> {
     const { data, error } = await supabase.rpc("get_home_stats").maybeSingle();
     return { data: data as HomeStats | null, error };
