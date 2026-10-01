@@ -11,11 +11,12 @@ import { brandCodeService } from "@/services/brandCodeService";
 import { qrCodeService } from "@/services/qrCodeService";
 import { useAccessControl } from "@/hooks/useAccessControl";
 import { getBrandMapsLink } from "@/lib/brandLocation";
-import { ExternalLink, Tag, QrCode, Loader2, Lock, Instagram, Twitter, MapPin } from "lucide-react";
+import { ExternalLink, Tag, QrCode, Loader2, Instagram, Twitter, MapPin } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { getSocialHandle } from "@/lib/socialLinks";
 import { isCodeUsable } from "@/lib/discountCode";
 import { BrandDiscountCodes, type BrandCode, type MemberCodeUsage } from "@/components/BrandDiscountCodes";
+import { AccessRestricted } from "@/components/AccessRestricted";
 import {
   Dialog,
   DialogContent,
@@ -26,7 +27,13 @@ import {
 
 export default function BrandsPage() {
   const router = useRouter();
-  const { isDernekUyesi } = useAccessControl({ redirectIfUnauthenticated: false });
+  // The whole page is a dues-linked perk (user decision, 2026-10-01): a
+  // mezun_uye gets the "become a member" screen instead of the brand list.
+  // Staff keep access to the list since they manage the brands. This is a UI
+  // gate — `brands` itself stays readable to every signed-in user; the codes
+  // are what RLS actually protects.
+  const { loading: accessLoading, isDernekUyesi, isStaff } = useAccessControl();
+  const canSeeBrands = isDernekUyesi || isStaff;
   const [brands, setBrands] = useState<any[]>([]);
   const [codesByBrand, setCodesByBrand] = useState<Record<string, BrandCode[]>>({});
   const [myUsages, setMyUsages] = useState<Record<string, MemberCodeUsage>>({});
@@ -37,9 +44,11 @@ export default function BrandsPage() {
   const [showQR, setShowQR] = useState(false);
 
   useEffect(() => {
-    loadBrands();
-  }, []);
+    if (canSeeBrands) loadBrands();
+  }, [canSeeBrands]);
 
+  // The QR code and discount codes are the perk itself, so a staff member who
+  // isn't a dernek_uyesi sees the brand list but not these.
   useEffect(() => {
     if (isDernekUyesi) {
       loadMyQR();
@@ -95,7 +104,21 @@ export default function BrandsPage() {
     "Diğer": "bg-gray-100 text-gray-800 border-gray-200",
   };
 
-  if (loading) {
+  if (!accessLoading && !canSeeBrands) {
+    return (
+      <>
+        <Head>
+          <SEO title="İndirimli Markalar - Eyüboğlu Mezunlar Derneği" />
+        </Head>
+        <div className="min-h-screen bg-background">
+          <Navigation />
+          <AccessRestricted featureName="İndirimli markalar" />
+        </div>
+      </>
+    );
+  }
+
+  if (accessLoading || loading) {
     return (
       <>
         <Head>
@@ -141,46 +164,22 @@ export default function BrandsPage() {
             </div>
 
             {/* Info Card */}
-            {isDernekUyesi ? (
-              myQR && (
-                <Card className="mb-8 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 border-primary/20">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start gap-4">
-                      <div className="bg-primary/10 p-3 rounded-full">
-                        <Tag className="h-6 w-6 text-primary" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold mb-2">Nasıl İndirim Alırım?</h3>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          Markanın kartındaki indirim kodunu kasada söyleyin; kodu olmayan markalarda
-                          QR kodunuzu göstererek indirimden yararlanın.
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          <strong>QR Kodunuz:</strong> {myQR.qr_code}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            ) : (
-              <Card className="mb-8 border-dashed">
+            {isDernekUyesi && myQR && (
+              <Card className="mb-8 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 border-primary/20">
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-4">
-                    <div className="bg-muted p-3 rounded-full">
-                      <Lock className="h-6 w-6 text-muted-foreground" />
+                    <div className="bg-primary/10 p-3 rounded-full">
+                      <Tag className="h-6 w-6 text-primary" />
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold mb-2">İndirim Kodları ve QR Kodu Dernek Üyelerine Özel</h3>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        Anlaşmalı markaların indirim kodlarını görmek ve indirimlerden yararlanmak için
-                        aidatını ödemiş dernek üyesi olmanız gerekir.
+                    <div>
+                      <h3 className="font-semibold mb-2">Nasıl İndirim Alırım?</h3>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Markanın kartındaki indirim kodunu kasada söyleyin; kodu olmayan markalarda
+                        QR kodunuzu göstererek indirimden yararlanın.
                       </p>
-                      <Button size="sm" asChild>
-                        <a href="https://fonzip.com/eymeder/odeme" target="_blank" rel="noopener noreferrer">
-                          Aidatımı Öde
-                        </a>
-                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        <strong>QR Kodunuz:</strong> {myQR.qr_code}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
