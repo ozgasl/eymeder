@@ -226,9 +226,13 @@ oku. Her oturum sonunda kendi bölümünü buraya ekle (üstte en yeni).
   `/fonzip-signup` (başvuru + aidat + neden üye olmalıyım orada). Mentorluk
   kartındaki üye-olmayan butonu da aynı hedefe çevrildi. Navigasyondaki
   "Üyelik → Aidat Öde" bağlantısı olduğu gibi duruyor.
-  - **"Üyeliğimi tekrar kontrol et" (2026-10-01)**: kısıtlama ekranında
-    (`AccessRestricted`) üyenin kendi Fonzip kontrolünü çalıştıran buton →
-    `POST /api/membership/recheck`. Eskiden `membership_tier` sadece kayıtta
+  - **"Üyeliğimi tekrar kontrol et" (2026-10-01)**: profil sayfasındaki
+    "Üyelik Durumu" kartında (`src/components/MembershipStatusCard.tsx`;
+    tier rozeti + son kontrol zamanı, mezun_uye'ye buton + "Dernek Üyesi Ol")
+    üyenin kendi Fonzip kontrolünü çalıştıran buton →
+    `POST /api/membership/recheck`. **Kullanıcı kararı: buton kısıtlama
+    ekranında DEĞİL profilde**; `AccessRestricted` sadece "profil
+    sayfanızdan tekrar kontrol edebilirsiniz" bağlantısı veriyor. Eskiden `membership_tier` sadece kayıtta
     ve admin "Fonzip yeniden kontrol"ünde güncelleniyordu, aidatını ödeyen
     kişi yönetici bakana kadar kilitli kalıyordu. Kurallar
     (`src/lib/membershipRecheckPolicy.ts`, testli):

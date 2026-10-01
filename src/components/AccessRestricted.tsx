@@ -1,9 +1,7 @@
-import { useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Lock, RefreshCw, ShieldAlert } from "lucide-react";
-import { profileService } from "@/services/profileService";
+import { Lock, ShieldAlert } from "lucide-react";
 
 interface AccessRestrictedProps {
   /** membership: gated behind paid "dernek üyesi" tier. staff: gated behind admin/moderator role. */
@@ -13,29 +11,6 @@ interface AccessRestrictedProps {
 
 export function AccessRestricted({ variant = "membership", featureName }: AccessRestrictedProps) {
   const isMembership = variant === "membership";
-  const [rechecking, setRechecking] = useState(false);
-  const [recheckMessage, setRecheckMessage] = useState<string | null>(null);
-
-  // For a member who just paid: their tier is otherwise only refreshed when
-  // staff press "Fonzip yeniden kontrol" in the admin panel.
-  const handleRecheck = async () => {
-    setRechecking(true);
-    setRecheckMessage(null);
-    const { tier, error } = await profileService.recheckMyMembership();
-
-    if (tier === "dernek_uyesi") {
-      setRecheckMessage("Dernek üyeliğiniz doğrulandı, sayfa yenileniyor…");
-      // Every gated page reads the tier once on mount (useAccessControl).
-      window.location.reload();
-      return;
-    }
-
-    setRechecking(false);
-    setRecheckMessage(
-      error ??
-        "Fonzip'te henüz dernek üyesi olarak görünmüyorsunuz. Aidatınızı yeni ödediyseniz kaydınızın işlenmesi biraz zaman alabilir.",
-    );
-  };
 
   return (
     <main className="container py-16 flex justify-center">
@@ -58,25 +33,19 @@ export function AccessRestricted({ variant = "membership", featureName }: Access
           </CardDescription>
         </CardHeader>
         {isMembership && (
-          <CardContent className="space-y-4">
-            <div className="flex flex-col sm:flex-row justify-center gap-3">
-              {/* /fonzip-signup rather than straight to the dues payment: a mezun_uye
-                  may never have applied, and that page offers both the
-                  application form and the payment. */}
-              <Button asChild>
-                <Link href="/fonzip-signup">Dernek Üyesi Ol</Link>
-              </Button>
-              <Button variant="outline" onClick={handleRecheck} disabled={rechecking} className="gap-2">
-                {rechecking ? (
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                )}
-                Üyeliğimi tekrar kontrol et
-              </Button>
-            </div>
-            <p className="text-sm text-muted-foreground" role="status" aria-live="polite">
-              {recheckMessage}
+          <CardContent>
+            {/* /fonzip-signup rather than straight to the dues payment: a mezun_uye
+                may never have applied, and that page offers both the
+                application form and the payment. */}
+            <Button asChild>
+              <Link href="/fonzip-signup">Dernek Üyesi Ol</Link>
+            </Button>
+            <p className="mt-4 text-sm text-muted-foreground">
+              Aidatınızı ödediyseniz üyeliğinizi{" "}
+              <Link href="/profile" className="font-medium text-primary underline underline-offset-4">
+                profil sayfanızdan
+              </Link>{" "}
+              tekrar kontrol edebilirsiniz.
             </p>
           </CardContent>
         )}
