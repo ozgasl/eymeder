@@ -20,6 +20,7 @@ import { PROFESSION_GROUPS } from "@/lib/professionGroups";
 import { AVATAR_UPLOAD, acceptAttribute, validateUpload } from "@/lib/fileUpload";
 import { TURKISH_UNIVERSITIES } from "@/lib/turkishUniversities";
 import { UniversityCombobox } from "@/components/UniversityCombobox";
+import { MembershipStatusCard } from "@/components/MembershipStatusCard";
 
 interface UniversityEntry {
   university: string;
@@ -58,6 +59,8 @@ export default function ProfilePage() {
   const [mentorBio, setMentorBio] = useState("");
   const [mentorshipAreas, setMentorshipAreas] = useState<string[]>([]);
   const [newArea, setNewArea] = useState("");
+  const [membershipTier, setMembershipTier] = useState<string | null>(null);
+  const [fonzipCheckedAt, setFonzipCheckedAt] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuth();
@@ -86,6 +89,8 @@ export default function ProfilePage() {
     const { data, error } = await profileService.getMyProfile();
     if (!error && data) {
       setFullName(data.full_name || "");
+      setMembershipTier(data.membership_tier ?? null);
+      setFonzipCheckedAt(data.fonzip_checked_at ?? null);
       setBio(data.bio || "");
       setAvatarUrl(data.avatar_url || "");
       setGraduationYear(data.graduation_year?.toString() || "");
@@ -242,6 +247,7 @@ export default function ProfilePage() {
       <div className="min-h-screen bg-background">
         <Navigation />
         <main className="container py-8" role="main">
+          <MembershipStatusCard tier={membershipTier} fonzipCheckedAt={fonzipCheckedAt} />
           <Card className="max-w-3xl mx-auto">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

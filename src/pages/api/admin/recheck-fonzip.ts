@@ -1,8 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabaseAdmin } from "@/integrations/supabase/admin";
 import { requireStaff } from "@/lib/requireStaff";
-import { checkMembership, toFonzipStatus, formatFonzipTags } from "@/services/membershipProvider";
-import { withTimeout } from "@/lib/withTimeout";
+import { recheckFonzipMembership } from "@/lib/fonzipRecheck";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -29,47 +28,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(404).json({ error: "Kullanıcı bulunamadı." });
   }
 
-  if (!profile.graduation_year || !profile.school_number) {
+  const outcome = await recheckFonzipMembership(profile);
+
+  if (outcome.kind === "missing_fields") {
     return res.status(400).json({
       error: "Kullanıcının mezuniyet yılı veya okul numarası eksik, Fonzip'te aranamıyor.",
     });
   }
 
-  const result = await withTimeout(
-    checkMembership({
-      fullName: profile.full_name || "",
-      graduationYear: profile.graduation_year,
-      schoolNumber: profile.school_number,
-      phone: profile.phone || "",
-      email: profile.email,
-    }),
-    8000,
-    { isMember: false, membershipFound: null, tags: [] }
-  );
-
-  // membershipFound === null means the lookup never produced an answer: it
-  // threw, or it outran the timeout above. That is NOT "no matching member" —
-  // writing it as one downgraded real dernek_uyesi members to mezun_uye and
-  // wiped their recorded tags, purely because Fonzip was slow. Leave the
-  // profile exactly as it was and let the admin retry.
-  if (result.membershipFound === null) {
+  if (outcome.kind === "no_answer") {
     return res.status(503).json({
       error: "Fonzip'ten yanıt alınamadı, üyenin kaydı değiştirilmedi. Lütfen tekrar deneyin.",
     });
   }
 
-  const tier = result.isMember ? "dernek_uyesi" : "mezun_uye";
-  const membershipStatus = toFonzipStatus(result.membershipFound);
-  const fonzipTags = formatFonzipTags(result.tags);
-
+  const { update } = outcome;
   const { error: updateError } = await supabaseAdmin
     .from("profiles")
-    .update({
-      membership_tier: tier,
-      fonzip_membership_status: membershipStatus,
-      fonzip_tags: fonzipTags,
-      fonzip_checked_at: new Date().toISOString(),
-    })
+    .update(update)
     .eq("id", userId);
 
   if (updateError) {
@@ -78,9 +54,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   return res.status(200).json({
     success: true,
-    isMember: result.isMember,
-    tier,
-    membershipStatus,
-    fonzipTags,
+    isMember: outcome.isMember,
+    tier: update.membership_tier,
+    membershipStatus: update.fonzip_membership_status,
+    fonzipTags: update.fonzip_tags,
   });
 }

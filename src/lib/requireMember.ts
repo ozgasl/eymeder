@@ -14,10 +14,9 @@ export function isAuthError<T extends object>(result: T | MemberAuthError): resu
   return "error" in result;
 }
 
-// Verifies the request's bearer token belongs to a signed-in dernek_uyesi —
-// the tier that dues-linked perks (discount codes) are gated on. Server-only:
-// uses the service-role client, so it bypasses RLS by design.
-export async function requireDernekUyesi(req: NextApiRequest): Promise<MemberAuthResult | MemberAuthError> {
+// Verifies the request's bearer token belongs to a signed-in user, whatever
+// their tier. Server-only: uses the service-role client to read the session.
+export async function requireSignedIn(req: NextApiRequest): Promise<MemberAuthResult | MemberAuthError> {
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
@@ -30,15 +29,25 @@ export async function requireDernekUyesi(req: NextApiRequest): Promise<MemberAut
     return { error: "Geçersiz oturum.", status: 401 };
   }
 
+  return { userId: user.id };
+}
+
+// Verifies the request's bearer token belongs to a signed-in dernek_uyesi —
+// the tier that dues-linked perks (discount codes) are gated on. Server-only:
+// uses the service-role client, so it bypasses RLS by design.
+export async function requireDernekUyesi(req: NextApiRequest): Promise<MemberAuthResult | MemberAuthError> {
+  const auth = await requireSignedIn(req);
+  if (isAuthError(auth)) return auth;
+
   const { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("membership_tier")
-    .eq("id", user.id)
+    .eq("id", auth.userId)
     .single();
 
   if (!profile || (profile as { membership_tier?: string }).membership_tier !== "dernek_uyesi") {
     return { error: "İndirim kodları dernek üyelerine özeldir.", status: 403 };
   }
 
-  return { userId: user.id };
+  return { userId: auth.userId };
 }

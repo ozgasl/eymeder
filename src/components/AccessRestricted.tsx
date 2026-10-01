@@ -40,6 +40,13 @@ export function AccessRestricted({ variant = "membership", featureName }: Access
             <Button asChild>
               <Link href="/fonzip-signup">Dernek Üyesi Ol</Link>
             </Button>
+            <p className="mt-4 text-sm text-muted-foreground">
+              Aidatınızı ödediyseniz üyeliğinizi{" "}
+              <Link href="/profile" className="font-medium text-primary underline underline-offset-4">
+                profil sayfanızdan
+              </Link>{" "}
+              tekrar kontrol edebilirsiniz.
+            </p>
           </CardContent>
         )}
       </Card>
