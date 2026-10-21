@@ -49,10 +49,23 @@ import {
   RefreshCw,
   Instagram,
   Twitter,
-  MapPin
+  MapPin,
+  Search,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getBrandMapsLink } from "@/lib/brandLocation";
+import { getDisplayFonzipTags } from "@/lib/fonzipTags";
+import {
+  DEFAULT_USER_FILTERS,
+  USER_FILTER_TAGS,
+  matchesUserFilters,
+  sortUsers,
+  type SortDirection,
+  type UserSortKey,
+} from "@/lib/adminUserTable";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -69,6 +82,39 @@ export default function AdminPage() {
   // Loading states
   const [loading, setLoading] = useState(true);
   const [recheckingUserId, setRecheckingUserId] = useState<string | null>(null);
+  const [userFilters, setUserFilters] = useState(DEFAULT_USER_FILTERS);
+  const [userSort, setUserSort] = useState<{ key: UserSortKey; direction: SortDirection }>({
+    key: "created_at",
+    direction: "desc",
+  });
+
+  const isUserFilterActive = JSON.stringify(userFilters) !== JSON.stringify(DEFAULT_USER_FILTERS);
+  const visibleUsers = sortUsers(
+    users.filter((u) => matchesUserFilters(u, userFilters)),
+    userSort.key,
+    userSort.direction
+  );
+
+  const toggleUserSort = (key: UserSortKey) =>
+    setUserSort((prev) =>
+      prev.key === key ? { key, direction: prev.direction === "asc" ? "desc" : "asc" } : { key, direction: "asc" }
+    );
+
+  const renderSortableHead = (label: string, key: UserSortKey) => {
+    const Icon = userSort.key !== key ? ArrowUpDown : userSort.direction === "asc" ? ArrowUp : ArrowDown;
+    return (
+      <TableHead>
+        <button
+          type="button"
+          onClick={() => toggleUserSort(key)}
+          className="inline-flex items-center gap-1 hover:text-foreground"
+        >
+          {label}
+          <Icon className={`h-3.5 w-3.5 ${userSort.key === key ? "" : "opacity-40"}`} />
+        </button>
+      </TableHead>
+    );
+  };
 
   // Form states
   const [editingBrand, setEditingBrand] = useState<any>(null);
@@ -528,24 +574,77 @@ export default function AdminPage() {
               <TabsContent value="users" className="space-y-4 mt-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Sistemdeki Kullanıcılar ({users.length})</CardTitle>
+                    <CardTitle>
+                      Sistemdeki Kullanıcılar (
+                      {isUserFilterActive ? `${visibleUsers.length} / ${users.length}` : users.length})
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
+                    <div className="flex flex-wrap items-center gap-3 mb-4">
+                      <div className="relative flex-1 min-w-[220px]">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          value={userFilters.search}
+                          onChange={(e) => setUserFilters({ ...userFilters, search: e.target.value })}
+                          placeholder="Ad, e-posta, telefon, okul no veya mezuniyet yılı ara..."
+                          className="pl-9"
+                        />
+                      </div>
+                      <Select value={userFilters.tier} onValueChange={(val) => setUserFilters({ ...userFilters, tier: val })}>
+                        <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tüm üyelik tipleri</SelectItem>
+                          <SelectItem value="dernek_uyesi">Dernek Üyesi</SelectItem>
+                          <SelectItem value="mezun_uye">Mezun Üye</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select value={userFilters.fonzipStatus} onValueChange={(val) => setUserFilters({ ...userFilters, fonzipStatus: val })}>
+                        <SelectTrigger className="w-[190px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tüm Fonzip durumları</SelectItem>
+                          <SelectItem value="var">Dernek Üyeliği: Var</SelectItem>
+                          <SelectItem value="yok">Dernek Üyeliği: Yok</SelectItem>
+                          <SelectItem value="unchecked">Hiç kontrol edilmedi</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select value={userFilters.tag} onValueChange={(val) => setUserFilters({ ...userFilters, tag: val })}>
+                        <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tüm etiketler</SelectItem>
+                          {USER_FILTER_TAGS.map((tag) => (
+                            <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+                          ))}
+                          <SelectItem value="none">Etiketsiz</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {isUserFilterActive && (
+                        <Button variant="ghost" size="sm" onClick={() => setUserFilters(DEFAULT_USER_FILTERS)} className="gap-1">
+                          <X className="h-3.5 w-3.5" /> Temizle
+                        </Button>
+                      )}
+                    </div>
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Ad Soyad</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Üyelik Tipi</TableHead>
+                          {renderSortableHead("Ad Soyad", "full_name")}
+                          {renderSortableHead("Email", "email")}
+                          {renderSortableHead("Üyelik Tipi", "membership_tier")}
                           <TableHead>Fonzip</TableHead>
-                          <TableHead>Dernek Üyeliği</TableHead>
+                          {renderSortableHead("Dernek Üyeliği", "fonzip_membership_status")}
                           <TableHead>Fonzip Etiketleri</TableHead>
-                          <TableHead>Kayıt Tarihi</TableHead>
-                          <TableHead>Fonzip Son Güncelleme</TableHead>
+                          {renderSortableHead("Kayıt Tarihi", "created_at")}
+                          {renderSortableHead("Fonzip Son Güncelleme", "fonzip_checked_at")}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {users.map((u) => (
+                        {visibleUsers.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                              Aramanızla eşleşen kullanıcı bulunamadı.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        {visibleUsers.map((u) => (
                           <TableRow key={u.id}>
                             <TableCell className="font-medium">{u.full_name || 'İsimsiz'}</TableCell>
                             <TableCell>{u.email}</TableCell>
@@ -589,8 +688,12 @@ export default function AdminPage() {
                               )}
                             </TableCell>
                             <TableCell>
-                              {u.fonzip_tags ? (
-                                <Badge variant="outline">{u.fonzip_tags}</Badge>
+                              {getDisplayFonzipTags(u.fonzip_tags).length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {getDisplayFonzipTags(u.fonzip_tags).map((tag) => (
+                                    <Badge key={tag} variant="outline">{tag}</Badge>
+                                  ))}
+                                </div>
                               ) : (
                                 <span className="text-sm text-muted-foreground">—</span>
                               )}
