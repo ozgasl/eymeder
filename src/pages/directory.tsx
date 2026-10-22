@@ -15,6 +15,7 @@ import { useAccessControl } from "@/hooks/useAccessControl";
 import { Loader2, Search, MapPin, Briefcase, GraduationCap, Building, Filter, MessageSquare, Mail, Phone, Linkedin, Twitter, Instagram, Facebook, Globe } from "lucide-react";
 import { getSocialHandle } from "@/lib/socialLinks";
 import { PROFESSION_GROUPS } from "@/lib/professionGroups";
+import { normalizePlace } from "@/lib/placeNormalize";
 
 export default function DirectoryPage() {
   const router = useRouter();
@@ -46,15 +47,26 @@ export default function DirectoryPage() {
     }
   }, [loading]);
 
-  // Ana sayfadaki "X döneminden/meslek grubundan Y üye" karolarından gelen
-  // ön-filtre: /directory?graduationYear=1992 veya ?professionGroup=... .
+  // Ana sayfadaki "X döneminden/meslek grubundan/üniversiteden/şehirden Y üye"
+  // karolarından gelen ön-filtre: /directory?graduationYear=1992, ?professionGroup=...,
+  // ?university=..., ?city=...&country=... .
   useEffect(() => {
     if (!router.isReady) return;
-    const { graduationYear, professionGroup } = router.query;
+    const { graduationYear, professionGroup, university, city, country } = router.query;
     if (typeof graduationYear === "string") setHighSchoolYearFilter(graduationYear);
     if (typeof professionGroup === "string") setProfessionGroupFilter(professionGroup);
+    if (typeof university === "string") setUniversityFilter(university);
+    if (typeof city === "string") setCityFilter(city);
+    if (typeof country === "string") setCountryFilter(country);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router.isReady, router.query.graduationYear, router.query.professionGroup]);
+  }, [
+    router.isReady,
+    router.query.graduationYear,
+    router.query.professionGroup,
+    router.query.university,
+    router.query.city,
+    router.query.country,
+  ]);
 
   const loadMembers = async () => {
     const { data, error } = await profileService.getAllProfiles();
@@ -78,8 +90,8 @@ export default function DirectoryPage() {
       );
 
     const matchesHighSchoolYear = highSchoolYearFilter === "all" || highSchoolYearFilter === "" || member.graduation_year?.toString() === highSchoolYearFilter;
-    const matchesCity = cityFilter === "all" || cityFilter === "" || member.city === cityFilter;
-    const matchesCountry = countryFilter === "all" || countryFilter === "" || member.country === countryFilter;
+    const matchesCity = cityFilter === "all" || cityFilter === "" || normalizePlace(member.city) === normalizePlace(cityFilter);
+    const matchesCountry = countryFilter === "all" || countryFilter === "" || normalizePlace(member.country) === normalizePlace(countryFilter);
     const matchesUniversity = universityFilter === "all" || universityFilter === "" || member.profile_universities?.some((u: any) => u.university?.toLowerCase().includes(universityFilter.toLowerCase()));
     const matchesProfession = professionFilter === "all" || professionFilter === "" || member.profession?.toLowerCase().includes(professionFilter.toLowerCase());
     const matchesProfessionGroup = professionGroupFilter === "all" || professionGroupFilter === "" || member.profession_group === professionGroupFilter;
@@ -93,7 +105,8 @@ export default function DirectoryPage() {
   const uniqueProfessions = Array.from(new Set(members.map(m => m.profession).filter(Boolean))).sort((a: any, b: any) => a.localeCompare(b, "tr"));
   const sortedProfessionGroups = [...PROFESSION_GROUPS].sort((a, b) => a.localeCompare(b, "tr"));
   const uniqueCompanies = Array.from(new Set(members.map(m => m.company).filter(Boolean)));
-  const uniqueCountries = Array.from(new Set(members.map(m => m.country).filter(Boolean)));
+  const uniqueCountries = Array.from(new Set(members.map(m => m.country).filter(Boolean))).sort((a: any, b: any) => a.localeCompare(b, "tr"));
+  const uniqueCityOptions = Array.from(new Set(members.map(m => m.city).filter(Boolean))).sort((a: any, b: any) => a.localeCompare(b, "tr"));
 
   const loadData = async () => {
     setSearching(true);
@@ -222,12 +235,11 @@ export default function DirectoryPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Tümü</SelectItem>
-                        <SelectItem value="İstanbul">İstanbul</SelectItem>
-                        <SelectItem value="Ankara">Ankara</SelectItem>
-                        <SelectItem value="İzmir">İzmir</SelectItem>
-                        <SelectItem value="Bursa">Bursa</SelectItem>
-                        <SelectItem value="Antalya">Antalya</SelectItem>
-                        <SelectItem value="Yurtdışı">Yurtdışı</SelectItem>
+                        {uniqueCityOptions.map((city: any) => (
+                          <SelectItem key={city} value={city}>
+                            {city}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

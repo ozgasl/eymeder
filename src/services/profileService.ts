@@ -48,6 +48,15 @@ export interface HomeStats {
   profession_group: string | null;
   profession_group_count: number | null;
   new_this_week_count: number;
+  // The member's most shared university / city / country and how many
+  // members share it (themselves included); null when they haven't filled
+  // the field in.
+  university: string | null;
+  university_count: number | null;
+  city: string | null;
+  city_count: number | null;
+  country: string | null;
+  country_count: number | null;
 }
 
 export interface ProfileUniversity {
@@ -474,7 +483,7 @@ export const profileService = {
   },
 
   async getHomeStats(): Promise<{ data: HomeStats | null; error: any }> {
-    const { data, error } = await supabase.rpc("get_home_stats").maybeSingle();
+    const { data, error } = await supabase.rpc("get_home_stats_v2").maybeSingle();
     return { data: data as HomeStats | null, error };
   },
 };
