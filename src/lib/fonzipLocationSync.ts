@@ -143,8 +143,8 @@ async function applyChanges(
             profile_id: change.profileId,
             university: change.addUniversity.university,
             department: change.addUniversity.department,
-            // The Fonzip field is "Mezun Olduğum Üniversite"; it gives no year.
-            status: "graduated",
+            // The Fonzip field gives no graduation year.
+            status: change.addUniversity.status,
             sort_order: (maxSortOrder.get(change.profileId) ?? -1) + 1,
           });
           if (error) applied.failures.push(`üniversite ${change.profileId}: ${error.message}`);

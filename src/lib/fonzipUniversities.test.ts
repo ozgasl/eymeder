@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { mapFonzipUniversity } from "./fonzipUniversities";
 
-const mapped = (university: string, department: string | null = null) => ({
+const mapped = (university: string, department: string | null = null, studying = false) => ({
   kind: "mapped",
-  value: { university, department },
+  value: { university, department, studying },
 });
 
 describe("mapFonzipUniversity (real Fonzip values)", () => {
@@ -58,6 +58,28 @@ describe("mapFonzipUniversity (real Fonzip values)", () => {
     for (const v of ["-", "Öğrenci", "3.sınıf öğrencisiyim"]) {
       expect(mapFonzipUniversity(v)).toEqual({ kind: "junk" });
     }
+  });
+
+  it("keeps a department's closing parenthesis and squeezes spaces", () => {
+    expect(mapFonzipUniversity("İstanbul üni. Elektronik mühendisliği (İngilizce)")).toEqual(
+      mapped("İstanbul Üniversitesi", "Elektronik mühendisliği (İngilizce)")
+    );
+    expect(mapFonzipUniversity("Marmara Üniversitesi Sağlık Yönetimi Lisans,  Üretim Yönetimi")).toEqual(
+      mapped("Marmara Üniversitesi", "Sağlık Yönetimi Lisans, Üretim Yönetimi")
+    );
+  });
+
+  it("does not keep a misspelled 'Üniversitesi' or a leading 've' as the department", () => {
+    expect(mapFonzipUniversity("Yeditepe Ünüversitesi")).toEqual(mapped("Yeditepe Üniversitesi"));
+    expect(mapFonzipUniversity("Yeditepe üniversitesi ve LaSalle International Academy")).toEqual(
+      mapped("Yeditepe Üniversitesi", "LaSalle International Academy")
+    );
+  });
+
+  it("notices when the text says they have not graduated", () => {
+    expect(mapFonzipUniversity("Koç Üniversitesi Hukuk (mezun değil-1. sınıf)")).toEqual(
+      mapped("Koç Üniversitesi", "Hukuk (mezun değil-1. sınıf)", true)
+    );
   });
 
   it("maps the old Mimar Sinan name and keeps the department", () => {

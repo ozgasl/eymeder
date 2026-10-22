@@ -9,6 +9,8 @@ import { normalizePlace } from "@/lib/placeNormalize";
 export interface MappedUniversity {
   university: string;
   department: string | null;
+  // The text says they haven't graduated ("mezun değil", "1. sınıf", "devam").
+  studying: boolean;
 }
 
 export type UniversityMapping =
@@ -54,8 +56,8 @@ const UNIVERSITY_WORD = "universitesi";
 function normalizeWord(word: string): string {
   const w = normalizePlace(word).replace(/[.,;:()]/g, "");
   if (UNIVERSITY_WORDS.has(w)) return UNIVERSITY_WORD;
-  // "Üniveristesi", "Üniversıtesi": a typo of the word, not of a name.
-  if (/^uni[a-z]{4,9}tesi$/.test(w)) return UNIVERSITY_WORD;
+  // "Üniveristesi", "Ünüversitesi": a typo of the word, not of a name.
+  if (/^un[iu]v[a-z]{2,9}tesi$/.test(w)) return UNIVERSITY_WORD;
   return w;
 }
 
@@ -114,7 +116,23 @@ function startsWithUniversity(raw: string): boolean {
   return false;
 }
 
-const trimDepartment = (s: string): string => s.replace(/^[\s\-–—/,.:;()]+|[\s\-–—/,.:;()]+$/g, "").trim();
+const count = (s: string, ch: string): number => s.split(ch).length - 1;
+
+// Tidies the text left after the university name: squeezes spaces, drops a
+// leading "ve"/"and", strips dangling separators, and keeps a closing ")" that
+// belongs to an opening one ("Elektronik (İngilizce)" must stay whole).
+function trimDepartment(raw: string): string {
+  let s = raw.replace(/\s+/g, " ").trim();
+  s = s.replace(/^(ve|and|ile|&)\s+/i, "");
+  s = s.replace(/^[\s\-–—/,.:;)]+/, "").replace(/[\s\-–—/,.:;(]+$/, "");
+  while (s.startsWith("(") && count(s, "(") > count(s, ")")) s = s.slice(1).trim();
+  while (s.endsWith(")") && count(s, ")") > count(s, "(")) s = s.slice(0, -1).trim();
+  // A leftover that is only a (misspelled) "university" says nothing.
+  if (s && tokens(s).every((t) => t === UNIVERSITY_WORD)) return "";
+  return s;
+}
+
+const STUDYING = /mezun\s+de[gğ]il|\d\s*\.\s*s[ıi]n[ıi]f|devam\s+ed/i;
 
 export function mapFonzipUniversity(raw: string | null | undefined): UniversityMapping {
   const text = (raw ?? "").trim();
@@ -131,8 +149,14 @@ export function mapFonzipUniversity(raw: string | null | undefined): UniversityM
   for (let k = Math.min(words.length, MAX_PREFIX_WORDS); k >= 1; k--) {
     const name = KEYS.get(words.slice(0, k).map(normalizeWord).join(" "));
     if (!name) continue;
-    const department = trimDepartment([...words.slice(k), tail].join(" "));
-    return { kind: "mapped", value: { university: name, department: department || null } };
+    // The tail keeps its own punctuation and spacing ("Lisans, Üretim"), so it is
+    // glued on rather than joined with a space.
+    const rest = words.slice(k).join(" ") + (/\s$/.test(head) ? " " : "");
+    const department = trimDepartment(rest + tail);
+    return {
+      kind: "mapped",
+      value: { university: name, department: department || null, studying: STUDYING.test(text) },
+    };
   }
   return { kind: "unmatched" };
 }

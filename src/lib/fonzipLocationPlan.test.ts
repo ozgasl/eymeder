@@ -33,7 +33,7 @@ describe("planLocationSync", () => {
         profileId: "p1",
         city: "İstanbul",
         country: "Türkiye",
-        addUniversity: { university: "İstanbul Teknik Üniversitesi", department: null },
+        addUniversity: { university: "İstanbul Teknik Üniversitesi", department: null, status: "graduated" },
       },
     ]);
     expect(plan.stats).toMatchObject({ matched: 1, cityFilled: 1, countryFilled: 1, universitiesToAdd: 1 });
@@ -93,6 +93,19 @@ describe("planLocationSync", () => {
     expect(plan.changes[0].addUniversity).toEqual({
       university: "İstanbul Teknik Üniversitesi",
       department: "Makine Mühendisliği",
+      status: "graduated",
+    });
+  });
+
+  it("adds a university as 'studying' when the Fonzip text says they have not graduated", () => {
+    const plan = planLocationSync(
+      [row({ university: "Koç Üniversitesi Hukuk (mezun değil-1. sınıf)", city_text: "", district_text: "" })],
+      [profile()]
+    );
+    expect(plan.changes[0].addUniversity).toEqual({
+      university: "Koç Üniversitesi",
+      department: "Hukuk (mezun değil-1. sınıf)",
+      status: "studying",
     });
   });
 
@@ -152,7 +165,7 @@ describe("universityMappings", () => {
 
 describe("withKeptValues", () => {
   const changes = [
-    { profileId: "keep", city: "İstanbul", country: "Türkiye", addUniversity: { university: "X", department: null } },
+    { profileId: "keep", city: "İstanbul", country: "Türkiye", addUniversity: { university: "X", department: null, status: "graduated" as const } },
     { profileId: "only-place", city: "Ankara" },
     { profileId: "other", city: "Bolu" },
   ];
@@ -166,7 +179,7 @@ describe("withKeptValues", () => {
     const result = withKeptValues(changes, profiles, ["keep"]);
     expect(result.find((c) => c.profileId === "keep")).toEqual({
       profileId: "keep",
-      addUniversity: { university: "X", department: null },
+      addUniversity: { university: "X", department: null, status: "graduated" },
     });
     expect(result.find((c) => c.profileId === "other")).toEqual({ profileId: "other", city: "Bolu" });
   });

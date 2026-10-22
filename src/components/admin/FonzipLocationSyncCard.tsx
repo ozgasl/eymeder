@@ -42,7 +42,19 @@ export function FonzipLocationSyncCard() {
   const run = async (kind: "preview" | "apply") => {
     if (kind === "apply") {
       const n = preview?.plan.changeCount ?? 0;
-      if (!window.confirm(`Fonzip'ten ${n} profil güncellenecek. Önizlemeyi incelediniz mi? Devam edilsin mi?`)) return;
+      // Name who is overwritten and who is kept, so a tick on the wrong row is
+      // caught here rather than after the write.
+      const names = (kept: boolean) =>
+        [...new Set((preview?.plan.overwrites ?? []).filter((o) => keepOurs.has(o.profileId) === kept).map((o) => o.name?.trim() || "(adsız)"))];
+      const overwritten = names(false);
+      const kept = names(true);
+      const message = [
+        `Fonzip'ten ${n} profil güncellenecek.`,
+        overwritten.length ? `Fonzip ile ÜZERİNE YAZILACAK: ${overwritten.join(", ")}` : "Üzerine yazılacak kimse yok.",
+        kept.length ? `BİZİMKİ KORUNACAK: ${kept.join(", ")}` : "Korunacak kimse seçilmedi.",
+        "Devam edilsin mi?",
+      ].join("\n\n");
+      if (!window.confirm(message)) return;
     }
     setBusy(kind);
     setError(null);

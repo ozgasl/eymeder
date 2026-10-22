@@ -42,7 +42,7 @@ export interface ProfileChange {
   // Present only when the value would change.
   city?: string;
   country?: string;
-  addUniversity?: { university: string; department: string | null };
+  addUniversity?: { university: string; department: string | null; status: "graduated" | "studying" };
 }
 
 export interface CountedValue {
@@ -175,6 +175,8 @@ export function planLocationSync(rows: FonzipSyncRow[], profiles: SyncProfile[])
           change.addUniversity = {
             university: mapping.value.university,
             department: mapping.value.department ?? (text(row.department) || null),
+            // The Fonzip field is "Mezun Olduğum Üniversite": graduated unless the text says otherwise.
+            status: mapping.value.studying ? "studying" : "graduated",
           };
         }
       }
