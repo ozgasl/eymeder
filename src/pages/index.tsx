@@ -5,6 +5,7 @@ import Head from "next/head";
 import { SEO } from "@/components/SEO";
 import { Navigation } from "@/components/Navigation";
 import { Card, CardContent } from "@/components/ui/card";
+import { StatTile } from "@/components/StatTile";
 import { Button } from "@/components/ui/button";
 import { authService } from "@/services/authService";
 import { profileService, type HomeStats } from "@/services/profileService";
@@ -193,85 +194,58 @@ export default function Home() {
 
             {/* Membership Stats */}
             {user && (homeStats || activeBrandCount) && (
-              <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12" aria-label="Üyelik istatistikleri">
+              <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-8" aria-label="Üyelik istatistikleri">
                 {homeStats?.cohort_year != null && homeStats.cohort_count != null && (
-                  <Link
+                  <StatTile
                     href={{ pathname: "/directory", query: { graduationYear: String(homeStats.cohort_year) } }}
                     aria-label={`${homeStats.cohort_year} döneminden ${homeStats.cohort_count} üyeyi görüntüle`}
-                  >
-                    <Card className="border-0 ring-1 ring-border/50 bg-card cursor-pointer transition-shadow hover:shadow-lg focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2">
-                      <CardContent className="p-6 flex items-center gap-4">
-                        <div className="p-4 rounded-2xl bg-blue-100 text-blue-600 flex-shrink-0" aria-hidden="true">
-                          <GraduationCap className="h-8 w-8" />
-                        </div>
-                        <div>
-                          <p className="text-2xl font-bold tracking-tight">{homeStats.cohort_count} üye</p>
-                          <p className="text-sm text-muted-foreground">{homeStats.cohort_year} döneminden</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                    icon={GraduationCap}
+                    tone="bg-blue-100 text-blue-600"
+                    value={`${homeStats.cohort_count} üye`}
+                    label={`${homeStats.cohort_year} döneminden`}
+                  />
                 )}
                 {homeStats?.profession_group && homeStats.profession_group_count != null && (
-                  <Link
+                  <StatTile
                     href={{ pathname: "/directory", query: { professionGroup: homeStats.profession_group } }}
                     aria-label={`${homeStats.profession_group} meslek grubundan ${homeStats.profession_group_count} üyeyi görüntüle`}
-                  >
-                    <Card className="border-0 ring-1 ring-border/50 bg-card cursor-pointer transition-shadow hover:shadow-lg focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2">
-                      <CardContent className="p-6 flex items-center gap-4">
-                        <div className="p-4 rounded-2xl bg-emerald-100 text-emerald-600 flex-shrink-0" aria-hidden="true">
-                          <Briefcase className="h-8 w-8" />
-                        </div>
-                        <div>
-                          <p className="text-2xl font-bold tracking-tight">{homeStats.profession_group_count} üye</p>
-                          <p className="text-sm text-muted-foreground">{homeStats.profession_group} meslek grubundan</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                    icon={Briefcase}
+                    tone="bg-emerald-100 text-emerald-600"
+                    value={`${homeStats.profession_group_count} üye`}
+                    label={`${homeStats.profession_group} meslek grubundan`}
+                  />
                 )}
                 {homeStats && (
-                  <Card className="border-0 ring-1 ring-border/50 bg-card">
-                    <CardContent className="p-6 flex items-center gap-4">
-                      <div className="p-4 rounded-2xl bg-cyan-100 text-cyan-600 flex-shrink-0" aria-hidden="true">
-                        <TrendingUp className="h-8 w-8" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold tracking-tight">{homeStats.new_this_week_count} yeni üye</p>
-                        <p className="text-sm text-muted-foreground">Son 1 haftada katıldı</p>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <StatTile
+                    icon={TrendingUp}
+                    tone="bg-cyan-100 text-cyan-600"
+                    value={`${homeStats.new_this_week_count} yeni üye`}
+                    label="Son 1 haftada katıldı"
+                  />
                 )}
                 {/* Shown to every signed-in member; for a mezun_uye /brands
                     answers with the "Dernek Üyesi Ol" screen. */}
                 {activeBrandCount ? (
-                  <Link
+                  <StatTile
                     href="/brands"
                     aria-label={
                       canSeeBrands
                         ? `Aktif indirim veren ${activeBrandCount} anlaşmalı markayı görüntüle`
                         : `${activeBrandCount} anlaşmalı marka aktif indirim veriyor, dernek üyelerine özel`
                     }
-                  >
-                    <Card className="h-full border-0 ring-1 ring-border/50 bg-card cursor-pointer transition-shadow hover:shadow-lg focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2">
-                      <CardContent className="p-6 flex items-center gap-4">
-                        <div className="p-4 rounded-2xl bg-amber-100 text-amber-600 flex-shrink-0" aria-hidden="true">
-                          <Tag className="h-8 w-8" />
-                        </div>
-                        <div>
-                          <p className="text-2xl font-bold tracking-tight">{activeBrandCount} marka</p>
-                          <p className="text-sm text-muted-foreground">Aktif indirim veriyor</p>
-                          {!canSeeBrands && (
-                            <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                              <Lock className="h-3 w-3" aria-hidden="true" />
-                              Dernek üyelerine özel
-                            </p>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                    icon={Tag}
+                    tone="bg-amber-100 text-amber-600"
+                    value={`${activeBrandCount} marka`}
+                    label="Aktif indirim veriyor"
+                    footer={
+                      !canSeeBrands && (
+                        <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <Lock className="h-3 w-3" aria-hidden="true" />
+                          Dernek üyelerine özel
+                        </p>
+                      )
+                    }
+                  />
                 ) : null}
               </section>
             )}
