@@ -73,6 +73,28 @@ Uygulama: `src/lib/fonzipProbe.ts`, `POST /api/admin/fonzip-probe` ve Admin → 
 
 ---
 
+### Faz 0 sonucu (ilk keşif çalıştırması, 2026-10-22; Fonzip'te ~505 kullanıcı)
+
+Hiçbir alan 403 vermedi, yani alanlar alınabiliyor. Ama doluluk düşük ve veri kirli:
+
+| Alan | Doluluk | Not |
+|---|---|---|
+| `country_text` | **3 / 500** (hepsi "Türkiye") | Fiilen boş. Ülke doğrudan Fonzip'ten gelmeyecek. |
+| Özel alan `ulke` (Ülke, çoklu seçim) | ilk çalıştırmada probe edilmedi | İkinci çalıştırmada bakılacak. |
+| `city_text` | 145 / 400 (~%36) | 111 "İstanbul", 11 "Istanbul", 5 "İSTANBUL"; çöp: "34", "Kadıköy" (ilçe), "NJ 07310, USA", "Turkiye", "Vaud". |
+| `district_text` | 140 / 400 | Çoğu İstanbul ilçesi (Kadıköy 50, Ataşehir 22...). İl eksikse ilçeden il çıkarılabilir. |
+| `mezun-oldugu-universite` (Lisans) | **167 / 500** (134 farklı) | Serbest metin, çok kirli: "İTÜ" ↔ "İstanbul Teknik Üniversitesi", "Istanbul Üniversitesi", "İstanbul Üniversitesi İşletme Fakültesi" (bölüm gömülü), "-", "Öğrenci", "3.sınıf öğrencisiyim". |
+| `...-bolumu` (Bölüm) | 18 / 300 | Az. |
+| Yüksek lisans / doktora | 5 / 0 | Önemsiz. |
+| `mezun-oldugu-yil` | 332 / 400 | Bizim `graduation_year` ile çapraz kontrol edilebilir (yanlış yıl vakaları). |
+
+İlk çalıştırma Fonzip'in hız sınırına (429) takıldı: alan başına ayrı sayfalama yapıp 12 alanı paralel çekiyordu; çoğu alan 400-500 kullanıcıda kesildi ve **profil eşleşme sayımı (`overlap`) hiç çalışmadı**. Probe tek geçişli (tüm alanlar tek `values_list`) ve 429'da bekleyip yeniden deneyen hâle getirildi; seçim tipi alanlar ("[object Object]") artık okunuyor. **Keşfin bir kez daha çalıştırılması gerekiyor.**
+
+Sonuçlar Faz 3'ü şöyle şekillendiriyor:
+- **Ülke:** Fonzip'ten değil, **şehirden çıkarım**: şehir (veya ilçe) Türkiye'de bir il/ilçe ise ülke = Türkiye. Yurtdışı şehirleri için ülke boş kalır, profil formu "tamamla" der.
+- **Şehir:** il listesine normalize eşleşme + takma ad ("Istanbul", "Izmir", "34" → plaka kodu) + ilçeden il çıkarımı. Eşleşmeyen sayımlı listelenir.
+- **Üniversite:** en zor kısım. Takma ad tablosu (İTÜ, ODTÜ, YTÜ, Boğaziçi...), sondaki fakülte/bölüm metnini `department`'a ayırma, çöp değerleri ("-", "Öğrenci") eleme. Dry-run, eşleşmeyen üniversite değerlerini sayımla listeler; takma ad tablosunu o listeden birlikte genişletiriz. Eşleşmeyen değer **yazılmaz**.
+
 ## Faz 1 — Konum verisi standardizasyonu ve profil formu (PR-C)
 
 ### 1a. Listeler (saf, testli)

@@ -15,7 +15,9 @@ import { normalizePlace } from "@/lib/placeNormalize";
 const PAGE_SIZE = 100;
 const MAX_PAGES = 30;
 const TOP_VALUES = 30;
-const UNIVERSITY_UDV_NAME = /üniversite|universite|university|okul|mezun/i;
+const RELEVANT_UDV_NAME = /üniversite|universite|university|okul|mezun|ülke|ulke|şehir|sehir|yaşa/i;
+// key_type 9 is a file upload (e.g. the graduation certificate), never text.
+const FILE_UDV_TYPE = 9;
 const LOCATION_FIELDS = ["country_text", "city_text", "district_text"] as const;
 
 // The spec marks `filter` required but not whether an empty attribute list is
@@ -29,11 +31,28 @@ export interface ValueSummary {
   top: Array<{ value: string; count: number }>;
 }
 
+// Select-type user-defined values (key_type 7/8) come back as objects or
+// arrays of them, not strings (a first probe printed "[object Object]").
+export function flattenValue(raw: unknown): string {
+  if (raw == null) return "";
+  if (typeof raw === "string") return raw.trim();
+  if (typeof raw === "number" || typeof raw === "boolean") return String(raw);
+  if (Array.isArray(raw)) return raw.map(flattenValue).filter(Boolean).join(", ");
+  if (typeof raw === "object") {
+    const o = raw as Record<string, unknown>;
+    for (const key of ["text", "name", "label", "value"]) {
+      if (typeof o[key] === "string" && o[key]) return (o[key] as string).trim();
+    }
+    return JSON.stringify(raw);
+  }
+  return String(raw).trim();
+}
+
 export function summarizeValues(values: unknown[], topN = TOP_VALUES): ValueSummary {
   const counts = new Map<string, number>();
   let filled = 0;
   for (const raw of values) {
-    const value = typeof raw === "string" ? raw.trim() : raw == null ? "" : String(raw).trim();
+    const value = flattenValue(raw);
     if (!value) continue;
     filled += 1;
     counts.set(value, (counts.get(value) ?? 0) + 1);
@@ -65,8 +84,10 @@ export interface UserDefinedValueDef {
   key_type?: number;
 }
 
-export function findUniversityCandidates(defs: UserDefinedValueDef[]): UserDefinedValueDef[] {
-  return defs.filter((d) => typeof d.name === "string" && UNIVERSITY_UDV_NAME.test(d.name) && d.value);
+export function findRelevantUdvs(defs: UserDefinedValueDef[]): UserDefinedValueDef[] {
+  return defs.filter(
+    (d) => typeof d.name === "string" && RELEVANT_UDV_NAME.test(d.name) && d.value && d.key_type !== FILE_UDV_TYPE
+  );
 }
 
 // A UDV can come back flat (`row[user_defined_values__KEY]`) or nested under
@@ -84,6 +105,9 @@ export interface FonzipLocationRow {
   email?: string | null;
   city_text?: string | null;
   country_text?: string | null;
+  // The "Mezun Olduğum Üniversite Lisans/Ön Lisans" and "Mezun Olduğum Yıl" UDVs.
+  university?: string | null;
+  graduation_year?: number | string | null;
 }
 
 export interface ProfileLocationRow {
@@ -92,6 +116,8 @@ export interface ProfileLocationRow {
   email: string | null;
   city: string | null;
   country: string | null;
+  // Already has at least one profile_universities row.
+  has_university?: boolean;
 }
 
 export interface OverlapSummary {
@@ -106,6 +132,11 @@ export interface OverlapSummary {
   // Both sides have a value and they differ (compared via normalizePlace).
   conflictCity: number;
   conflictCountry: number;
+  // Matched profile has no university rows, Fonzip has a (raw) one.
+  wouldFillUniversity: number;
+  // Fonzip "Mezun Olduğum Yıl" vs our graduation_year, both present.
+  graduationYearAgrees: number;
+  graduationYearDiffers: number;
 }
 
 const clean = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
@@ -130,6 +161,9 @@ export function estimateOverlap(fonzip: FonzipLocationRow[], profiles: ProfileLo
     wouldFillCountry: 0,
     conflictCity: 0,
     conflictCountry: 0,
+    wouldFillUniversity: 0,
+    graduationYearAgrees: 0,
+    graduationYearDiffers: 0,
   };
 
   for (const p of profiles) {
@@ -159,6 +193,14 @@ export function estimateOverlap(fonzip: FonzipLocationRow[], profiles: ProfileLo
       if (!a) out[fill] += 1;
       else if (normalizePlace(a) !== normalizePlace(b)) out[conflict] += 1;
     }
+
+    if (clean(match.university) && !p.has_university) out.wouldFillUniversity += 1;
+
+    const theirYear = Number(match.graduation_year);
+    if (p.graduation_year != null && Number.isFinite(theirYear) && theirYear > 0) {
+      if (theirYear === p.graduation_year) out.graduationYearAgrees += 1;
+      else out.graduationYearDiffers += 1;
+    }
   }
 
   return out;
@@ -168,16 +210,16 @@ export interface FieldProbeResult {
   field: string;
   // HTTP status of the first page, 0 = no answer. 403 means Fonzip refuses the field.
   status: number;
-  filterUsed: "empty" | "membership_no>=1" | null;
-  pagesRead: number;
-  truncated: boolean;
+  users: number;
   summary: ValueSummary | null;
+  // What the raw (non-string) values look like, for select-type UDVs.
+  shapeSample?: string[];
   error?: string;
 }
 
 interface PagedRows {
   status: number;
-  filterUsed: FieldProbeResult["filterUsed"];
+  filterUsed: "empty" | "membership_no>=1" | null;
   pagesRead: number;
   truncated: boolean;
   rows: any[];
@@ -185,7 +227,7 @@ interface PagedRows {
 
 async function fetchAllUsers(valuesList: string[]): Promise<PagedRows> {
   let filter: unknown[] = [];
-  let filterUsed: FieldProbeResult["filterUsed"] = "empty";
+  let filterUsed: PagedRows["filterUsed"] = "empty";
   let first: FonzipRawResponse = await fetchFonzipUsersPage(valuesList, 1, PAGE_SIZE, filter);
   if (first.status === 400) {
     filter = FALLBACK_FILTER;
@@ -218,16 +260,17 @@ async function fetchAllUsers(valuesList: string[]): Promise<PagedRows> {
   return { status: 200, filterUsed, pagesRead: pages, truncated, rows };
 }
 
-async function probeField(field: string): Promise<FieldProbeResult> {
-  const paged = await fetchAllUsers(["id", field]);
+function summarizeField(field: string, rows: any[]): FieldProbeResult {
+  const raw = rows.map((r) => readFieldValue(r, field));
+  const shapeSample = [
+    ...new Set(raw.filter((v) => v != null && typeof v === "object").map((v) => JSON.stringify(v).slice(0, 200))),
+  ].slice(0, 3);
   return {
     field,
-    status: paged.status,
-    filterUsed: paged.filterUsed,
-    pagesRead: paged.pagesRead,
-    truncated: paged.truncated,
-    summary: paged.status === 200 ? summarizeValues(paged.rows.map((r) => readFieldValue(r, field))) : null,
-    error: paged.status === 200 ? undefined : `Fonzip ${paged.status || "yanıt vermedi"}`,
+    status: 200,
+    users: rows.length,
+    summary: summarizeValues(raw),
+    shapeSample: shapeSample.length ? shapeSample : undefined,
   };
 }
 
@@ -237,43 +280,80 @@ export interface FonzipProbeReport {
     count: number;
     // Definitions are field names, not member data.
     definitions: Array<{ udv_id?: number; name?: string; value?: string; key_type?: number }>;
-    universityCandidates: UserDefinedValueDef[];
+    probed: Array<{ name?: string; value?: string; key_type?: number }>;
   };
+  // "combined" = one paged pass with every field at once (the normal case);
+  // "per-field" = Fonzip refused the combined request, so each field was asked alone.
+  mode: "combined" | "per-field";
+  pagesRead: number;
+  truncated: boolean;
   fields: FieldProbeResult[];
   overlap: OverlapSummary | { skipped: string };
 }
 
+const UNIVERSITY_KEY = "user_defined_values__mezun-oldugu-universite";
+const YEAR_KEY = "user_defined_values__mezun-oldugu-yil";
+
+async function loadProfiles(): Promise<{ profiles: ProfileLocationRow[]; error?: string }> {
+  const [profilesRes, universitiesRes] = await Promise.all([
+    supabaseAdmin.from("profiles").select("id, graduation_year, school_number, email, city, country"),
+    supabaseAdmin.from("profile_universities").select("profile_id"),
+  ]);
+  if (profilesRes.error) return { profiles: [], error: `profiller okunamadı: ${profilesRes.error.message}` };
+  const withUniversity = new Set((universitiesRes.data ?? []).map((u) => u.profile_id));
+  return {
+    profiles: (profilesRes.data ?? []).map((p) => ({ ...p, has_university: withUniversity.has(p.id) })),
+  };
+}
+
 export async function runFonzipProbe(): Promise<FonzipProbeReport> {
-  // One token for all the parallel requests below (see warmFonzipToken).
+  // One token for every request below (see warmFonzipToken).
   await warmFonzipToken();
 
   const udvResponse = await fetchFonzipUserDefinedValues();
   const defs = (udvResponse.status === 200 ? extractList(udvResponse.body) : []) as UserDefinedValueDef[];
-  const candidates = findUniversityCandidates(defs);
+  const relevant = findRelevantUdvs(defs);
+  const udvKeys = relevant.map((d) => `user_defined_values__${d.value}`);
+  const probedFields = [...LOCATION_FIELDS, ...udvKeys];
 
-  const fieldNames = [
-    ...LOCATION_FIELDS,
-    ...candidates.map((d) => `user_defined_values__${d.value}`),
-  ];
-  const fields = await Promise.all(fieldNames.map(probeField));
+  // Everything in one paged pass: a pass per field (the first version) tripped
+  // Fonzip's rate limit (429) and truncated most fields at 400-500 users.
+  let paged = await fetchAllUsers(["id", "membership_no", "email", ...probedFields]);
+  let mode: FonzipProbeReport["mode"] = "combined";
+  let fields: FieldProbeResult[];
+  let fonzipRows: FonzipLocationRow[] = [];
 
-  const cityOk = fields.find((f) => f.field === "city_text")?.status === 200;
-  const countryOk = fields.find((f) => f.field === "country_text")?.status === 200;
-  let overlap: FonzipProbeReport["overlap"] = { skipped: "city_text ve country_text alınamadı" };
-
-  if (cityOk || countryOk) {
-    const wanted = ["id", "membership_no", "email", ...(cityOk ? ["city_text"] : []), ...(countryOk ? ["country_text"] : [])];
-    const paged = await fetchAllUsers(wanted);
-    if (paged.status !== 200) {
-      overlap = { skipped: `membership_no/email alanları alınamadı (Fonzip ${paged.status || "yanıt vermedi"})` };
-    } else {
-      const { data: profiles, error } = await supabaseAdmin
-        .from("profiles")
-        .select("graduation_year, school_number, email, city, country");
-      overlap = error
-        ? { skipped: `profiller okunamadı: ${error.message}` }
-        : estimateOverlap(paged.rows, (profiles ?? []) as ProfileLocationRow[]);
+  if (paged.status === 200) {
+    fields = probedFields.map((f) => summarizeField(f, paged.rows));
+    fonzipRows = paged.rows.map((r) => ({
+      membership_no: r.membership_no,
+      email: r.email,
+      city_text: flattenValue(r.city_text),
+      country_text: flattenValue(r.country_text),
+      university: flattenValue(readFieldValue(r, UNIVERSITY_KEY)),
+      graduation_year: flattenValue(readFieldValue(r, YEAR_KEY)),
+    }));
+  } else {
+    // Combined request refused: ask field by field, one after another.
+    mode = "per-field";
+    fields = [];
+    for (const f of probedFields) {
+      const one = await fetchAllUsers(["id", f]);
+      fields.push(
+        one.status === 200
+          ? summarizeField(f, one.rows)
+          : { field: f, status: one.status, users: 0, summary: null, error: `Fonzip ${one.status || "yanıt vermedi"}` }
+      );
     }
+    paged = { ...paged, pagesRead: 0, truncated: false };
+  }
+
+  let overlap: FonzipProbeReport["overlap"] = {
+    skipped: `membership_no/email alanları alınamadı (Fonzip ${paged.status || "yanıt vermedi"})`,
+  };
+  if (mode === "combined") {
+    const { profiles, error } = await loadProfiles();
+    overlap = error ? { skipped: error } : estimateOverlap(fonzipRows, profiles);
   }
 
   return {
@@ -281,8 +361,11 @@ export async function runFonzipProbe(): Promise<FonzipProbeReport> {
       status: udvResponse.status,
       count: defs.length,
       definitions: defs.map(({ udv_id, name, value, key_type }) => ({ udv_id, name, value, key_type })),
-      universityCandidates: candidates,
+      probed: relevant.map(({ name, value, key_type }) => ({ name, value, key_type })),
     },
+    mode,
+    pagesRead: paged.pagesRead,
+    truncated: paged.truncated,
     fields,
     overlap,
   };

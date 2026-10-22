@@ -11,6 +11,8 @@ const TOKEN_ROW_ID = 1;
 // that expires mid-request.
 const TOKEN_REFRESH_MARGIN_MS = 5 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 5000;
+const MAX_RATE_LIMIT_ATTEMPTS = 5;
+const RATE_LIMIT_BACKOFF_MS = 2000;
 
 async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
   const controller = new AbortController();
@@ -207,12 +209,22 @@ export interface FonzipRawResponse {
 async function fonzipRaw(path: string, init: RequestInit): Promise<FonzipRawResponse> {
   try {
     const token = await getAccessToken();
-    const res = await fetchWithTimeout(`${FONZIP_BASE_URL}${path}`, {
-      ...init,
-      headers: { ...init.headers, Authorization: `Bearer ${token}` },
-    });
-    const body = await res.json().catch(() => null);
-    return { status: res.status, body };
+    // Fonzip rate-limits (429) bursts of paged requests: wait (its Retry-After
+    // if given) and retry a few times before reporting the 429.
+    for (let attempt = 1; ; attempt++) {
+      const res = await fetchWithTimeout(`${FONZIP_BASE_URL}${path}`, {
+        ...init,
+        headers: { ...init.headers, Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 429 && attempt < MAX_RATE_LIMIT_ATTEMPTS) {
+        const retryAfterMs = Number(res.headers.get("retry-after")) * 1000;
+        const waitMs = Number.isFinite(retryAfterMs) && retryAfterMs > 0 ? retryAfterMs : RATE_LIMIT_BACKOFF_MS * attempt;
+        await new Promise((resolve) => setTimeout(resolve, Math.min(waitMs, 8000)));
+        continue;
+      }
+      const body = await res.json().catch(() => null);
+      return { status: res.status, body };
+    }
   } catch {
     return { status: 0, body: null };
   }

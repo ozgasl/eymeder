@@ -12,7 +12,8 @@ vi.mock("@/lib/fonzipClient", () => ({
 import {
   estimateOverlap,
   extractList,
-  findUniversityCandidates,
+  findRelevantUdvs,
+  flattenValue,
   readFieldValue,
   summarizeValues,
 } from "./fonzipProbe";
@@ -40,15 +41,31 @@ describe("extractList", () => {
   });
 });
 
-describe("findUniversityCandidates", () => {
-  it("matches university-like field names that have a key", () => {
+describe("findRelevantUdvs", () => {
+  it("keeps university/country-like fields that have a key and drops file uploads", () => {
     const defs = [
       { name: "Üniversite", value: "value3" },
-      { name: "Mezun olduğu okul", value: "value4" },
+      { name: "Mezun olduğum okul", value: "value4" },
+      { name: "Ülke", value: "ulke", key_type: 8 },
+      { name: "Mezuniyet Belgesi Ekleme", value: "belge", key_type: 9 },
       { name: "Kan grubu", value: "value5" },
       { name: "University", value: undefined },
     ];
-    expect(findUniversityCandidates(defs).map((d) => d.value)).toEqual(["value3", "value4"]);
+    expect(findRelevantUdvs(defs).map((d) => d.value)).toEqual(["value3", "value4", "ulke"]);
+  });
+});
+
+describe("flattenValue", () => {
+  it("reads select-type values instead of printing [object Object]", () => {
+    expect(flattenValue({ id: 1, text: "Türkiye" })).toBe("Türkiye");
+    expect(flattenValue([{ text: "A" }, { text: "B" }])).toBe("A, B");
+    expect(flattenValue(1996)).toBe("1996");
+    expect(flattenValue(null)).toBe("");
+  });
+
+  it("makes select values countable", () => {
+    const s = summarizeValues([{ text: "Türkiye" }, { text: "Türkiye" }, null]);
+    expect(s.top).toEqual([{ value: "Türkiye", count: 2 }]);
   });
 });
 
@@ -63,15 +80,15 @@ describe("readFieldValue", () => {
 
 describe("estimateOverlap", () => {
   const fonzip = [
-    { membership_no: 19960758, email: "a@x.com", city_text: "İstanbul", country_text: "Türkiye" },
-    { membership_no: 20010001, email: "b@x.com", city_text: "ANKARA", country_text: "" },
+    { membership_no: 19960758, email: "a@x.com", city_text: "İstanbul", country_text: "Türkiye", university: "İTÜ", graduation_year: "1996" },
+    { membership_no: 20010001, email: "b@x.com", city_text: "ANKARA", country_text: "", graduation_year: "2002" },
     { membership_no: 5, email: "c@x.com", city_text: "Bolu", country_text: "Türkiye" },
   ];
 
   it("matches by membership_no first, then email, and counts fills and conflicts", () => {
     const profiles = [
       // matched by membership_no, both empty -> fills city + country
-      { graduation_year: 1996, school_number: "758", email: "zzz@x.com", city: null, country: null },
+      { graduation_year: 1996, school_number: "758", email: "zzz@x.com", city: null, country: null, has_university: false },
       // matched by membership_no, same city spelled differently -> no conflict
       { graduation_year: 2001, school_number: "1", email: "b@x.com", city: "Ankara", country: "Türkiye" },
       // matched only by email, different city -> conflict
@@ -89,6 +106,9 @@ describe("estimateOverlap", () => {
       wouldFillCountry: 1,
       conflictCity: 1,
       conflictCountry: 0,
+      wouldFillUniversity: 1,
+      graduationYearAgrees: 1,
+      graduationYearDiffers: 1,
     });
   });
 });
