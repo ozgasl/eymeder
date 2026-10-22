@@ -70,7 +70,15 @@ export interface SyncPlan {
   // Fonzip university text we couldn't map and nobody has classed as junk.
   unmatchedUniversities: CountedValue[];
   // A value of ours that a Fonzip value would replace with a different one.
-  overwrites: Array<{ name: string | null; field: "city" | "country"; from: string; to: string }>;
+  overwrites: Array<{
+    profileId: string;
+    name: string | null;
+    field: "city" | "country";
+    from: string;
+    to: string;
+  }>;
+  // What each Fonzip university text becomes, for review before applying.
+  universityMappings: Array<{ from: string; university: string; department: string | null; count: number }>;
   // Graduation year disagrees: reported, never written.
   graduationYearDiffers: Array<{ name: string | null; ours: number; fonzip: number }>;
 }
@@ -104,6 +112,7 @@ export function planLocationSync(rows: FonzipSyncRow[], profiles: SyncProfile[])
   const unresolvedPlaces: string[] = [];
   const unmatchedUniversities: string[] = [];
   const overwrites: SyncPlan["overwrites"] = [];
+  const universityMappings = new Map<string, SyncPlan["universityMappings"][number]>();
   const graduationYearDiffers: SyncPlan["graduationYearDiffers"] = [];
 
   for (const profile of profiles) {
@@ -131,7 +140,7 @@ export function planLocationSync(rows: FonzipSyncRow[], profiles: SyncProfile[])
           else stats.countryOverwritten += 1;
           // A different spelling of the same place isn't a conflict worth listing.
           if (normalizePlace(current) !== normalizePlace(next)) {
-            overwrites.push({ name: profile.full_name, field, from: current, to: next });
+            overwrites.push({ profileId: profile.id, name: profile.full_name, field, from: current, to: next });
           }
         }
       }
@@ -147,6 +156,17 @@ export function planLocationSync(rows: FonzipSyncRow[], profiles: SyncProfile[])
       } else if (mapping.kind === "unmatched") {
         unmatchedUniversities.push(rawUniversity);
       } else {
+        const mappingKey = `${rawUniversity}|${mapping.value.university}|${mapping.value.department ?? ""}`;
+        const seen = universityMappings.get(mappingKey);
+        if (seen) seen.count += 1;
+        else {
+          universityMappings.set(mappingKey, {
+            from: rawUniversity,
+            university: mapping.value.university,
+            department: mapping.value.department,
+            count: 1,
+          });
+        }
         const key = normalizePlace(mapping.value.university);
         if (profile.universities.some((u) => normalizePlace(u.university) === key)) {
           stats.universitiesAlreadyThere += 1;
@@ -174,6 +194,34 @@ export function planLocationSync(rows: FonzipSyncRow[], profiles: SyncProfile[])
     unresolvedPlaces: tally(unresolvedPlaces),
     unmatchedUniversities: tally(unmatchedUniversities),
     overwrites,
+    universityMappings: [...universityMappings.values()].sort(
+      (a, b) => b.count - a.count || a.from.localeCompare(b.from, "tr")
+    ),
     graduationYearDiffers,
   };
+}
+
+// For the people a reviewer decided to leave alone: their existing city and
+// country stay, as do any values Fonzip would only have FILLED are still
+// filled (an empty field has nothing of "ours" to protect). A profile left
+// with nothing to write drops out of the list.
+export function withKeptValues(
+  changes: ProfileChange[],
+  profiles: SyncProfile[],
+  keepOursFor: readonly string[]
+): ProfileChange[] {
+  if (keepOursFor.length === 0) return changes;
+  const keep = new Set(keepOursFor);
+  const byId = new Map(profiles.map((p) => [p.id, p]));
+  return changes
+    .map((change) => {
+      if (!keep.has(change.profileId)) return change;
+      const profile = byId.get(change.profileId);
+      const next: ProfileChange = { ...change };
+      for (const field of ["city", "country"] as const) {
+        if (next[field] && (profile?.[field] ?? "").trim()) delete next[field];
+      }
+      return next;
+    })
+    .filter((c) => c.city || c.country || c.addUniversity);
 }

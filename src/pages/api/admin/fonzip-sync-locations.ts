@@ -6,7 +6,7 @@ import { LocationSyncError, runLocationSync } from "@/lib/fonzipLocationSync";
 export const config = { maxDuration: 60 };
 
 // Dry run by default: body `{}` only reports what would change. Writing needs
-// `{ apply: true, expectedChanges: <changeCount from the dry run> }`.
+// `{ apply: true, expectedChanges: <changeCount from the dry run>, keepOurs?: <profile ids> }`.
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -17,10 +17,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(auth.status).json({ error: auth.error });
   }
 
-  const { apply, expectedChanges } = (req.body ?? {}) as { apply?: boolean; expectedChanges?: number };
+  const { apply, expectedChanges, keepOurs } = (req.body ?? {}) as {
+    apply?: boolean;
+    expectedChanges?: number;
+    keepOurs?: unknown;
+  };
+  const keep = Array.isArray(keepOurs) ? keepOurs.filter((id): id is string => typeof id === "string") : [];
 
   try {
-    return res.status(200).json(await runLocationSync({ apply: apply === true, expectedChanges }));
+    return res.status(200).json(await runLocationSync({ apply: apply === true, expectedChanges, keepOurs: keep }));
   } catch (err: any) {
     if (err instanceof LocationSyncError) return res.status(err.status).json({ error: err.message });
     return res.status(502).json({ error: `Fonzip senkronu başarısız: ${err?.message ?? "bilinmeyen hata"}` });

@@ -3,6 +3,7 @@ import { fetchAllFonzipUsers, warmFonzipToken } from "@/lib/fonzipClient";
 import { readFieldValue } from "@/lib/fonzipProbe";
 import {
   planLocationSync,
+  withKeptValues,
   type FonzipSyncRow,
   type ProfileChange,
   type SyncPlan,
@@ -157,8 +158,13 @@ async function applyChanges(
 
 // `expectedChanges` is the profile count from the dry run the staff member
 // reviewed: if Fonzip or the profiles moved since, the apply refuses rather
-// than write something nobody looked at.
-export async function runLocationSync(options: { apply: boolean; expectedChanges?: number }): Promise<LocationSyncResult> {
+// than write something nobody looked at. `keepOurs` lists profiles whose
+// existing city/country the reviewer chose to keep over Fonzip's.
+export async function runLocationSync(options: {
+  apply: boolean;
+  expectedChanges?: number;
+  keepOurs?: string[];
+}): Promise<LocationSyncResult> {
   const [rows, { profiles, maxSortOrder }] = await Promise.all([loadFonzipRows(), loadProfiles()]);
   const plan = planLocationSync(rows, profiles);
   const { changes, ...rest } = plan;
@@ -172,5 +178,6 @@ export async function runLocationSync(options: { apply: boolean; expectedChanges
       409
     );
   }
-  return { mode: "apply", plan: summary, applied: await applyChanges(changes, profiles, maxSortOrder) };
+  const effective = withKeptValues(changes, profiles, options.keepOurs ?? []);
+  return { mode: "apply", plan: summary, applied: await applyChanges(effective, profiles, maxSortOrder) };
 }

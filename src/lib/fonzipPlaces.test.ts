@@ -19,7 +19,7 @@ describe("mapFonzipPlace", () => {
 
   it("falls back to the district only when the city is empty", () => {
     expect(mapFonzipPlace("", "Ataşehir", "")).toEqual({ ok: true, city: "İstanbul", country: "Türkiye" });
-    expect(mapFonzipPlace("London", "Chelsea", "")).toEqual({ ok: false, value: "London" });
+    expect(mapFonzipPlace("Durham", "", "")).toEqual({ ok: false, value: "Durham" });
   });
 
   it("treats a country typed into the city box as a country", () => {
@@ -28,11 +28,24 @@ describe("mapFonzipPlace", () => {
 
   it("writes an abroad city only with a known country", () => {
     expect(mapFonzipPlace("Brüksel", "", "Belçika")).toEqual({ ok: true, city: "Brüksel", country: "Belçika" });
-    expect(mapFonzipPlace("Brüksel", "", "")).toEqual({ ok: false, value: "Brüksel" });
+    expect(mapFonzipPlace("Vaud", "", "")).toEqual({ ok: false, value: "Vaud" });
+  });
+
+  it("reads a plate code typed as the city", () => {
+    expect(mapFonzipPlace("34", "", "")).toEqual({ ok: true, city: "İstanbul", country: "Türkiye" });
+    expect(mapFonzipPlace("6", "", "")).toEqual({ ok: true, city: "Ankara", country: "Türkiye" });
+    expect(mapFonzipPlace("35", "", "")).toEqual({ ok: true, city: "İzmir", country: "Türkiye" });
+    expect(mapFonzipPlace("81", "", "")).toEqual({ ok: true, city: "Düzce", country: "Türkiye" });
+    expect(mapFonzipPlace("99", "", "")).toEqual({ ok: false, value: "99" });
+  });
+
+  it("knows a few unambiguous foreign cities", () => {
+    expect(mapFonzipPlace("Brüksel", "", "")).toEqual({ ok: true, city: "Brüksel", country: "Belçika" });
+    expect(mapFonzipPlace("London", "Chelsea", "")).toEqual({ ok: true, city: "Londra", country: "İngiltere" });
+    expect(mapFonzipPlace("Girne", "", "")).toEqual({ ok: true, city: "Girne", country: "Kuzey Kıbrıs (KKTC)" });
   });
 
   it("reports junk and empty values", () => {
-    expect(mapFonzipPlace("34", "", "")).toEqual({ ok: false, value: "34" });
     expect(mapFonzipPlace("NJ 07310, USA", "", "")).toEqual({ ok: false, value: "NJ 07310, USA" });
     expect(mapFonzipPlace("", "", "")).toEqual({ ok: false, value: "" });
   });

@@ -60,8 +60,35 @@ describe("mapFonzipUniversity (real Fonzip values)", () => {
     }
   });
 
-  it("does not guess universities that aren't on the list", () => {
-    for (const v of ["Amsterdam Üniversitesi", "State University of New Paltz", "Webster University Vienna - International Business & Marketing"]) {
+  it("maps the old Mimar Sinan name and keeps the department", () => {
+    expect(mapFonzipUniversity("Mimar Sinan Üniversitesi Matematik")).toEqual(
+      mapped("Mimar Sinan Güzel Sanatlar Üniversitesi", "Matematik")
+    );
+  });
+
+  it("maps foreign schools to clean names", () => {
+    expect(mapFonzipUniversity("Durham University")).toEqual(mapped("Durham University"));
+    expect(mapFonzipUniversity("McGill University")).toEqual(mapped("McGill University"));
+    expect(mapFonzipUniversity("Bocconi Üniversitesi")).toEqual(mapped("Bocconi University"));
+    expect(mapFonzipUniversity("Hesser college")).toEqual(mapped("Hesser College"));
+    expect(mapFonzipUniversity("DePaul University - Business Administration")).toEqual(
+      mapped("DePaul University", "Business Administration")
+    );
+  });
+
+  it("calls 'still studying' statuses junk", () => {
+    expect(mapFonzipUniversity("Devam ediyor")).toEqual({ kind: "junk" });
+    expect(mapFonzipUniversity("Okumaya devam ediyorum")).toEqual({ kind: "junk" });
+  });
+
+  it("does not guess ambiguous or double entries", () => {
+    for (const v of [
+      "Amsterdam Üniversitesi",
+      "City College /Işık Üniversitesi",
+      "Ekonomi",
+      "State University of New Paltz",
+      "Webster University Vienna - International Business & Marketing",
+    ]) {
       expect(mapFonzipUniversity(v)).toEqual({ kind: "unmatched" });
     }
     expect(mapFonzipUniversity("")).toEqual({ kind: "unmatched" });

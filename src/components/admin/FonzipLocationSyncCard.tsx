@@ -16,6 +16,16 @@ export function FonzipLocationSyncCard() {
   const [result, setResult] = useState<LocationSyncResult | null>(null);
   const [preview, setPreview] = useState<LocationSyncResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Profiles whose own city/country the reviewer keeps instead of Fonzip's.
+  const [keepOurs, setKeepOurs] = useState<Set<string>>(new Set());
+
+  const toggleKeep = (profileId: string) =>
+    setKeepOurs((prev) => {
+      const next = new Set(prev);
+      if (next.has(profileId)) next.delete(profileId);
+      else next.add(profileId);
+      return next;
+    });
 
   const call = async (body: Record<string, unknown>): Promise<LocationSyncResult> => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -37,10 +47,16 @@ export function FonzipLocationSyncCard() {
     setBusy(kind);
     setError(null);
     try {
-      const data = await call(kind === "apply" ? { apply: true, expectedChanges: preview?.plan.changeCount } : {});
+      const data = await call(
+        kind === "apply"
+          ? { apply: true, expectedChanges: preview?.plan.changeCount, keepOurs: [...keepOurs] }
+          : {}
+      );
       setResult(data);
-      if (kind === "preview") setPreview(data);
-      else setPreview(null);
+      if (kind === "preview") {
+        setPreview(data);
+        setKeepOurs(new Set());
+      } else setPreview(null);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -86,6 +102,79 @@ export function FonzipLocationSyncCard() {
               <li>Üniversite: {s.universitiesToAdd} eklenecek, {s.universitiesAlreadyThere} zaten var, {s.junkUniversities} anlamsız metin</li>
               <li>Mezuniyet yılı Fonzip ile farklı: {result.plan.graduationYearDiffers.length} (yazılmaz, aşağıda)</li>
             </ul>
+            {result.mode === "dry-run" && result.plan.overwrites.length > 0 && (
+              <div>
+                <p className="font-medium">Üzerine yazılacak değerler (Fonzip kazanır; tutmak istediğinizi işaretleyin)</p>
+                <ul className="mt-1 space-y-1">
+                  {[...new Set(result.plan.overwrites.map((o) => o.profileId))].map((id) => {
+                    const rows = result.plan.overwrites.filter((o) => o.profileId === id);
+                    return (
+                      <li key={id}>
+                        <label className="flex items-start gap-2">
+                          <input
+                            type="checkbox"
+                            className="mt-1"
+                            checked={keepOurs.has(id)}
+                            onChange={() => toggleKeep(id)}
+                          />
+                          <span>
+                            <strong>{rows[0].name?.trim() || "(adsız)"}</strong>:{" "}
+                            {rows.map((o) => `${o.field === "city" ? "şehir" : "ülke"} ${o.from} → ${o.to}`).join(", ")}
+                            {keepOurs.has(id) ? " (bizimki korunacak)" : ""}
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+            {result.mode === "dry-run" && result.plan.graduationYearDiffers.length > 0 && (
+              <div>
+                <p className="font-medium">Mezuniyet yılı farklı (yazılmaz, elle bakın)</p>
+                <ul className="list-disc pl-5 text-muted-foreground">
+                  {result.plan.graduationYearDiffers.map((d, i) => (
+                    <li key={i}>
+                      {d.name?.trim() || "(adsız)"}: bizde {d.ours}, Fonzip'te {d.fonzip}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {result.mode === "dry-run" && result.plan.universityMappings.length > 0 && (
+              <details>
+                <summary className="cursor-pointer">Üniversite eşlemeleri ({result.plan.universityMappings.length})</summary>
+                <ul className="mt-1 list-disc pl-5 text-muted-foreground">
+                  {result.plan.universityMappings.map((m, i) => (
+                    <li key={i}>
+                      "{m.from}" → {m.university}
+                      {m.department ? ` / ${m.department}` : ""}
+                      {m.count > 1 ? ` (${m.count})` : ""}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+            {result.mode === "dry-run" &&
+              (result.plan.unresolvedPlaces.length > 0 || result.plan.unmatchedUniversities.length > 0) && (
+                <details>
+                  <summary className="cursor-pointer">
+                    Eşleşmeyen, yazılmayacak metinler ({result.plan.unresolvedPlaces.length + result.plan.unmatchedUniversities.length})
+                  </summary>
+                  <ul className="mt-1 list-disc pl-5 text-muted-foreground">
+                    {result.plan.unresolvedPlaces.map((v, i) => (
+                      <li key={`p${i}`}>
+                        şehir: "{v.value}"{v.count > 1 ? ` (${v.count})` : ""}
+                      </li>
+                    ))}
+                    {result.plan.unmatchedUniversities.map((v, i) => (
+                      <li key={`u${i}`}>
+                        üniversite: "{v.value}"{v.count > 1 ? ` (${v.count})` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
             {result.applied && (
               <p className={result.applied.failures.length ? "text-destructive" : "text-muted-foreground"}>
                 {result.applied.updatedProfiles.length} profil güncellendi, {result.applied.insertedUniversities.length} üniversite eklendi,{" "}

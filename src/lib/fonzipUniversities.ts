@@ -16,8 +16,11 @@ export type UniversityMapping =
   | { kind: "junk" }
   | { kind: "unmatched" };
 
-// Abbreviations and short names the list's official names don't contain.
-// Keys are normalizePlace()d text; values must be names from the list.
+// Abbreviations, old names and short forms the list's official names don't
+// contain, plus a few foreign schools seen in Fonzip (the profile form accepts
+// names that aren't on the list; these are spelled the way the school does).
+// Keys are normalizePlace()d text without the word "universitesi"; values are
+// either a name from the list or a clean foreign name.
 const ALIASES: Record<string, string> = {
   itu: "İstanbul Teknik Üniversitesi",
   odtu: "Orta Doğu Teknik Üniversitesi",
@@ -29,6 +32,19 @@ const ALIASES: Record<string, string> = {
   uludag: "Bursa Uludağ Üniversitesi",
   bilgi: "İstanbul Bilgi Üniversitesi",
   iu: "İstanbul Üniversitesi",
+  // Old name of Mimar Sinan Güzel Sanatlar Üniversitesi.
+  "mimar sinan": "Mimar Sinan Güzel Sanatlar Üniversitesi",
+  // Foreign schools. "Amsterdam Üniversitesi" (UvA or VU?) and double entries
+  // like "City College / Işık" are deliberately left for a person to decide.
+  bocconi: "Bocconi University",
+  bond: "Bond University",
+  depaul: "DePaul University",
+  durham: "Durham University",
+  mcgill: "McGill University",
+  strayer: "Strayer University",
+  "hesser college": "Hesser College",
+  "grenoble ecole de commerce": "Grenoble Ecole de Commerce",
+  "washington southeastern": "Washington Southeastern University",
 };
 
 // Words people write instead of "Üniversitesi".
@@ -80,7 +96,9 @@ for (const [alias, name] of Object.entries(ALIASES)) {
 const MAX_PREFIX_WORDS = 8;
 
 // Placeholders and statuses people typed instead of a university.
-const JUNK_WORDS = new Set(["ogrenci", "ogrencisi", "ogrencisiyim", "ogrenciyim", "lise", "yok", "mezun", "degilim"]);
+const JUNK_WORDS = new Set([
+  "ogrenci", "ogrencisi", "ogrencisiyim", "ogrenciyim", "lise", "yok", "mezun", "degilim", "devam", "okumaya",
+]);
 
 function isJunk(raw: string): boolean {
   if (!/\p{L}/u.test(raw)) return true; // "-", "—", "."
