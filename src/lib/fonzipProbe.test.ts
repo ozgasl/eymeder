@@ -4,8 +4,15 @@ import { describe, it, expect, vi } from "vitest";
 // need env vars at import time; the functions under test touch neither.
 vi.mock("@/integrations/supabase/admin", () => ({ supabaseAdmin: {} }));
 vi.mock("@/lib/fonzipClient", () => ({
+  fetchAllFonzipUsers: vi.fn(),
   fetchFonzipUserDefinedValues: vi.fn(),
-  fetchFonzipUsersPage: vi.fn(),
+  fonzipExtractList: (body: unknown) => {
+    if (Array.isArray(body)) return body;
+    if (body && typeof body === "object") {
+      for (const v of Object.values(body as Record<string, unknown>)) if (Array.isArray(v)) return v;
+    }
+    return [];
+  },
   warmFonzipToken: vi.fn(),
 }));
 

@@ -265,6 +265,72 @@ export async function warmFonzipToken(): Promise<void> {
   await getAccessToken();
 }
 
+const PAGE_SIZE = 100;
+const MAX_PAGES = 30;
+// The spec marks `filter` required but not whether an empty attribute list is
+// accepted; if it isn't, every user has a membership_no >= 1 anyway.
+const FALLBACK_FILTER = [{ type: "default", parameter: "membership_no", condition: "gte", value: 1 }];
+
+// Fonzip's list endpoints wrap rows in a differently named key per resource
+// (`user_list`, `event_list`...), and the spec doesn't name the one for
+// user-defined values: take the first array in the body.
+export function fonzipExtractList(body: unknown): any[] {
+  if (Array.isArray(body)) return body;
+  if (body && typeof body === "object") {
+    for (const v of Object.values(body as Record<string, unknown>)) {
+      if (Array.isArray(v)) return v;
+    }
+  }
+  return [];
+}
+
+// Every user, page after page, with the given values_list. Stops (truncated)
+// at MAX_PAGES or at the first non-200 page, so callers must check `truncated`
+// before treating the rows as complete.
+export interface FonzipPagedRows {
+  status: number;
+  filterUsed: "empty" | "membership_no>=1" | null;
+  pagesRead: number;
+  truncated: boolean;
+  rows: any[];
+}
+
+export async function fetchAllFonzipUsers(valuesList: string[]): Promise<FonzipPagedRows> {
+  let filter: unknown[] = [];
+  let filterUsed: FonzipPagedRows["filterUsed"] = "empty";
+  let first: FonzipRawResponse = await fetchFonzipUsersPage(valuesList, 1, PAGE_SIZE, filter);
+  if (first.status === 400) {
+    filter = FALLBACK_FILTER;
+    filterUsed = "membership_no>=1";
+    first = await fetchFonzipUsersPage(valuesList, 1, PAGE_SIZE, filter);
+  }
+  if (first.status !== 200) {
+    return { status: first.status, filterUsed: null, pagesRead: 0, truncated: false, rows: [] };
+  }
+
+  const rows: any[] = [...fonzipExtractList(first.body?.user_list ?? first.body)];
+  let pages = 1;
+  let lastCount = rows.length;
+  let truncated = false;
+  while (lastCount >= PAGE_SIZE) {
+    if (pages >= MAX_PAGES) {
+      truncated = true;
+      break;
+    }
+    const next = await fetchFonzipUsersPage(valuesList, pages + 1, PAGE_SIZE, filter);
+    if (next.status !== 200) {
+      truncated = true;
+      break;
+    }
+    const list = fonzipExtractList(next.body?.user_list ?? next.body);
+    rows.push(...list);
+    lastCount = list.length;
+    pages += 1;
+  }
+  return { status: 200, filterUsed, pagesRead: pages, truncated, rows };
+}
+
+
 export interface FonzipEvent {
   id: number;
   name: string;

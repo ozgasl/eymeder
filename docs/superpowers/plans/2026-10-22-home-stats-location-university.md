@@ -182,7 +182,11 @@ Test (geçmiş derslerin gereği): **yerel Postgres 16'da gerçek rolle** (`SET 
 
 ---
 
-## Faz 3 — Fonzip → profil doldurma (PR-E)
+## Faz 3 — Fonzip → profil doldurma (PR-E) — **kod hazır, çalıştırılmadı**
+
+Uygulama: `POST /api/admin/fonzip-sync-locations` + Admin → Kullanıcılar'daki "Fonzip'ten konum ve üniversite doldur" kartı. Saf planlayıcı `fonzipLocationPlan.ts` (dry-run ve gerçek çalıştırma aynı kodu kullanır), çeviriciler `fonzipPlaces.ts` / `fonzipUniversities.ts`, eşleştirme `fonzipProfileMatch.ts` (aynı anahtar birden fazla Fonzip kullanıcısına denk geliyorsa eşleştirmez). **Önizleme varsayılan**; "Uygula" yalnızca incelenmiş önizlemenin değişiklik sayısıyla çalışır (`expectedChanges`, fark varsa 409). Uygulama yanıtı geri alma için her profilin önceki şehir/ülkesini ve eklenen üniversiteleri döner. Çalıştırma sırası: önizleme → eşleşmeyen üniversite/şehir listesine bakıp takma adları genişlet → tekrar önizleme → uygula.
+
+Tasarım notu (ilk plan):
 
 **Ön koşul:** Faz 0 sonucu + Faz 1 listeleri (Fonzip'in serbest metnini kanonik adlara çevirmek için).
 

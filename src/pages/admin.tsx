@@ -25,6 +25,7 @@ import { brandService } from "@/services/brandService";
 import { BrandCodesManager } from "@/components/admin/BrandCodesManager";
 import { LogoUploadField } from "@/components/admin/LogoUploadField";
 import { FonzipProbeCard } from "@/components/admin/FonzipProbeCard";
+import { FonzipLocationSyncCard } from "@/components/admin/FonzipLocationSyncCard";
 import { supabase } from "@/integrations/supabase/client";
 import { buildSocialUrl, getSocialHandle } from "@/lib/socialLinks";
 import { 
@@ -574,6 +575,7 @@ export default function AdminPage() {
               {/* SEKME 1: KULLANICILAR */}
               <TabsContent value="users" className="space-y-4 mt-6">
                 <FonzipProbeCard />
+                <FonzipLocationSyncCard />
                 <Card>
                   <CardHeader>
                     <CardTitle>

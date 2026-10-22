@@ -1,28 +1,23 @@
 import { supabaseAdmin } from "@/integrations/supabase/admin";
 import {
+  fetchAllFonzipUsers,
   fetchFonzipUserDefinedValues,
-  fetchFonzipUsersPage,
+  fonzipExtractList,
   warmFonzipToken,
-  type FonzipRawResponse,
 } from "@/lib/fonzipClient";
-import { buildFonzipMembershipNo } from "@/lib/fonzipMembershipNo";
+import { flattenValue } from "@/lib/fonzipValues";
+import { indexFonzipRows, matchProfileToFonzip } from "@/lib/fonzipProfileMatch";
 import { normalizePlace } from "@/lib/placeNormalize";
 
 // Read-only discovery of which location/university fields Fonzip will actually
 // hand back, and how well its members line up with our profiles. Returns
 // aggregates only (counts and the most common values), never a row per person.
 
-const PAGE_SIZE = 100;
-const MAX_PAGES = 30;
 const TOP_VALUES = 30;
 const RELEVANT_UDV_NAME = /üniversite|universite|university|okul|mezun|ülke|ulke|şehir|sehir|yaşa/i;
 // key_type 9 is a file upload (e.g. the graduation certificate), never text.
 const FILE_UDV_TYPE = 9;
 const LOCATION_FIELDS = ["country_text", "city_text", "district_text"] as const;
-
-// The spec marks `filter` required but not whether an empty attribute list is
-// accepted; if it isn't, every user has a membership_no >= 1 anyway.
-const FALLBACK_FILTER = [{ type: "default", parameter: "membership_no", condition: "gte", value: 1 }];
 
 export interface ValueSummary {
   users: number;
@@ -31,22 +26,7 @@ export interface ValueSummary {
   top: Array<{ value: string; count: number }>;
 }
 
-// Select-type user-defined values (key_type 7/8) come back as objects or
-// arrays of them, not strings (a first probe printed "[object Object]").
-export function flattenValue(raw: unknown): string {
-  if (raw == null) return "";
-  if (typeof raw === "string") return raw.trim();
-  if (typeof raw === "number" || typeof raw === "boolean") return String(raw);
-  if (Array.isArray(raw)) return raw.map(flattenValue).filter(Boolean).join(", ");
-  if (typeof raw === "object") {
-    const o = raw as Record<string, unknown>;
-    for (const key of ["text", "name", "label", "value"]) {
-      if (typeof o[key] === "string" && o[key]) return (o[key] as string).trim();
-    }
-    return JSON.stringify(raw);
-  }
-  return String(raw).trim();
-}
+export { flattenValue };
 
 export function summarizeValues(values: unknown[], topN = TOP_VALUES): ValueSummary {
   const counts = new Map<string, number>();
@@ -64,18 +44,7 @@ export function summarizeValues(values: unknown[], topN = TOP_VALUES): ValueSumm
   return { users: values.length, filled, distinct: counts.size, top };
 }
 
-// Fonzip's list endpoints wrap rows in a differently named key per resource
-// (`user_list`, `event_list`...), and the spec doesn't name the one for
-// user-defined values: take the first array in the body.
-export function extractList(body: unknown): any[] {
-  if (Array.isArray(body)) return body;
-  if (body && typeof body === "object") {
-    for (const v of Object.values(body as Record<string, unknown>)) {
-      if (Array.isArray(v)) return v;
-    }
-  }
-  return [];
-}
+export const extractList = fonzipExtractList;
 
 export interface UserDefinedValueDef {
   udv_id?: number;
@@ -142,14 +111,7 @@ export interface OverlapSummary {
 const clean = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
 
 export function estimateOverlap(fonzip: FonzipLocationRow[], profiles: ProfileLocationRow[]): OverlapSummary {
-  const byNo = new Map<number, FonzipLocationRow>();
-  const byEmail = new Map<string, FonzipLocationRow>();
-  for (const f of fonzip) {
-    const no = Number(f.membership_no);
-    if (Number.isFinite(no) && no > 0) byNo.set(no, f);
-    const email = clean(f.email).toLowerCase();
-    if (email) byEmail.set(email, f);
-  }
+  const index = indexFonzipRows(fonzip);
 
   const out: OverlapSummary = {
     fonzipUsers: fonzip.length,
@@ -167,21 +129,14 @@ export function estimateOverlap(fonzip: FonzipLocationRow[], profiles: ProfileLo
   };
 
   for (const p of profiles) {
-    const no =
-      p.graduation_year != null && p.school_number
-        ? buildFonzipMembershipNo(p.graduation_year, p.school_number)
-        : null;
-    let match = no != null ? byNo.get(no) : undefined;
-    if (match) {
-      out.matchedByMembershipNo += 1;
-    } else {
-      match = byEmail.get(clean(p.email).toLowerCase());
-      if (match) out.matchedByEmailOnly += 1;
-    }
-    if (!match) {
+    const found = matchProfileToFonzip(p, index);
+    if (!found) {
       out.profilesWithoutFonzipMatch += 1;
       continue;
     }
+    const match = found.row;
+    if (found.via === "membership_no") out.matchedByMembershipNo += 1;
+    else out.matchedByEmailOnly += 1;
 
     for (const [ours, theirs, fill, conflict] of [
       [p.city, match.city_text, "wouldFillCity", "conflictCity"],
@@ -215,49 +170,6 @@ export interface FieldProbeResult {
   // What the raw (non-string) values look like, for select-type UDVs.
   shapeSample?: string[];
   error?: string;
-}
-
-interface PagedRows {
-  status: number;
-  filterUsed: "empty" | "membership_no>=1" | null;
-  pagesRead: number;
-  truncated: boolean;
-  rows: any[];
-}
-
-async function fetchAllUsers(valuesList: string[]): Promise<PagedRows> {
-  let filter: unknown[] = [];
-  let filterUsed: PagedRows["filterUsed"] = "empty";
-  let first: FonzipRawResponse = await fetchFonzipUsersPage(valuesList, 1, PAGE_SIZE, filter);
-  if (first.status === 400) {
-    filter = FALLBACK_FILTER;
-    filterUsed = "membership_no>=1";
-    first = await fetchFonzipUsersPage(valuesList, 1, PAGE_SIZE, filter);
-  }
-  if (first.status !== 200) {
-    return { status: first.status, filterUsed: null, pagesRead: 0, truncated: false, rows: [] };
-  }
-
-  const rows: any[] = [...extractList(first.body?.user_list ?? first.body)];
-  let pages = 1;
-  let lastCount = rows.length;
-  let truncated = false;
-  while (lastCount >= PAGE_SIZE) {
-    if (pages >= MAX_PAGES) {
-      truncated = true;
-      break;
-    }
-    const next = await fetchFonzipUsersPage(valuesList, pages + 1, PAGE_SIZE, filter);
-    if (next.status !== 200) {
-      truncated = true;
-      break;
-    }
-    const list = extractList(next.body?.user_list ?? next.body);
-    rows.push(...list);
-    lastCount = list.length;
-    pages += 1;
-  }
-  return { status: 200, filterUsed, pagesRead: pages, truncated, rows };
 }
 
 function summarizeField(field: string, rows: any[]): FieldProbeResult {
@@ -318,7 +230,7 @@ export async function runFonzipProbe(): Promise<FonzipProbeReport> {
 
   // Everything in one paged pass: a pass per field (the first version) tripped
   // Fonzip's rate limit (429) and truncated most fields at 400-500 users.
-  let paged = await fetchAllUsers(["id", "membership_no", "email", ...probedFields]);
+  let paged = await fetchAllFonzipUsers(["id", "membership_no", "email", ...probedFields]);
   let mode: FonzipProbeReport["mode"] = "combined";
   let fields: FieldProbeResult[];
   let fonzipRows: FonzipLocationRow[] = [];
@@ -338,7 +250,7 @@ export async function runFonzipProbe(): Promise<FonzipProbeReport> {
     mode = "per-field";
     fields = [];
     for (const f of probedFields) {
-      const one = await fetchAllUsers(["id", f]);
+      const one = await fetchAllFonzipUsers(["id", f]);
       fields.push(
         one.status === 200
           ? summarizeField(f, one.rows)
