@@ -30,15 +30,15 @@
 2. **Ülke listesi dünya ülkeleri** olacak (listeden seçim). Türkiye dışı ülkeler için şehir listesi YOK (serbest metin kalır).
 3. **Çok üniversiteli üye**: üyenin üniversitelerinden **herhangi biri ortaksa sayılır**. Karoda, o üyenin en kalabalık üniversitesi gösterilir.
 4. **Alan boşsa** karo yerine "Profilini tamamla" yönlendirmesi gösterilir.
-5. **Fonzip sorgulanacak**; alınabiliyorsa Fonzip verisi daha doğru kabul edilir ve profiller oradan güncellenir.
+5. **Fonzip sorgulanacak**; alınabiliyorsa Fonzip verisi her zaman daha doğru kabul edilir ve profiller oradan güncellenir (çakışmada Fonzip kazanır).
 6. Ana sayfadaki istatistik karoları **küçültülecek**.
 
 ### Plan sırasında varsayılan (itiraz edilirse değişir)
 - **Sayıma kendisi dahil** (mevcut dönem/meslek karolarıyla tutarlı). Yalnızca kendisinin olduğu karo (sayı 1) **gösterilmez**; "ilk sen olabilirsin" diye bir boşluk yaratmaz.
 - **Üniversite eşleşmesi durumdan bağımsız** (okuyor/mezun fark etmez); karo metni "aynı üniversiteden", "mezun" demez. 3 satırda durum boş.
 - **Türkiye'de yaşayanlar için ülke karosu gösterilmez** (150 üyeden "Türkiye'de 150 üye" bilgi taşımaz); Türkiye'de ise şehir karosu, yurtdışındaysa ülke + (varsa) şehir karosu. En fazla 7 karo yerine tipik olarak 5–6.
-- **Fonzip çakışma politikası**: varsayılan olarak **yalnızca boş alanları doldur**; üyenin kendi girdiği değeri ezmek için ayrı bir "Fonzip kazansın" seçeneği (admin onayıyla) ve çakışma raporu. (Kullanıcı "Fonzip daha doğru" dedi; ezme kararı sayıları gördükten sonra verilsin.)
-
+- **Fonzip çakışma politikası (kullanıcı kararı, 2026-10-22: "Fonzip her zaman daha doğrudur")**: Fonzip'te değer varsa profildeki değerin üzerine yazılır; Fonzip'te boşsa profile dokunulmaz. Dry-run raporu yine yazılacak değer sayısını ve ezilecek (çakışan) kayıt sayısını gösterir.
+- **Migration'ları Claude uygular (kullanıcı kararı)**: Supabase MCP `apply_migration` ile `eymeder` projesine. Yine de her migration'dan önce SQL ve etkisi özetlenir, sonrasında doğrulama sayımı yapılır.
 ---
 
 ## 3. Fazlar ve sıra
@@ -55,7 +55,9 @@ Faz 3  Fonzip → profil doldurma         (Faz 0 ve 1'e bağlı)
 
 ---
 
-## Faz 0 — Fonzip keşif (salt okunur, PR-B)
+## Faz 0 — Fonzip keşif (salt okunur, PR-B) — **uygulandı**
+
+Uygulama: `src/lib/fonzipProbe.ts`, `POST /api/admin/fonzip-probe` ve Admin → Kullanıcılar sekmesindeki "Fonzip alan keşfi" kartı. Preview'da kartı çalıştırıp çıkan JSON'u paylaşmak yeterli.
 
 **Neden ayrı:** Bu ortamda Fonzip kimlik bilgisi yok (`FONZIP_CLIENT_ID/SECRET` yalnızca Vercel'de / kullanıcının `.env.local`'inde). Canlı doğrulama olmadan "Fonzip'te üniversite var mı, şehir/ülke 403 verir mi" bilinmiyor. Geçmiş ders: Fonzip `/users` `tags` seçilince 403 veriyor; adres alanları için de aynı kısıt çıkabilir.
 
@@ -152,7 +154,7 @@ Test (geçmiş derslerin gereği): **yerel Postgres 16'da gerçek rolle** (`SET 
 2. Eşleştirme: profil `buildFonzipMembershipNo(graduation_year, school_number)` → yoksa e-posta → yoksa telefon son 10 hane (mevcut `findFonzipMemberByContact` mantığı, **belirsiz eşleşme asla yazılmaz**).
 3. Çeviri: `country_text` → `countries.ts` (normalize + takma ad tablosu: `Turkey`, `Türkiye Cumhuriyeti`, `TR`, `TÜRKİYE`...); `city_text` → ülke Türkiye ise 81 il listesi (normalize eşleşme; eşleşmezse **yazılmaz**, rapora girer), yurtdışıysa trim'lenmiş metin.
 4. **Dry-run varsayılan**: yazmadan rapor döner: eşleşen/eşleşmeyen sayı, doldurulacak alan sayıları, çakışmalar (üyenin değeri ≠ Fonzip değeri), çevrilemeyen değerlerin sayımlı listesi. Gerçek yazma `?apply=1` + admin tıklaması.
-5. Yazma: service-role, yalnız `country`/`city` (ve varsa üniversite) boşsa; `overwrite=1` seçeneği çakışmaları ezer (karar Bölüm 2). Üniversite Fonzip'ten gelirse `profile_universities`'e satır (YÖK listesine normalize edilerek), mevcut satırlar ezilmez.
+5. Yazma: service-role, `country`/`city` için Fonzip değeri çevrilebiliyorsa **profildekinin üzerine yazar** (Fonzip kazanır); çevrilemeyen değer yazılmaz. Üniversite Fonzip'ten gelirse `profile_universities`'e satır (YÖK listesine normalize edilerek) eklenir; üyenin mevcut üniversite satırları silinmez.
 6. Admin panelinde (`src/pages/admin.tsx`) küçük bir "Fonzip'ten konum doldur" kartı (dry-run sonucu + onay). `TabsList` ↔ `TabsContent` eşleşmesini iki yönlü kontrol et (geçmiş ders).
 
 **Maksimum süre riski:** `vercel.json`'da `maxDuration` yok; ~207–500 kullanıcı için birkaç sayfa yeterli, yine de sayfa başına çağrı + `cursor` parametresiyle kısmen çalıştırılabilir tasarla.
@@ -161,7 +163,9 @@ Testler (`vitest`, ağ yok): ülke/şehir çevirici, eşleştirme önceliği, "b
 
 ---
 
-## Faz 4 — Karoları küçült (PR-A, bağımsız)
+## Faz 4 — Karoları küçült (PR-A, bağımsız) — **uygulandı**
+
+`src/components/StatTile.tsx` + `index.tsx` refaktörü; etiketler dar ekranda 2 satıra iniyor (tam metin `title`'da).
 
 Şu an her karo `p-6`, ikon `p-4` + `h-8 w-8`, değer `text-2xl`, ızgara `gap-6 mb-12`, `lg:grid-cols-4`.
 
@@ -180,7 +184,7 @@ Testler (`vitest`, ağ yok): ülke/şehir çevirici, eşleştirme önceliği, "b
 3. **Fonzip alanları 403 verebilir** ya da şehir/ülke boş çıkabilir (Faz 0 belirleyecek). En kötü durumda Faz 3 küçülür, Faz 1–2 yine değer üretir.
 4. **Fonzip ↔ profil eşleşmesi kusurlu olabilir** (yanlış `graduation_year` vakaları PROJECT_MEMORY'de). Bu yüzden belirsizde yazmama + dry-run.
 5. **Ülke adı biçimi:** `İngiltere` mi `Birleşik Krallık` mı, `ABD` mi `Amerika Birleşik Devletleri` mi? Plan mevcut üye alışkanlığını (kısa adlar) korur; değişirse migration eşleme tablosu güncellenir.
-6. **Migration'ları kim uygular:** repodaki alışkanlık, kullanıcının SQL Editor'den çalıştırması + sonra doğrulama sorgusu. Supabase MCP bu oturumda `eymeder` projesine erişiyor; istenirse `apply_migration` ile ben uygularım (her seferinde açık onayla). Prod verisi değiştiği için varsayılan: **önce SQL'i kullanıcıya göster, onay al**.
+6. **Migration'lar:** kullanıcı kararıyla Claude uygular (Supabase MCP, `eymeder`). Prod verisi değiştiği için her uygulamadan önce SQL özetlenir, sonrasında `information_schema`/sayım ile doğrulanır.
 
 ## 6. Doğrulama kontrol listesi (her PR öncesi)
 `npm run lint` · `npm run build` · `npm test` · yeni SQL için yerel Postgres 16 + gerçek rol testi · UI için mobil/masaüstü ekran görüntüsü · migration sonrası prod'da sayım/`information_schema` doğrulaması.
