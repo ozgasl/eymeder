@@ -147,7 +147,10 @@ Hatırlatma (PROJECT_MEMORY dersleri): SQL Editor tek transaction çalıştırı
 
 ---
 
-## Faz 2 — `get_home_stats()` genişletme + yeni karolar (PR-D)
+## Faz 2 — `get_home_stats()` genişletme + yeni karolar (PR-D) — **uygulandı**
+
+Değişiklik: `DROP FUNCTION` + `CREATE` yerine **yeni fonksiyon `get_home_stats_v2()`** (Supabase MCP `DROP` gibi yıkıcı ifadelerde kullanıcı onayı bekleyip zaman aşımına düşüyor; ayrıca deploy sırası sorununu da ortadan kaldırıyor). Eski `get_home_stats()` duruyor; istemci v2'ye geçti, silme ayrı bir onaylı migration. Prod'da gerçek bir üye için doğrulandı (İstanbul 43, Türkiye 51 beklenenle birebir). Dizin: `?university=`, `?city=&country=` ön-filtreleri, şehir filtresi artık üyelerden dinamik ve Türkçe harf farkındalıklı. Şehir/ülke/meslek karolarına tıklama yalnızca dernek üyesi/staff (kullanıcı kararı); sayı herkese açık.
+
 
 ### 2a. SQL (`20261022110000_home_stats_location_university.sql`)
 `RETURNS TABLE` değiştiği için **`DROP FUNCTION IF EXISTS public.get_home_stats();` + `CREATE`** (PROJECT_MEMORY'de not var; `CREATE OR REPLACE` yetmez). Yeni kolonlar mevcutların **sonuna** eklenir; yeniden `GRANT EXECUTE ... TO authenticated` + `NOTIFY pgrst`.

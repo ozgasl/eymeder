@@ -31,8 +31,13 @@ import {
   Image as ImageIcon,
   UserCheck,
   TrendingUp,
-  Lock
+  Lock,
+  Building2,
+  MapPin,
+  Globe,
+  UserCog
 } from "lucide-react";
+import { TURKEY } from "@/lib/countries";
 
 export default function Home() {
   const router = useRouter();
@@ -42,8 +47,26 @@ export default function Home() {
   const [activeBrandCount, setActiveBrandCount] = useState<number | null>(null);
   // Only for the brands tile's "dernek üyelerine özel" hint — /brands enforces
   // the same rule itself.
-  const { isDernekUyesi, isStaff } = useAccessControl({ redirectIfUnauthenticated: false });
+  const { isDernekUyesi, isStaff, loading: accessLoading } = useAccessControl({ redirectIfUnauthenticated: false });
   const canSeeBrands = isDernekUyesi || isStaff;
+  // The directory masks profession group, city and country for everyone but
+  // dernek üyesi and staff, so a tile filtering on them would land a mezun_uye
+  // on an empty list. Everyone sees the count; only these members can click through.
+  const canFilterByMasked = isDernekUyesi || isStaff;
+  const maskedLock = !accessLoading && !canFilterByMasked && (
+    <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+      <Lock className="h-3 w-3" aria-hidden="true" />
+      Liste dernek üyelerine özel
+    </p>
+  );
+  // Fields the signed-in member hasn't filled in (the stats need them).
+  const missingProfileFields = homeStats
+    ? [
+        !homeStats.university && "üniversite",
+        !homeStats.city && "şehir",
+        !homeStats.country && "ülke",
+      ].filter(Boolean)
+    : [];
   const firstName: string | undefined = user?.user_metadata?.full_name?.trim().split(/\s+/)[0];
 
   useEffect(() => {
@@ -207,12 +230,68 @@ export default function Home() {
                 )}
                 {homeStats?.profession_group && homeStats.profession_group_count != null && (
                   <StatTile
-                    href={{ pathname: "/directory", query: { professionGroup: homeStats.profession_group } }}
-                    aria-label={`${homeStats.profession_group} meslek grubundan ${homeStats.profession_group_count} üyeyi görüntüle`}
+                    href={
+                      canFilterByMasked
+                        ? { pathname: "/directory", query: { professionGroup: homeStats.profession_group } }
+                        : undefined
+                    }
+                    aria-label={`${homeStats.profession_group} meslek grubundan ${homeStats.profession_group_count} üye`}
                     icon={Briefcase}
                     tone="bg-emerald-100 text-emerald-600"
                     value={`${homeStats.profession_group_count} üye`}
                     label={`${homeStats.profession_group} meslek grubundan`}
+                    footer={maskedLock}
+                  />
+                )}
+                {/* A count of 1 is only the member themselves: nothing to show. */}
+                {homeStats?.university && (homeStats.university_count ?? 0) >= 2 && (
+                  <StatTile
+                    href={{ pathname: "/directory", query: { university: homeStats.university } }}
+                    aria-label={`${homeStats.university} üniversitesinden ${homeStats.university_count} üyeyi görüntüle`}
+                    icon={Building2}
+                    tone="bg-violet-100 text-violet-600"
+                    value={`${homeStats.university_count} üye`}
+                    label={`Aynı üniversiteden: ${homeStats.university}`}
+                  />
+                )}
+                {homeStats?.city && (homeStats.city_count ?? 0) >= 2 && (
+                  <StatTile
+                    href={
+                      canFilterByMasked
+                        ? {
+                            pathname: "/directory",
+                            query: { city: homeStats.city, ...(homeStats.country ? { country: homeStats.country } : {}) },
+                          }
+                        : undefined
+                    }
+                    aria-label={`${homeStats.city} şehrinde ${homeStats.city_count} üye`}
+                    icon={MapPin}
+                    tone="bg-rose-100 text-rose-600"
+                    value={`${homeStats.city_count} üye`}
+                    label={`Aynı şehirde: ${homeStats.city}`}
+                    footer={maskedLock}
+                  />
+                )}
+                {/* Most members live in Türkiye, so "same country" only says something abroad. */}
+                {homeStats?.country && homeStats.country !== TURKEY && (homeStats.country_count ?? 0) >= 2 && (
+                  <StatTile
+                    href={canFilterByMasked ? { pathname: "/directory", query: { country: homeStats.country } } : undefined}
+                    aria-label={`${homeStats.country} ülkesinde ${homeStats.country_count} üye`}
+                    icon={Globe}
+                    tone="bg-sky-100 text-sky-600"
+                    value={`${homeStats.country_count} üye`}
+                    label={`Aynı ülkede: ${homeStats.country}`}
+                    footer={maskedLock}
+                  />
+                )}
+                {missingProfileFields.length > 0 && (
+                  <StatTile
+                    href="/profile"
+                    aria-label={`Profilini tamamla: ${missingProfileFields.join(", ")} bilgisi eksik`}
+                    icon={UserCog}
+                    tone="bg-slate-100 text-slate-600"
+                    value="Profilini tamamla"
+                    label={`Eksik: ${missingProfileFields.join(", ")}`}
                   />
                 )}
                 {homeStats && (

@@ -1780,6 +1780,22 @@ export type Database = {
           new_this_week_count: number
         }[]
       }
+      get_home_stats_v2: {
+        Args: never
+        Returns: {
+          cohort_year: number | null
+          cohort_count: number | null
+          profession_group: string | null
+          profession_group_count: number | null
+          new_this_week_count: number
+          university: string | null
+          university_count: number | null
+          city: string | null
+          city_count: number | null
+          country: string | null
+          country_count: number | null
+        }[]
+      }
       increment_media_likes: { Args: { media_id: string }; Returns: undefined }
     }
     Enums: {
