@@ -195,6 +195,64 @@ export async function findFonzipMemberByContact(input: FonzipContactMatchInput):
   return { membershipFound: false, tags: [] };
 }
 
+export interface FonzipRawResponse {
+  status: number;
+  // Parsed JSON body, or null when Fonzip answered with something else (or timed out).
+  body: any;
+}
+
+// Never throws: the read-only field probe (see fonzipProbe.ts) needs to see
+// *which* Fonzip request got a 403 rather than abort on the first one, since
+// Fonzip has been known to refuse individual /users fields.
+async function fonzipRaw(path: string, init: RequestInit): Promise<FonzipRawResponse> {
+  try {
+    const token = await getAccessToken();
+    const res = await fetchWithTimeout(`${FONZIP_BASE_URL}${path}`, {
+      ...init,
+      headers: { ...init.headers, Authorization: `Bearer ${token}` },
+    });
+    const body = await res.json().catch(() => null);
+    return { status: res.status, body };
+  } catch {
+    return { status: 0, body: null };
+  }
+}
+
+// Same as GET /user-defined-values in the Fonzip API spec.
+export function fetchFonzipUserDefinedValues(): Promise<FonzipRawResponse> {
+  return fonzipRaw("/user-defined-values", { method: "GET" });
+}
+
+// One page of POST /users with an arbitrary values_list. Lists every user
+// unless `filterAttributes` narrows it (the spec requires a `filter` object
+// but doesn't say whether an empty attribute list is accepted).
+export function fetchFonzipUsersPage(
+  valuesList: string[],
+  startPage: number,
+  howMany = 100,
+  filterAttributes: unknown[] = []
+): Promise<FonzipRawResponse> {
+  return fonzipRaw("/users", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      search: {
+        start_page: startPage,
+        how_many: howMany,
+        order_by: "id",
+        filter: { condition: "and", attributes: filterAttributes },
+      },
+      values_list: valuesList,
+    }),
+  });
+}
+
+// Fetches the shared token once up front so parallel field probes don't each
+// race to request one (Fonzip allows a single active token per client).
+export async function warmFonzipToken(): Promise<void> {
+  await getAccessToken();
+}
+
 export interface FonzipEvent {
   id: number;
   name: string;
