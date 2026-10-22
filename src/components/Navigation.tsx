@@ -77,7 +77,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/news", label: "Haberler" },
       { href: "/gallery", label: "Galeri" },
-      { href: "/testimonials", label: "Başarı Hikayeleri" },
+      { href: "/testimonials", label: "Bir Mezun Bir Hikaye" },
       { href: "/jobs", label: "EYB İK" },
     ],
   },

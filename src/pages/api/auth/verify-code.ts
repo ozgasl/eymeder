@@ -61,29 +61,46 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     { isMember: false, membershipFound: null, tags: [] }
   );
 
-  const { error: profileError } = await supabaseAdmin
-    .from("profiles")
-    .update({
-      full_name: fullName,
-      graduation_year: graduationYear,
-      school_number: schoolNumber,
-      phone,
-      membership_tier: membershipResult.isMember ? "dernek_uyesi" : "mezun_uye",
-      fonzip_membership_status: toFonzipStatus(membershipResult.membershipFound),
-      fonzip_tags: formatFonzipTags(membershipResult.tags),
-      // Only stamp the check when Fonzip actually answered. A signup must never
-      // be blocked by a slow lookup (hence the timeout fallback above), but
-      // recording a non-answer as a completed check made those profiles read
-      // "checked, no membership" when nothing had been established — an admin
-      // needs to see them as unchecked so they get looked at again.
-      ...(membershipResult.membershipFound === null
-        ? {}
-        : { fonzip_checked_at: new Date().toISOString() }),
-    })
-    .eq("id", createdUser.user.id);
+  const profileUpdate = {
+    full_name: fullName,
+    graduation_year: graduationYear,
+    school_number: schoolNumber,
+    phone,
+    membership_tier: membershipResult.isMember ? "dernek_uyesi" : "mezun_uye",
+    fonzip_membership_status: toFonzipStatus(membershipResult.membershipFound),
+    fonzip_tags: formatFonzipTags(membershipResult.tags),
+    // Only stamp the check when Fonzip actually answered. A signup must never
+    // be blocked by a slow lookup (hence the timeout fallback above), but
+    // recording a non-answer as a completed check made those profiles read
+    // "checked, no membership" when nothing had been established — an admin
+    // needs to see them as unchecked so they get looked at again.
+    ...(membershipResult.membershipFound === null
+      ? {}
+      : { fonzip_checked_at: new Date().toISOString() }),
+  } as const;
+
+  // graduation_year and school_number only ever reach the profile through this
+  // update (members can't edit them afterwards), so a failed write used to leave
+  // an account that signed up "successfully" with both empty and no way to ever
+  // match Fonzip. Retry once, and if it still fails undo the signup so the
+  // member can start over instead of ending up half-registered.
+  let profileError = null;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const { error } = await supabaseAdmin.from("profiles").update(profileUpdate).eq("id", createdUser.user.id);
+    profileError = error;
+    if (!error) break;
+    console.error(`Profile update error after signup (attempt ${attempt}):`, error);
+  }
 
   if (profileError) {
-    console.error("Profile update error after signup:", profileError);
+    await supabaseAdmin.from("profiles").delete().eq("id", createdUser.user.id);
+    const { error: rollbackError } = await supabaseAdmin.auth.admin.deleteUser(createdUser.user.id);
+    if (rollbackError) {
+      console.error("Signup rollback failed, account left without profile data:", createdUser.user.id, rollbackError);
+    }
+    return res.status(500).json({
+      error: "Kaydınız tamamlanamadı, hesap oluşturulmadı. Lütfen yeni kod isteyip tekrar deneyin.",
+    });
   }
 
   try {
