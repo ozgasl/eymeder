@@ -20,6 +20,9 @@ import { PROFESSION_GROUPS } from "@/lib/professionGroups";
 import { AVATAR_UPLOAD, acceptAttribute, validateUpload } from "@/lib/fileUpload";
 import { TURKISH_UNIVERSITIES } from "@/lib/turkishUniversities";
 import { UniversityCombobox } from "@/components/UniversityCombobox";
+import { Combobox } from "@/components/Combobox";
+import { COUNTRY_NAMES, TURKEY, canonicalCountry } from "@/lib/countries";
+import { TURKISH_CITIES, canonicalTurkishCity } from "@/lib/turkishCities";
 import { MembershipStatusCard } from "@/components/MembershipStatusCard";
 
 interface UniversityEntry {
@@ -106,8 +109,13 @@ export default function ProfilePage() {
       setProfession(data.profession || "");
       setProfessionGroup(data.profession_group || "");
       setCompany(data.company || "");
-      setCountry(data.country || "");
-      setCity(data.city || "");
+      // Old free-text values are mapped onto the lists where they clearly mean
+      // one entry; the retired "Diğer" bucket shows as empty so it gets re-picked.
+      const loadedCountry = canonicalCountry(data.country) ?? (data.country === "Diğer" ? "" : data.country || "");
+      setCountry(loadedCountry);
+      setCity(
+        (loadedCountry === TURKEY ? canonicalTurkishCity(data.city) : null) ?? data.city ?? ""
+      );
       setPhone(data.phone || "");
       setLinkedinUrl(getSocialHandle(data.linkedin_url));
       setTwitterUrl(getSocialHandle(data.twitter_url));
@@ -117,6 +125,17 @@ export default function ProfilePage() {
       setMentorBio(data.mentor_bio || "");
       setMentorshipAreas(data.mentorship_areas || []);
     }
+  };
+
+  // The city field is a province list for Türkiye and free text elsewhere, so
+  // a city typed for one kind doesn't carry over to the other.
+  const handleCountryChange = (next: string) => {
+    if (next === country) return;
+    const cityIsProvince = TURKISH_CITIES.includes(city);
+    if ((next === TURKEY && !cityIsProvince) || (country === TURKEY && cityIsProvince)) {
+      setCity("");
+    }
+    setCountry(next);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -513,32 +532,42 @@ export default function ProfilePage() {
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="country">Ülke</Label>
-                      <Select value={country} onValueChange={setCountry}>
-                        <SelectTrigger id="country" aria-label="Ülke seç">
-                          <SelectValue placeholder="Seçin" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Türkiye">Türkiye</SelectItem>
-                          <SelectItem value="ABD">ABD</SelectItem>
-                          <SelectItem value="İngiltere">İngiltere</SelectItem>
-                          <SelectItem value="Almanya">Almanya</SelectItem>
-                          <SelectItem value="Fransa">Fransa</SelectItem>
-                          <SelectItem value="Hollanda">Hollanda</SelectItem>
-                          <SelectItem value="Kanada">Kanada</SelectItem>
-                          <SelectItem value="Avustralya">Avustralya</SelectItem>
-                          <SelectItem value="Diğer">Diğer</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Combobox
+                        id="country"
+                        aria-label="Ülke seç"
+                        value={country}
+                        onChange={handleCountryChange}
+                        options={COUNTRY_NAMES}
+                        placeholder="Ülke seçin"
+                        searchPlaceholder="Ülke ara..."
+                      />
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="city">Şehir</Label>
-                      <Input
-                        id="city"
-                        value={city}
-                        onChange={(e) => setCity(e.target.value)}
-                        placeholder="Yaşadığınız şehir"
-                      />
+                      {country === TURKEY ? (
+                        <Combobox
+                          id="city"
+                          aria-label="Şehir seç"
+                          value={city}
+                          onChange={setCity}
+                          options={TURKISH_CITIES}
+                          placeholder="Şehir seçin"
+                          searchPlaceholder="Şehir ara..."
+                        />
+                      ) : (
+                        <Input
+                          id="city"
+                          value={city}
+                          onChange={(e) => setCity(e.target.value)}
+                          placeholder="Yaşadığınız şehir"
+                        />
+                      )}
+                      {country === TURKEY && city && !TURKISH_CITIES.includes(city) && (
+                        <p className="text-xs text-muted-foreground">
+                          "{city}" listede yok, lütfen yaşadığınız ili listeden seçin.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </fieldset>

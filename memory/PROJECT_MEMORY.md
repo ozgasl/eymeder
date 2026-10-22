@@ -747,6 +747,16 @@ davranışın aynısını alıyor: boş küme.
 
 ## Oturum günlüğü
 
+### 2026-10-22 — Ana sayfa konum/üniversite istatistikleri (PR #47, devam ediyor)
+
+Plan: `docs/superpowers/plans/2026-10-22-home-stats-location-university.md` (kararlar, fazlar, Fonzip bulguları orada).
+- **Ülke/şehir artık listeden**: `src/lib/countries.ts` (dünya ülkeleri, Türkçe adlar DONDURULMUŞ, `ABD`/`İngiltere` kısa adları korundu, `Kuzey Kıbrıs (KKTC)` ISO dışı satır), `src/lib/turkishCities.ts` (81 il). `profiles.country`/`city` ŞEMASI değişmedi, kanonik ad metin olarak saklanıyor. Türkiye dışında şehir serbest metin. `"Diğer"` ülkesi kaldırıldı.
+- **`public.normalize_place(text)`** (SQL) ↔ `normalizePlace()` (`src/lib/placeNormalize.ts`): aynı karşılaştırma anahtarı, 31 vektörle eşdeğerlik doğrulandı. Sayımlarda şehir/ülke/üniversite bununla karşılaştırılır. Türkçe büyük harfleri `lower()`'a bırakma: DB locale'ine bağlı (yerel testte `--locale=C` ile doğrulandı).
+- **Prod'a uygulandı (2026-10-22)**: `20261022100000_add_normalize_place_function` + `20261022100100_normalize_profile_locations_data` (9 satır değişti). Geri alma betiği oturum scratchpad'indeydi (id'li). Kalan eşleşmeyenler: `docs/audits/location-normalize-audit.sql`.
+- **🔥 Ders: `apply_migration` TEMP TABLE'lı script'te 60 sn zaman aşımı verdi ve HİÇBİR ŞEY uygulanmadı** (fonksiyon bile yoktu). Zaman aşımından sonra körlemesine yeniden deneme, önce `pg_proc`/veri sorgusuyla durumu doğrula. Çözüm: temp tablo yerine inline `VALUES`, DDL ve veri ayrı migration.
+- **Fonzip bulguları** (505 kullanıcı; 207 profilin 108'i eşleşti: 70 `membership_no`, 38 yalnız e-posta; 99'u Fonzip'te bulunamadı): `country_text` fiilen boş (3/505), `city_text` 170/505 ve kirli, üniversite (Lisans UDV `mezun-oldugu-universite`) 170/505, serbest metin ve çok kirli. Seçim tipi UDV'ler (`ulke`, `mezuniyet`) nesne döner (`{id,text,order}`; `ulke` dizi). Fonzip `/users` hız sınırı (429) var: alan başına ayrı sayfalama yapma, tek `values_list` + bekle-yeniden-dene.
+- **Kullanıcı kararı**: çakışmada Fonzip kazanır; migration'ları Claude uygular (her seferinde önce etkilenen satırlar özetlenir, geri alma betiği saklanır).
+
 ### 2026-09-11/12 — Bugfix 4: footer linkleri, Meslek Grubu, çoklu üniversite, avatar yükleme + üniversite standardizasyonu
 
 PR [#28](https://github.com/ozgasl/eymeder/pull/28),

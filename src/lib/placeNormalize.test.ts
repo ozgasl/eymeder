@@ -18,6 +18,10 @@ describe("normalizePlace", () => {
     expect(normalizePlace("Eskişehir")).toBe("eskisehir");
   });
 
+  it("folds circumflex vowels (Hakkâri)", () => {
+    expect(normalizePlace("Hakkâri")).toBe(normalizePlace("Hakkari"));
+  });
+
   it("squeezes inner whitespace", () => {
     expect(normalizePlace("New   York")).toBe("new york");
   });

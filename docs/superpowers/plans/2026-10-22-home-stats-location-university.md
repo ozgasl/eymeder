@@ -95,7 +95,19 @@ Sonuçlar Faz 3'ü şöyle şekillendiriyor:
 - **Şehir:** il listesine normalize eşleşme + takma ad ("Istanbul", "Izmir", "34" → plaka kodu) + ilçeden il çıkarımı. Eşleşmeyen sayımlı listelenir.
 - **Üniversite:** en zor kısım. Takma ad tablosu (İTÜ, ODTÜ, YTÜ, Boğaziçi...), sondaki fakülte/bölüm metnini `department`'a ayırma, çöp değerleri ("-", "Öğrenci") eleme. Dry-run, eşleşmeyen üniversite değerlerini sayımla listeler; takma ad tablosunu o listeden birlikte genişletiriz. Eşleşmeyen değer **yazılmaz**.
 
-## Faz 1 — Konum verisi standardizasyonu ve profil formu (PR-C)
+### Faz 0 sonucu, ikinci çalıştırma (tek geçişli, 505 kullanıcının tamamı, 429 yok)
+
+- **Eşleşme:** 207 profilin **108'i** Fonzip'te bulundu (70 `membership_no`, 38 yalnız e-posta); **99'u (%48) bulunamadı**, onlar Fonzip'ten doldurulamaz.
+- **Doldurulabilecek:** şehir **46** profil, üniversite **50** profil, ülke doğrudan yalnız 1 (ülke şehirden çıkarılacak). **Çakışma:** 7 profilde şehir farklı (Fonzip kazanır).
+- **Mezuniyet yılı:** eşleşenlerde 90 uyuşuyor, **3 farklı**. Bu 3 profil `graduation-year-audit` sınıfı olası yanlış girişler; Faz 3 raporunda ayrıca listelenmeli (yazmadan).
+- Seçim tipi alanlar `{id,text,order}` döner; `ulke` (özel alan) yalnız 7 kişide dolu, hepsi Türkiye. Onu kullanmaya değmez.
+
+Sonuç: Fonzip, şehir kapsamasını ~54 → ~100'e, üniversite kapsamasını 50 → ~100 üyeye çıkarabilir; kalan ~100 üye için profil formundaki "tamamla" yönlendirmesi şart.
+
+## Faz 1 — Konum verisi standardizasyonu ve profil formu (PR-C) — **uygulandı**
+
+Yapılanlar: `countries.ts` (243 ülke + KKTC), `turkishCities.ts` (81 il), `placeNormalize.ts` (+ SQL `normalize_place`), genel `Combobox` (Türkçe harf farkındalıklı arama; `UniversityCombobox` buna taşındı), profil formunda ülke listesi + Türkiye için il listesi, mevcut kayıtların migration'ı (prod'a uygulandı, 9 satır). Aşağıdaki bölüm tasarım notudur.
+
 
 ### 1a. Listeler (saf, testli)
 - `src/lib/countries.ts`: ISO 3166-1 dünya ülkeleri, **statik, commit'li** `{ code, name }` listesi (Türkçe adlar). `Intl.DisplayNames('tr')` ile **bir kerelik** üretilir, sonra dosyaya sabitlenir; çalışma zamanında Intl'e güvenilmez çünkü ICU sürümüne göre isimler değişir ve SQL tarafındaki eşleşme kayar. Elle düzeltmeler: kısa/bilinen adlar (`ABD`, `İngiltere`, `Türkiye`), ISO dışı **"Kuzey Kıbrıs (KKTC)"** satırı. Sıralama: Türkiye en üstte, sonra alfabetik (`localeCompare("tr")`).
