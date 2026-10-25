@@ -147,7 +147,7 @@ export default function ProfilePage() {
       bio: bio || null,
       avatar_url: avatarUrl || null,
       department: department || null,
-      profession: profession || null,
+      profession: profession.trim() || null,
       profession_group: professionGroup || null,
       company: company || null,
       country: country || null,
