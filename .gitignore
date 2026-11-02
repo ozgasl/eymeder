@@ -43,3 +43,6 @@ firebase-service-account.json
 
 # superpowers brainstorm companion
 .superpowers/
+
+# Keep the documented example env file tracked
+!.env.example
