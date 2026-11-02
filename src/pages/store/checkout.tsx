@@ -13,6 +13,7 @@ import { cartService } from "@/services/cartService";
 import { availableStock, describeLineOptions } from "@/lib/cartOptions";
 import { orderService } from "@/services/orderService";
 import { paymentService } from "@/services/paymentService";
+import type { BankInstructions } from "@/lib/payments/types";
 import { CreditCard, Building2, Loader2, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -24,6 +25,7 @@ export default function CheckoutPage() {
   const [processing, setProcessing] = useState(false);
   const [orderComplete, setOrderComplete] = useState(false);
   const [orderId, setOrderId] = useState("");
+  const [bankDetails, setBankDetails] = useState<BankInstructions | null>(null);
 
   // Form fields
   const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
@@ -97,6 +99,12 @@ export default function CheckoutPage() {
         setProcessing(false);
       }
     } else {
+      // The server owns the bank details (env-overridable) and the transfer
+      // reference; fall back to the built-in defaults if the call fails.
+      const result = await paymentService.initializePayment(order.id, paymentMethod);
+      if (result.status === "manual") {
+        setBankDetails(result.instructions);
+      }
       setOrderComplete(true);
       setProcessing(false);
     }
@@ -121,7 +129,7 @@ export default function CheckoutPage() {
   }
 
   if (orderComplete) {
-    const bankInfo = paymentService.getBankInfo();
+    const bankInfo = bankDetails ?? paymentService.getBankInfo();
 
     return (
       <>
@@ -162,6 +170,12 @@ export default function CheckoutPage() {
                           <p className="text-sm font-medium">IBAN</p>
                           <p className="text-sm font-mono">{bankInfo.iban}</p>
                         </div>
+                        {bankDetails && (
+                          <div>
+                            <p className="text-sm font-medium">Açıklama (havale notu)</p>
+                            <p className="text-sm font-mono">{bankDetails.reference}</p>
+                          </div>
+                        )}
                         <div>
                           <p className="text-sm font-medium">Tutar</p>
                           <p className="text-lg font-bold text-primary">
