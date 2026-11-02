@@ -337,6 +337,8 @@ export type Database = {
           quantity: number
           updated_at: string | null
           user_id: string
+          graduation_year: number | null
+          variant_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -345,6 +347,8 @@ export type Database = {
           quantity?: number
           updated_at?: string | null
           user_id: string
+          graduation_year?: number | null
+          variant_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -353,6 +357,8 @@ export type Database = {
           quantity?: number
           updated_at?: string | null
           user_id?: string
+          graduation_year?: number | null
+          variant_id?: string | null
         }
         Relationships: [
           {
@@ -360,6 +366,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cart_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
           {
@@ -1109,6 +1122,9 @@ export type Database = {
           quantity: number
           total_price: number
           unit_price: number
+          graduation_year: number | null
+          size: string | null
+          variant_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -1118,6 +1134,9 @@ export type Database = {
           quantity: number
           total_price: number
           unit_price: number
+          graduation_year?: number | null
+          size?: string | null
+          variant_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -1127,6 +1146,9 @@ export type Database = {
           quantity?: number
           total_price?: number
           unit_price?: number
+          graduation_year?: number | null
+          size?: string | null
+          variant_id?: string | null
         }
         Relationships: [
           {
@@ -1164,6 +1186,9 @@ export type Database = {
           total_amount: number
           updated_at: string | null
           user_id: string
+          paid_at: string | null
+          payment_provider: string | null
+          payment_reference: string | null
         }
         Insert: {
           created_at?: string | null
@@ -1183,6 +1208,9 @@ export type Database = {
           total_amount: number
           updated_at?: string | null
           user_id: string
+          paid_at?: string | null
+          payment_provider?: string | null
+          payment_reference?: string | null
         }
         Update: {
           created_at?: string | null
@@ -1202,6 +1230,9 @@ export type Database = {
           total_amount?: number
           updated_at?: string | null
           user_id?: string
+          paid_at?: string | null
+          payment_provider?: string | null
+          payment_reference?: string | null
         }
         Relationships: [
           {
@@ -1245,6 +1276,44 @@ export type Database = {
           purpose?: string
         }
         Relationships: []
+      }
+      payment_events: {
+        Row: {
+          created_at: string | null
+          event_type: string
+          id: string
+          order_id: string | null
+          payload: Json | null
+          provider: string
+          provider_event_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_type: string
+          id?: string
+          order_id?: string | null
+          payload?: Json | null
+          provider: string
+          provider_event_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          order_id?: string | null
+          payload?: Json | null
+          provider?: string
+          provider_event_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_events_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payment_links: {
         Row: {
@@ -1412,6 +1481,41 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_variants: {
+        Row: {
+          created_at: string | null
+          id: string
+          product_id: string
+          size: string
+          stock_quantity: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          product_id: string
+          size: string
+          stock_quantity?: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          product_id?: string
+          size?: string
+          stock_quantity?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_variants_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]

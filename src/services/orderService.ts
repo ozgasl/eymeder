@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { missingOptionMessage, stockShortageMessage } from "@/lib/cartOptions";
 
 type Order = Database["public"]["Tables"]["orders"]["Row"];
 type OrderInsert = Database["public"]["Tables"]["orders"]["Insert"];
@@ -13,7 +14,7 @@ export const orderService = {
 
     const { data, error } = await supabase
       .from("orders")
-      .select("*, order_items(*, products(*))")
+      .select("*, order_items(*, products(*), product_variants(*))")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
@@ -25,7 +26,7 @@ export const orderService = {
   async getAllOrders(): Promise<{ data: any[] | null; error: any }> {
     const { data, error } = await supabase
       .from("orders")
-      .select("*, order_items(*, products(*)), profiles(full_name, email)")
+      .select("*, order_items(*, products(*), product_variants(*)), profiles(full_name, email)")
       .order("created_at", { ascending: false });
 
     console.log("getAllOrders:", { data, error });
@@ -36,7 +37,7 @@ export const orderService = {
   async getOrderById(id: string): Promise<{ data: any | null; error: any }> {
     const { data, error } = await supabase
       .from("orders")
-      .select("*, order_items(*, products(*)), profiles(full_name, email, phone)")
+      .select("*, order_items(*, products(*), product_variants(*)), profiles(full_name, email, phone)")
       .eq("id", id)
       .single();
 
@@ -59,11 +60,30 @@ export const orderService = {
     // Get cart items
     const { data: cartItems } = await supabase
       .from("cart_items")
-      .select("*, products(*)")
+      .select("*, products(*, product_variants(*)), product_variants(*)")
       .eq("user_id", user.id);
 
     if (!cartItems || cartItems.length === 0) {
       return { data: null, error: { message: "Cart is empty" } };
+    }
+
+    // Validate options and stock per line (the DB trigger decrements stock later)
+    const requested = new Map<string, number>();
+    for (const item of cartItems) {
+      const product = item.products as any;
+      const missing = missingOptionMessage(product, {
+        variantId: item.variant_id,
+        graduationYear: item.graduation_year,
+      });
+      if (missing) {
+        return { data: null, error: { message: `${product.name}: ${missing}` } };
+      }
+      // The same product/size can appear in several lines (different years)
+      const key = `${item.product_id}:${item.variant_id ?? ""}`;
+      const total = (requested.get(key) ?? 0) + item.quantity;
+      requested.set(key, total);
+      const shortage = stockShortageMessage(product, item.variant_id, total);
+      if (shortage) return { data: null, error: { message: shortage } };
     }
 
     // Calculate total
@@ -98,6 +118,9 @@ export const orderService = {
       order_id: order.id,
       product_id: item.product_id,
       quantity: item.quantity,
+      variant_id: item.variant_id,
+      size: item.product_variants?.size ?? null,
+      graduation_year: item.graduation_year,
       unit_price: item.products.price,
       total_price: item.products.price * item.quantity,
     }));

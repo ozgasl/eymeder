@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cartService } from "@/services/cartService";
+import { availableStock, describeLineOptions } from "@/lib/cartOptions";
 import { ShoppingCart, Trash2, Plus, Minus, ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -138,6 +139,9 @@ export default function CartPage() {
                           <p className="text-sm text-muted-foreground">
                             {item.products.price.toLocaleString("tr-TR")} ₺
                           </p>
+                          {describeLineOptions(item) && (
+                            <p className="text-sm text-muted-foreground">{describeLineOptions(item)}</p>
+                          )}
                         </div>
 
                         {/* Quantity Controls */}
@@ -160,13 +164,14 @@ export default function CartPage() {
                             }}
                             className="w-16 text-center"
                             min="1"
+                            max={availableStock(item.products, item.variant_id)}
                             aria-label="Miktar"
                           />
                           <Button
                             variant="outline"
                             size="icon"
                             onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
-                            disabled={updating === item.id}
+                            disabled={updating === item.id || item.quantity >= availableStock(item.products, item.variant_id)}
                             aria-label="Miktarı artır"
                           >
                             <Plus className="h-4 w-4" aria-hidden="true" />

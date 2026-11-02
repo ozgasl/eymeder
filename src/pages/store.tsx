@@ -12,6 +12,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { productService } from "@/services/productService";
 import { cartService } from "@/services/cartService";
+import {
+  GRADUATION_YEARS,
+  PRODUCT_CATEGORIES,
+  PRODUCT_SIZES,
+  categoryUsesGraduationYear,
+  categoryUsesSizes,
+} from "@/lib/productOptions";
+import { availableStock, missingOptionMessage } from "@/lib/cartOptions";
 import { ShoppingCart, Search, Package, Star, Filter, Loader2, ShoppingBag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -25,6 +33,17 @@ export default function StorePage() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [cartCount, setCartCount] = useState(0);
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
+  // Per-product buyer choices: size (variant id) and graduation year
+  const [selections, setSelections] = useState<
+    Record<string, { variantId?: string; graduationYear?: number }>
+  >({});
+
+  const updateSelection = (
+    productId: string,
+    patch: { variantId?: string; graduationYear?: number },
+  ) => {
+    setSelections((prev) => ({ ...prev, [productId]: { ...prev[productId], ...patch } }));
+  };
 
   useEffect(() => {
     loadProducts();
@@ -67,8 +86,12 @@ export default function StorePage() {
   };
 
   const handleAddToCart = async (productId: string) => {
+    const selection = selections[productId] ?? {};
     setAddingToCart(productId);
-    const { error } = await cartService.addToCart(productId, 1);
+    const { error } = await cartService.addToCart(productId, 1, {
+      variantId: selection.variantId,
+      graduationYear: selection.graduationYear,
+    });
     
     if (error) {
       toast({
@@ -86,7 +109,17 @@ export default function StorePage() {
     setAddingToCart(null);
   };
 
-  const categories = Array.from(new Set(products.map((p) => p.category))).filter(Boolean);
+  const optionsOf = (product: any) => ({
+    variantId: selections[product.id]?.variantId,
+    graduationYear: selections[product.id]?.graduationYear,
+  });
+  const stockOf = (product: any) => availableStock(product, selections[product.id]?.variantId);
+  const sortedVariants = (product: any): any[] =>
+    [...(product.product_variants ?? [])].sort(
+      (a, b) => PRODUCT_SIZES.indexOf(a.size) - PRODUCT_SIZES.indexOf(b.size),
+    );
+
+  const categories = [...PRODUCT_CATEGORIES].sort((a, b) => a.localeCompare(b, "tr"));
 
   return (
     <>
@@ -248,22 +281,72 @@ export default function StorePage() {
                         </CardHeader>
 
                         <CardFooter className="flex flex-col gap-3">
+                          {categoryUsesSizes(product.category) && (
+                            <div className="w-full space-y-1">
+                              <Label htmlFor={`size-${product.id}`}>Beden</Label>
+                              <Select
+                                value={selections[product.id]?.variantId ?? ""}
+                                onValueChange={(v) => updateSelection(product.id, { variantId: v })}
+                              >
+                                <SelectTrigger id={`size-${product.id}`} aria-label="Beden seçin">
+                                  <SelectValue placeholder="Beden seçin" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {sortedVariants(product).map((variant: any) => (
+                                    <SelectItem
+                                      key={variant.id}
+                                      value={variant.id}
+                                      disabled={variant.stock_quantity <= 0}
+                                    >
+                                      {variant.size}
+                                      {variant.stock_quantity <= 0 ? " (Tükendi)" : ""}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                          {categoryUsesGraduationYear(product.category) && (
+                            <div className="w-full space-y-1">
+                              <Label htmlFor={`year-${product.id}`}>Mezuniyet Yılı</Label>
+                              <Select
+                                value={selections[product.id]?.graduationYear?.toString() ?? ""}
+                                onValueChange={(v) =>
+                                  updateSelection(product.id, { graduationYear: parseInt(v, 10) })
+                                }
+                              >
+                                <SelectTrigger
+                                  id={`year-${product.id}`}
+                                  aria-label="Mezuniyet yılı seçin"
+                                  aria-required="true"
+                                >
+                                  <SelectValue placeholder="Mezuniyet yılı seçin" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {GRADUATION_YEARS.map((year) => (
+                                    <SelectItem key={year} value={year.toString()}>
+                                      {year}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
                           <div className="w-full flex items-center justify-between">
                             <span className="text-2xl font-bold text-primary">
                               {product.price.toLocaleString("tr-TR")} ₺
                             </span>
-                            {product.stock_quantity !== null && (
-                              <span className="text-sm text-muted-foreground">
-                                Stok: {product.stock_quantity}
-                              </span>
-                            )}
+                            <span className="text-sm text-muted-foreground">
+                              Stok: {stockOf(product)}
+                            </span>
                           </div>
                           <Button
                             className="w-full gap-2"
                             onClick={() => handleAddToCart(product.id)}
                             disabled={
                               addingToCart === product.id ||
-                              (product.stock_quantity !== null && product.stock_quantity <= 0)
+                              stockOf(product) <= 0 ||
+                              !!missingOptionMessage(product, optionsOf(product))
                             }
                             aria-label={`${product.name} ürününü sepete ekle`}
                           >
@@ -272,7 +355,7 @@ export default function StorePage() {
                                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                                 Ekleniyor...
                               </>
-                            ) : product.stock_quantity !== null && product.stock_quantity <= 0 ? (
+                            ) : stockOf(product) <= 0 ? (
                               "Stokta Yok"
                             ) : (
                               <>
@@ -281,6 +364,11 @@ export default function StorePage() {
                               </>
                             )}
                           </Button>
+                          {stockOf(product) > 0 && missingOptionMessage(product, optionsOf(product)) && (
+                            <p className="text-xs text-muted-foreground w-full" role="note">
+                              {missingOptionMessage(product, optionsOf(product))}
+                            </p>
+                          )}
                         </CardFooter>
                       </Card>
                     </article>

@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cartService } from "@/services/cartService";
+import { availableStock, describeLineOptions } from "@/lib/cartOptions";
 import { orderService } from "@/services/orderService";
 import { paymentService } from "@/services/paymentService";
 import { CreditCard, Building2, Loader2, CheckCircle } from "lucide-react";
@@ -285,13 +286,14 @@ export default function CheckoutPage() {
                             </div>
                           </Label>
                         </div>
-                        <div className="flex items-center space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-muted/50">
-                          <RadioGroupItem value="iyzico" id="iyzico" />
-                          <Label htmlFor="iyzico" className="flex-1 cursor-pointer flex items-center gap-2">
+                        {/* No card provider is contracted yet; enable once one is registered in lib/payments. */}
+                        <div className="flex items-center space-x-3 border rounded-lg p-4 opacity-60">
+                          <RadioGroupItem value="iyzico" id="iyzico" disabled />
+                          <Label htmlFor="iyzico" className="flex-1 flex items-center gap-2">
                             <CreditCard className="h-5 w-5" />
                             <div>
-                              <p className="font-medium">Kredi Kartı (Iyzico)</p>
-                              <p className="text-sm text-muted-foreground">Güvenli kredi kartı ödemesi</p>
+                              <p className="font-medium">Kredi Kartı</p>
+                              <p className="text-sm text-muted-foreground">Çok yakında</p>
                             </div>
                           </Label>
                         </div>
@@ -312,6 +314,14 @@ export default function CheckoutPage() {
                           <div key={item.id} className="flex justify-between text-sm">
                             <span className="text-muted-foreground">
                               {item.products.name} x{item.quantity}
+                              {describeLineOptions(item) && (
+                                <span className="block text-xs">{describeLineOptions(item)}</span>
+                              )}
+                              {item.quantity > availableStock(item.products, item.variant_id) && (
+                                <span className="block text-xs text-destructive">
+                                  Yeterli stok yok (mevcut: {availableStock(item.products, item.variant_id)})
+                                </span>
+                              )}
                             </span>
                             <span>{(item.products.price * item.quantity).toLocaleString("tr-TR")} ₺</span>
                           </div>
@@ -331,7 +341,14 @@ export default function CheckoutPage() {
                           <span className="text-primary">{calculateTotal().toLocaleString("tr-TR")} ₺</span>
                         </div>
                       </div>
-                      <Button type="submit" className="w-full" disabled={processing}>
+                      <Button
+                        type="submit"
+                        className="w-full"
+                        disabled={
+                          processing ||
+                          cartItems.some((item) => item.quantity > availableStock(item.products, item.variant_id))
+                        }
+                      >
                         {processing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {processing ? "İşleniyor..." : "Siparişi Tamamla"}
                       </Button>
