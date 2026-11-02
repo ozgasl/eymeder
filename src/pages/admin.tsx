@@ -68,6 +68,23 @@ import {
   type SortDirection,
   type UserSortKey,
 } from "@/lib/adminUserTable";
+import {
+  PRODUCT_CATEGORIES,
+  PRODUCT_SIZES,
+  categoryUsesGraduationYear,
+  categoryUsesSizes,
+  totalStock,
+} from "@/lib/productOptions";
+import { ProductImageField } from "@/components/admin/ProductImageField";
+import { ProductSizeStockEditor, type SizeStockMap } from "@/components/admin/ProductSizeStockEditor";
+
+/** "S: 4 · M: 10" — the sizes a clothing product is sold in, in size order. */
+function sizeSummary(variants: { size: string; stock_quantity: number }[] | null | undefined): string {
+  return PRODUCT_SIZES.map((size) => ({ size, v: (variants ?? []).find((x) => x.size === size) }))
+    .filter((x) => x.v)
+    .map((x) => `${x.size}: ${x.v!.stock_quantity}`)
+    .join(" · ");
+}
 
 export default function AdminPage() {
   const router = useRouter();
@@ -143,6 +160,7 @@ export default function AdminPage() {
   const [productDescription, setProductDescription] = useState("");
   const [productPrice, setProductPrice] = useState("");
   const [productStock, setProductStock] = useState("");
+  const [productSizeStock, setProductSizeStock] = useState<SizeStockMap>({});
   const [productImageUrl, setProductImageUrl] = useState("");
   const [productCategory, setProductCategory] = useState("");
   const [productIsActive, setProductIsActive] = useState(true);
@@ -429,7 +447,15 @@ export default function AdminPage() {
       setProductName(product.name);
       setProductDescription(product.description || "");
       setProductPrice(product.price.toString());
-      setProductStock(product.stock.toString());
+      setProductStock((product.stock_quantity ?? 0).toString());
+      setProductSizeStock(
+        Object.fromEntries(
+          ((product.product_variants ?? []) as { size: string; stock_quantity: number }[]).map((v) => [
+            v.size,
+            v.stock_quantity.toString(),
+          ]),
+        ),
+      );
       setProductImageUrl(product.image_url || "");
       setProductCategory(product.category || "");
       setProductIsActive(product.is_active);
@@ -439,6 +465,7 @@ export default function AdminPage() {
       setProductDescription("");
       setProductPrice("");
       setProductStock("");
+      setProductSizeStock({});
       setProductImageUrl("");
       setProductCategory("");
       setProductIsActive(true);
@@ -447,40 +474,75 @@ export default function AdminPage() {
   };
 
   const handleSaveProduct = async () => {
-    if (!productName || !productPrice || !productStock) {
-      toast({ title: "Hata", description: "Lütfen zorunlu alanları doldurun", variant: "destructive" });
-      return;
+    const fail = (description: string) =>
+      toast({ title: "Hata", description, variant: "destructive" });
+
+    const usesSizes = categoryUsesSizes(productCategory);
+    const price = parseFloat(productPrice);
+
+    if (!productName.trim()) return fail("Lütfen ürün adını girin");
+    if (!productCategory) return fail("Lütfen bir kategori seçin");
+    if (!(price > 0)) return fail("Fiyat 0'dan büyük olmalıdır");
+
+    // Clothing keeps stock per size; every other category has a single number.
+    let variants: { size: string; stock_quantity: number }[] = [];
+    let stockQuantity = 0;
+    if (usesSizes) {
+      variants = PRODUCT_SIZES.filter((size) => size in productSizeStock).map((size) => ({
+        size,
+        stock_quantity: Number(productSizeStock[size]),
+      }));
+      if (variants.length === 0) return fail("Giyim ürünleri için en az bir beden seçin");
+      if (variants.some((v) => !Number.isInteger(v.stock_quantity) || v.stock_quantity < 0)) {
+        return fail("Beden stokları 0 veya daha büyük tam sayı olmalıdır");
+      }
+      // Keep the product's own column in step, for anything that reads it directly.
+      stockQuantity = variants.reduce((sum, v) => sum + v.stock_quantity, 0);
+    } else {
+      stockQuantity = Number(productStock);
+      if (productStock.trim() === "" || !Number.isInteger(stockQuantity) || stockQuantity < 0) {
+        return fail("Stok adedi 0 veya daha büyük tam sayı olmalıdır");
+      }
     }
 
     const productData = {
-      name: productName,
+      name: productName.trim(),
       description: productDescription,
-      price: parseFloat(productPrice),
-      stock: parseInt(productStock),
+      price,
+      stock_quantity: stockQuantity,
       image_url: productImageUrl,
       category: productCategory,
       is_active: productIsActive,
     };
 
-    if (editingProduct) {
-      const { error } = await productService.updateProduct(editingProduct.id, productData);
-      if (error) {
-        toast({ title: "Hata", description: error.message, variant: "destructive" });
-      } else {
-        toast({ title: "Ürün güncellendi" });
-        loadProducts();
-        setProductDialogOpen(false);
-      }
-    } else {
-      const { error } = await productService.createProduct(productData);
-      if (error) {
-        toast({ title: "Hata", description: error.message, variant: "destructive" });
-      } else {
-        toast({ title: "Ürün oluşturuldu" });
-        loadProducts();
-        setProductDialogOpen(false);
-      }
+    const result = editingProduct
+      ? await productService.updateProduct(editingProduct.id, productData)
+      : await productService.createProduct(productData);
+    if (result.error || !result.data) {
+      fail(result.error?.message || "Ürün kaydedilemedi");
+      return;
     }
+
+    // Sizes follow the category: written for clothing, cleared for anything else.
+    const { error: variantError } = await productService.saveVariants(result.data.id, usesSizes ? variants : []);
+    if (variantError) {
+      toast({
+        title: "Ürün kaydedildi, bedenler kaydedilemedi",
+        description: variantError.message,
+        variant: "destructive",
+      });
+      loadProducts();
+      return;
+    }
+
+    // The row no longer points at the old photo, so an uploaded one can go.
+    if (editingProduct && editingProduct.image_url && editingProduct.image_url !== productImageUrl) {
+      productService.removeImage(editingProduct.image_url);
+    }
+
+    toast({ title: editingProduct ? "Ürün güncellendi" : "Ürün oluşturuldu" });
+    loadProducts();
+    setProductDialogOpen(false);
   };
 
   const handleDeleteProduct = async (id: string) => {
@@ -1011,13 +1073,19 @@ export default function AdminPage() {
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label htmlFor="product_category">Kategori</Label>
-                              <Input
-                                id="product_category"
-                                value={productCategory}
-                                onChange={(e) => setProductCategory(e.target.value)}
-                                placeholder="Giyim"
-                              />
+                              <Label htmlFor="product_category">Kategori *</Label>
+                              <Select value={productCategory} onValueChange={setProductCategory}>
+                                <SelectTrigger id="product_category">
+                                  <SelectValue placeholder="Kategori seçin" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {PRODUCT_CATEGORIES.map((category) => (
+                                    <SelectItem key={category} value={category}>
+                                      {category}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </div>
                           </div>
                           <div className="space-y-2">
@@ -1042,26 +1110,34 @@ export default function AdminPage() {
                                 placeholder="199.99"
                               />
                             </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="product_stock">Stok Adedi *</Label>
-                              <Input
-                                id="product_stock"
-                                type="number"
-                                value={productStock}
-                                onChange={(e) => setProductStock(e.target.value)}
-                                placeholder="50"
-                              />
-                            </div>
+                            {!categoryUsesSizes(productCategory) && (
+                              <div className="space-y-2">
+                                <Label htmlFor="product_stock">Stok Adedi *</Label>
+                                <Input
+                                  id="product_stock"
+                                  type="number"
+                                  min={0}
+                                  step={1}
+                                  value={productStock}
+                                  onChange={(e) => setProductStock(e.target.value)}
+                                  placeholder="50"
+                                />
+                              </div>
+                            )}
                           </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="product_image">Ürün Görseli URL</Label>
-                            <Input
-                              id="product_image"
-                              value={productImageUrl}
-                              onChange={(e) => setProductImageUrl(e.target.value)}
-                              placeholder="https://example.com/image.jpg"
-                            />
-                          </div>
+                          {categoryUsesSizes(productCategory) && (
+                            <ProductSizeStockEditor value={productSizeStock} onChange={setProductSizeStock} />
+                          )}
+                          {categoryUsesGraduationYear(productCategory) && (
+                            <p className="text-sm text-muted-foreground">
+                              Mezuniyet yılını alıcı sipariş verirken seçer; burada girmeniz gerekmez.
+                            </p>
+                          )}
+                          <ProductImageField
+                            value={productImageUrl}
+                            onChange={setProductImageUrl}
+                            productName={productName}
+                          />
                           <div className="flex items-center justify-between">
                             <div className="space-y-0.5">
                               <Label htmlFor="product_active">Aktif</Label>
@@ -1126,9 +1202,14 @@ export default function AdminPage() {
                             </TableCell>
                             <TableCell>{product.price.toLocaleString("tr-TR")} ₺</TableCell>
                             <TableCell>
-                              <Badge variant={product.stock > 10 ? "default" : "destructive"}>
-                                {product.stock} adet
+                              <Badge variant={totalStock(product) > 10 ? "default" : "destructive"}>
+                                {totalStock(product)} adet
                               </Badge>
+                              {categoryUsesSizes(product.category) && (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {sizeSummary(product.product_variants) || "Beden yok"}
+                                </p>
+                              )}
                             </TableCell>
                             <TableCell>
                               <Button

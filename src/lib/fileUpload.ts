@@ -57,6 +57,14 @@ export const BRAND_LOGO_UPLOAD: UploadPreset = {
   formatLabel: IMAGE_FORMAT_LABEL,
 };
 
+export const PRODUCT_IMAGE_UPLOAD: UploadPreset = {
+  bucket: "product-images",
+  // Often a photo taken on the spot with the phone camera, and we don't resize it.
+  maxBytes: 5 * MB,
+  allowedTypes: IMAGE_TYPES,
+  formatLabel: IMAGE_FORMAT_LABEL,
+};
+
 export const AVATAR_UPLOAD: UploadPreset = {
   bucket: "avatars",
   // Larger than a logo: this is a photo off someone's phone and we don't resize it.
