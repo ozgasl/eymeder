@@ -1054,7 +1054,7 @@ export default function AdminPage() {
                           Yeni Ürün
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="max-w-2xl">
+                      <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto overscroll-contain">
                         <DialogHeader>
                           <DialogTitle>{editingProduct ? "Ürünü Düzenle" : "Yeni Ürün Ekle"}</DialogTitle>
                           <DialogDescription>
@@ -1312,7 +1312,7 @@ export default function AdminPage() {
                                 <DialogTrigger asChild>
                                   <Button variant="outline" size="sm">Detay</Button>
                                 </DialogTrigger>
-                                <DialogContent className="max-w-2xl">
+                                <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto overscroll-contain">
                                   <DialogHeader>
                                     <DialogTitle>Sipariş Detayları</DialogTitle>
                                     <DialogDescription>
