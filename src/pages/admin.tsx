@@ -15,9 +15,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { profileService } from "@/services/profileService";
-import { eventService } from "@/services/eventService";
-import { jobService } from "@/services/jobService";
-import { newsService } from "@/services/newsService";
 import { productService } from "@/services/productService";
 import { orderService } from "@/services/orderService";
 import { authService } from "@/services/authService";
@@ -26,6 +23,7 @@ import { BrandCodesManager } from "@/components/admin/BrandCodesManager";
 import { LogoUploadField } from "@/components/admin/LogoUploadField";
 import { FonzipProbeCard } from "@/components/admin/FonzipProbeCard";
 import { FonzipLocationSyncCard } from "@/components/admin/FonzipLocationSyncCard";
+import { AdminContentTab } from "@/components/admin/AdminContentTab";
 import { supabase } from "@/integrations/supabase/client";
 import { buildSocialUrl, getSocialHandle } from "@/lib/socialLinks";
 import { 
@@ -94,7 +92,6 @@ export default function AdminPage() {
   // States
   const [users, setUsers] = useState<any[]>([]);
   const [brands, setBrands] = useState<any[]>([]);
-  const [newsItems, setNewsItems] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
 
@@ -201,7 +198,6 @@ export default function AdminPage() {
   const loadData = async () => {
     await loadUsers();
     await loadBrands();
-    await loadNews();
     await loadProducts();
     await loadOrders();
     setLoading(false);
@@ -247,11 +243,6 @@ export default function AdminPage() {
       return;
     }
     setBrands(data ?? []);
-  };
-
-  const loadNews = async () => {
-    const { data } = await newsService.getAllNews();
-    if (data) setNewsItems(data);
   };
 
   const loadProducts = async () => {
@@ -427,17 +418,6 @@ export default function AdminPage() {
       loadBrands();
     } else {
       toast({ title: "Hata", description: error.message, variant: "destructive" });
-    }
-  };
-
-  const handleDeleteNews = async (id: string) => {
-    if (!confirm("Bu haberi silmek istediğinizden emin misiniz?")) return;
-    const { error } = await newsService.deleteNews(id);
-    if (error) {
-      toast({ title: "Hata", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Haber silindi" });
-      loadNews();
     }
   };
 
@@ -633,6 +613,17 @@ export default function AdminPage() {
                   Yetkiler
                 </TabsTrigger>
               </TabsList>
+
+              {/* SEKME 2-4: ETKİNLİKLER, İŞ İLANLARI, HABERLER */}
+              <TabsContent value="events" className="mt-6">
+                <AdminContentTab kind="events" />
+              </TabsContent>
+              <TabsContent value="jobs" className="mt-6">
+                <AdminContentTab kind="jobs" />
+              </TabsContent>
+              <TabsContent value="news" className="mt-6">
+                <AdminContentTab kind="news" />
+              </TabsContent>
 
               {/* SEKME 1: KULLANICILAR */}
               <TabsContent value="users" className="space-y-4 mt-6">
