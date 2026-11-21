@@ -1,0 +1,756 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mezun Ağı Platformu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0b1b3a; --navy-2:#13284f; --blue:#2563eb; --blue-50:#eef4ff; --blue-100:#dbe7ff;
+  --amber:#f59e0b; --ink:#0f172a; --ink-2:#334155; --ink-3:#64748b; --line:#e2e8f0;
+  --paper:#ffffff; --soft:#f6f8fb; --green:#059669; --green-50:#ecfdf5;
+  --page:#e9edf3;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --page:#0a0f1a; } }
+:root[data-theme="dark"]{ --page:#0a0f1a; }
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--page)}
+body{font-family:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+
+/* ---------- deck layout (screen) ---------- */
+.toolbar{position:sticky;top:0;z-index:10;display:flex;gap:8px;justify-content:center;align-items:center;padding:10px 16px;background:color-mix(in srgb,var(--page) 85%,transparent);backdrop-filter:blur(8px)}
+.toolbar button{font:600 13px/1 Inter,sans-serif;padding:9px 14px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;color:var(--ink);cursor:pointer}
+.toolbar button.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.toolbar span{font-size:12px;color:#64748b}
+.deck{display:flex;flex-direction:column;align-items:center;gap:24px;padding:12px 16px 48px}
+.wrap{width:min(1280px,100%);aspect-ratio:16/9;position:relative;border-radius:10px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,.12),0 1px 3px rgba(15,23,42,.08)}
+.slide{position:absolute;top:0;left:0;width:1280px;height:720px;transform-origin:top left;transform:scale(var(--s,1));background:var(--paper);overflow:hidden;padding:60px 72px 0}
+
+/* present mode */
+body.present{background:#000;overflow:hidden}
+body.present .toolbar{display:none}
+body.present .deck{padding:0;gap:0;height:100vh;justify-content:center}
+body.present .wrap{display:none;border-radius:0;box-shadow:none}
+body.present .wrap.active{display:block}
+
+/* ---------- print / PDF ---------- */
+@page{size:1280px 720px;margin:0}
+@media print{
+  html,body{background:#fff}
+  .toolbar{display:none}
+  .deck{padding:0;gap:0;display:block}
+  .wrap{width:1280px;height:720px;aspect-ratio:auto;border-radius:0;box-shadow:none;break-after:page;page-break-after:always}
+  .wrap:last-child{break-after:auto;page-break-after:auto}
+  .slide{transform:none}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+
+/* ---------- shared slide parts ---------- */
+.eyebrow{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--blue)}
+h1{font-size:56px;line-height:1.06;font-weight:800;letter-spacing:-.025em}
+h2{font-size:40px;line-height:1.12;font-weight:800;letter-spacing:-.02em;margin-top:10px;max-width:1000px}
+.lead{font-size:19px;line-height:1.55;color:var(--ink-2);margin-top:14px;max-width:900px}
+.foot{position:absolute;left:72px;right:72px;bottom:26px;display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;letter-spacing:.02em}
+.dark .foot{color:#7d8fb3}
+.ico{width:22px;height:22px;display:inline-flex}
+.ico svg{width:100%;height:100%}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:7px 12px;border-radius:999px;background:var(--blue-50);color:#1d4ed8}
+.chip .ico{width:15px;height:15px}
+ul.ticks{list-style:none;display:grid;gap:13px}
+ul.ticks li{display:grid;grid-template-columns:24px 1fr;gap:10px;font-size:17px;line-height:1.45;color:var(--ink-2)}
+ul.ticks li b{color:var(--ink);font-weight:650}
+ul.ticks li .ico{width:20px;height:20px;color:var(--blue);margin-top:2px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px}
+.iconbox{width:44px;height:44px;border-radius:12px;background:var(--blue-50);color:var(--blue);display:flex;align-items:center;justify-content:center}
+.iconbox .ico{width:22px;height:22px}
+.muted{color:var(--ink-3)}
+
+/* ---------- dark slides ---------- */
+.dark{background:radial-gradient(1200px 600px at 85% 10%,#1e3a8a 0%,transparent 60%),linear-gradient(160deg,var(--navy) 0%,#081429 100%);color:#fff}
+.dark .eyebrow{color:#93b4ff}
+.dark .lead{color:#c7d2ea}
+
+/* ---------- mock UI ---------- */
+.browser{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 50px rgba(15,23,42,.14);overflow:hidden}
+.browser .bar{height:34px;background:#f1f5f9;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px;padding:0 12px}
+.browser .bar i{width:10px;height:10px;border-radius:50%;background:#cbd5e1;display:block}
+.browser .bar .url{margin-left:12px;flex:1;height:20px;border-radius:6px;background:#fff;border:1px solid var(--line);font-size:11px;color:#94a3b8;display:flex;align-items:center;padding:0 8px}
+.av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;flex:none}
+.phone{width:290px;height:560px;border-radius:40px;background:#0b1220;padding:12px;box-shadow:0 30px 70px rgba(0,0,0,.45),inset 0 0 0 2px #26324a}
+.phone .scr{width:100%;height:100%;border-radius:30px;background:#f6f8fb;overflow:hidden;color:var(--ink);position:relative}
+.tile{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.tile .n{font-size:20px;font-weight:800;letter-spacing:-.02em}
+.tile .l{font-size:10.5px;color:var(--ink-3);margin-top:2px;line-height:1.3}
+.pill{display:inline-block;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px}
+.btn{display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:650;border-radius:8px;padding:7px 12px;background:var(--blue);color:#fff}
+.btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+
+/* ---------- per-slide balance ---------- */
+.wrap:nth-of-type(5) .slide>div:first-child,.wrap:nth-of-type(6) .slide>div:first-child{height:580px;align-items:center}
+.wrap:nth-of-type(5) ul.ticks li,.wrap:nth-of-type(6) ul.ticks li{font-size:18.5px}
+.wrap:nth-of-type(5) ul.ticks,.wrap:nth-of-type(6) ul.ticks{gap:18px}
+.wrap:nth-of-type(5) .tile{padding:15px 12px}
+.wrap:nth-of-type(9) .card{padding:32px!important;min-height:340px}
+.wrap:nth-of-type(9) .card ul.ticks{gap:18px!important;margin-top:24px!important}
+.wrap:nth-of-type(9) .card ul.ticks li{font-size:17.5px!important}
+.wrap:nth-of-type(9) .slide>div:nth-child(3){margin-top:44px!important}
+.wrap:nth-of-type(9) .slide>div:nth-child(4){margin-top:34px!important;font-size:18px!important}
+.wrap:nth-of-type(10) .slide>div:nth-child(3){margin-top:40px!important}
+.wrap:nth-of-type(10) .card{padding:28px!important;min-height:360px}
+.wrap:nth-of-type(10) .card ul.ticks{gap:14px!important}
+.wrap:nth-of-type(10) .card ul.ticks li{font-size:16.5px!important}
+.wrap:nth-of-type(10) #flow{gap:18px!important}
+.wrap:nth-of-type(10) #flow div div:first-child{font-size:15.5px!important}
+.wrap:nth-of-type(10) #flow .muted{font-size:13.5px!important}
+.wrap:nth-of-type(10) p.muted{font-size:15.5px!important;margin-top:26px!important;line-height:1.5}
+.wrap:nth-of-type(13) .slide>div:nth-child(3){margin-top:48px!important}
+.wrap:nth-of-type(13) .slide>div:nth-child(3) .card{padding:28px;min-height:200px}
+.wrap:nth-of-type(13) .slide>div:nth-child(3) .card div:nth-child(2){font-size:24px!important}
+.wrap:nth-of-type(13) .slide>div:nth-child(3) .card p{font-size:15.5px!important}
+.wrap:nth-of-type(13) .slide>div:nth-child(4){margin-top:24px!important}
+.wrap:nth-of-type(13) .slide>div:nth-child(4)>div{padding:32px 30px!important}
+.wrap:nth-of-type(13) .slide>div:nth-child(4)>div>div:first-child{font-size:54px!important}
+.wrap:nth-of-type(14) #adapt{gap:26px 36px!important;margin-top:38px!important}
+.wrap:nth-of-type(14) #adapt div div:first-child{font-size:18px!important}
+.wrap:nth-of-type(14) #adapt .muted{font-size:14.5px!important}
+.wrap:nth-of-type(14) #adapt .iconbox{width:44px!important;height:44px!important}
+.wrap:nth-of-type(14) .slide>div:nth-child(4){margin-top:44px!important}
+.wrap:nth-of-type(14) #steps>div{padding:18px 16px!important;min-height:92px}
+.wrap:nth-of-type(14) #steps>div div:last-child{font-size:15.5px!important}
+.wrap:nth-of-type(2) .card{min-height:250px;padding:26px}
+.wrap:nth-of-type(2) .slide>div:nth-child(3){margin-top:48px!important}
+.wrap:nth-of-type(2) .slide>div:nth-child(4){margin-top:44px!important}
+.wrap:nth-of-type(3) .card ul.ticks li{font-size:16px!important}
+.wrap:nth-of-type(3) .card{min-height:330px}
+.wrap:nth-of-type(4) #featureGrid>div{padding:18px 14px!important;min-height:92px}
+.wrap:nth-of-type(7) .card{min-height:390px}
+.wrap:nth-of-type(7) .card ul.ticks li{font-size:16.5px!important}
+.wrap:nth-of-type(7) .slide>div:nth-child(3){margin-top:44px!important}
+.wrap:nth-of-type(12) .slide>div:first-child{height:600px;align-items:center}
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <button class="primary" id="presentBtn">▶ Sunum modu</button>
+  <button id="printBtn">PDF olarak yazdır</button>
+  <span>Sunum modunda ← → tuşlarıyla geçiş, Esc ile çıkış</span>
+</div>
+
+<main class="deck">
+
+<!-- 1 · KAPAK -->
+<section class="wrap"><div class="slide dark" style="padding:0">
+  <div style="position:absolute;left:72px;top:72px;width:640px">
+    <div class="eyebrow">Tanıtım sunumu · Kasım 2026</div>
+    <h1 style="margin-top:22px">Mezunlarınızı tek bir dijital çatı altında buluşturun</h1>
+    <p class="lead" style="font-size:21px;margin-top:22px;max-width:560px">Mezunlar derneği için hazırlanmış web ve mobil platform: rehber, etkinlik, mentorluk, kariyer, avantajlar ve yönetim paneli bir arada.</p>
+    <div style="margin-top:34px;display:flex;gap:10px;flex-wrap:wrap">
+      <span class="chip" style="background:rgba(255,255,255,.1);color:#dbe7ff"><span class="ico" data-i="check"></span>Canlı kullanımda: Eyüboğlu Mezunlar Derneği</span>
+    </div>
+    <div style="margin-top:60px;padding-top:22px;border-top:1px solid rgba(255,255,255,.15);font-size:15px;color:#c7d2ea;line-height:1.5">
+      <b style="color:#fff">Kabataş Lisesi mezunları</b> için hazırlanmıştır
+    </div>
+  </div>
+  <!-- phone mock -->
+  <div style="position:absolute;right:120px;top:80px;transform:rotate(-4deg)">
+    <div class="phone"><div class="scr">
+      <div style="background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;padding:34px 18px 18px">
+        <div style="font-size:10px;opacity:.8;letter-spacing:.08em;text-transform:uppercase">Hoş geldin</div>
+        <div style="font-size:19px;font-weight:800;margin-top:4px">Mezunlar Ağı</div>
+        <div style="font-size:11px;opacity:.85;margin-top:6px">3 yeni etkinlik · 12 yeni mezun</div>
+      </div>
+      <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="tile"><div class="n">2.418</div><div class="l">Kayıtlı mezun</div></div>
+        <div class="tile"><div class="n">146</div><div class="l">Seninle aynı üniversitede</div></div>
+        <div class="tile"><div class="n">31</div><div class="l">Seninle aynı şehirde</div></div>
+        <div class="tile"><div class="n">18</div><div class="l">Marka indirim veriyor</div></div>
+      </div>
+      <div style="padding:0 12px">
+        <div style="font-size:11px;font-weight:700;color:var(--ink-3);margin:4px 2px 8px">YAKLAŞAN ETKİNLİK</div>
+        <div class="tile" style="display:flex;gap:10px;align-items:center">
+          <div style="width:40px;text-align:center;background:var(--blue-50);border-radius:8px;padding:5px 0"><div style="font-size:9px;color:var(--blue);font-weight:700">ARA</div><div style="font-size:16px;font-weight:800;color:var(--blue)">14</div></div>
+          <div><div style="font-size:12px;font-weight:700">Yeni Yıl Mezun Buluşması</div><div style="font-size:10px;color:var(--ink-3)">Beşiktaş · 19:30</div></div>
+        </div>
+        <div class="tile" style="display:flex;gap:10px;align-items:center;margin-top:8px">
+          <div class="av" style="width:32px;height:32px;font-size:11px;background:#7c3aed">EK</div>
+          <div><div style="font-size:12px;font-weight:700">Mentorluk talebin kabul edildi</div><div style="font-size:10px;color:var(--ink-3)">2 dk önce</div></div>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:0;left:0;right:0;height:52px;background:#fff;border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:center;color:#94a3b8">
+        <span class="ico" data-i="home" style="color:var(--blue)"></span><span class="ico" data-i="users"></span><span class="ico" data-i="calendar"></span><span class="ico" data-i="bell"></span>
+      </div>
+    </div></div>
+  </div>
+  <div class="foot"><span>Mezun Ağı Platformu</span><span>1</span></div>
+</div></section>
+
+<!-- 2 · SORUN -->
+<section class="wrap"><div class="slide">
+  <div class="eyebrow">Bugünkü durum</div>
+  <h2>Mezun ilişkileri çoğu dernekte dağınık kanallarda yürüyor</h2>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:40px">
+    <div class="card"><div class="iconbox" style="background:#fef3c7;color:#b45309"><span class="ico" data-i="msg"></span></div>
+      <div style="font-size:18px;font-weight:700;margin-top:18px">Dağınık iletişim</div>
+      <p class="muted" style="font-size:15px;line-height:1.5;margin-top:8px">Onlarca WhatsApp grubu, e-posta listesi ve sosyal medya hesabı. Duyurular kayboluyor.</p></div>
+    <div class="card"><div class="iconbox" style="background:#fef3c7;color:#b45309"><span class="ico" data-i="users"></span></div>
+      <div style="font-size:18px;font-weight:700;margin-top:18px">Eskiyen rehber</div>
+      <p class="muted" style="font-size:15px;line-height:1.5;margin-top:8px">Kim hangi şehirde, hangi sektörde? Excel listeleri birkaç ayda güncelliğini yitiriyor.</p></div>
+    <div class="card"><div class="iconbox" style="background:#fef3c7;color:#b45309"><span class="ico" data-i="wallet"></span></div>
+      <div style="font-size:18px;font-weight:700;margin-top:18px">Elle üyelik takibi</div>
+      <p class="muted" style="font-size:15px;line-height:1.5;margin-top:8px">Aidat ayrı sistemde, üyelik ayrı listede. Aidat ödeyen ile ödemeyen aynı imkânları görüyor.</p></div>
+    <div class="card"><div class="iconbox" style="background:#fef3c7;color:#b45309"><span class="ico" data-i="eyeoff"></span></div>
+      <div style="font-size:18px;font-weight:700;margin-top:18px">Görünmeyen değer</div>
+      <p class="muted" style="font-size:15px;line-height:1.5;margin-top:8px">Etkinlik, indirim, kariyer ve mentorluk fırsatları mezunlara ulaşmıyor.</p></div>
+  </div>
+  <div style="margin-top:36px;display:flex;align-items:center;gap:16px;background:var(--soft);border-radius:14px;padding:20px 24px">
+    <div style="width:4px;align-self:stretch;background:var(--amber);border-radius:4px"></div>
+    <p style="font-size:19px;line-height:1.5"><b>Sonuç:</b> Mezunlar birbiriyle bağ kuramıyor; dernek yeni üye kazanmakta ve aidat toplamakta zorlanıyor.</p>
+  </div>
+  <div class="foot"><span>Mezun Ağı Platformu</span><span>2</span></div>
+</div></section>
+
+<!-- 3 · ÇÖZÜM -->
+<section class="wrap"><div class="slide">
+  <div class="eyebrow">Çözüm</div>
+  <h2>Tek platform: mezun için sosyal ağ, dernek için yönetim aracı</h2>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:38px">
+    <div class="card" style="border-top:4px solid var(--blue)">
+      <div style="font-size:13px;font-weight:700;color:var(--blue);letter-spacing:.08em">MEZUN İÇİN</div>
+      <div style="font-size:21px;font-weight:750;margin-top:8px">Bul, bağlan, fırsatı yakala</div>
+      <ul class="ticks" style="margin-top:16px;gap:9px">
+        <li style="font-size:15px"><span class="ico" data-i="check"></span>Dönem arkadaşlarını ve sektördeki mezunları bul</li>
+        <li style="font-size:15px"><span class="ico" data-i="check"></span>Etkinliklere katıl, gruplara gir</li>
+        <li style="font-size:15px"><span class="ico" data-i="check"></span>Mentor bul, iş ilanlarına başvur</li>
+        <li style="font-size:15px"><span class="ico" data-i="check"></span>Marka indirimlerinden yararlan</li>
+      </ul></div>
+    <div class="card" style="border-top:4px solid var(--green)">
+      <div style="font-size:13px;font-weight:700;color:var(--green);letter-spacing:.08em">DERNEK İÇİN</div>
+      <div style="font-size:21px;font-weight:750;margin-top:8px">Üyeyi tanı, aidatı anlamlı kıl</div>
+      <ul class="ticks" style="margin-top:16px;gap:9px">
+        <li style="font-size:15px"><span class="ico" data-i="check" style="color:var(--green)"></span>Güncel, mezunların kendi güncellediği rehber</li>
+        <li style="font-size:15px"><span class="ico" data-i="check" style="color:var(--green)"></span>Duyurular tek kanaldan herkese</li>
+        <li style="font-size:15px"><span class="ico" data-i="check" style="color:var(--green)"></span>Aidat ödeyen üyeye özel avantajlar</li>
+        <li style="font-size:15px"><span class="ico" data-i="check" style="color:var(--green)"></span>Mezun ürünleri satışıyla gelir</li>
+      </ul></div>
+    <div class="card" style="border-top:4px solid var(--amber)">
+      <div style="font-size:13px;font-weight:700;color:#b45309;letter-spacing:.08em">YÖNETİM İÇİN</div>
+      <div style="font-size:21px;font-weight:750;margin-top:8px">Her şey tek panelden</div>
+      <ul class="ticks" style="margin-top:16px;gap:9px">
+        <li style="font-size:15px"><span class="ico" data-i="check" style="color:#b45309"></span>Üye, etkinlik, haber, ilan yönetimi</li>
+        <li style="font-size:15px"><span class="ico" data-i="check" style="color:#b45309"></span>Ürün, stok ve sipariş takibi</li>
+        <li style="font-size:15px"><span class="ico" data-i="check" style="color:#b45309"></span>Marka ve indirim kodu yönetimi</li>
+        <li style="font-size:15px"><span class="ico" data-i="check" style="color:#b45309"></span>Admin / moderatör yetkilendirme</li>
+      </ul></div>
+  </div>
+  <div style="display:flex;gap:10px;margin-top:28px;flex-wrap:wrap">
+    <span class="chip"><span class="ico" data-i="phone"></span>Mobil uyumlu, telefona uygulama gibi eklenir</span>
+    <span class="chip"><span class="ico" data-i="moon"></span>Açık / karanlık tema</span>
+    <span class="chip"><span class="ico" data-i="globe"></span>Tamamen Türkçe</span>
+    <span class="chip"><span class="ico" data-i="shield"></span>KVKK ve çerez metinleri hazır</span>
+  </div>
+  <div class="foot"><span>Mezun Ağı Platformu</span><span>3</span></div>
+</div></section>
+
+<!-- 4 · ÖZELLİK HARİTASI -->
+<section class="wrap"><div class="slide">
+  <div class="eyebrow">Özellik haritası</div>
+  <h2>Bir mezun ağının ihtiyaç duyduğu her şey</h2>
+  <div id="featureGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:32px"></div>
+  <div class="foot"><span>Mezun Ağı Platformu</span><span>4</span></div>
+</div></section>
+
+<!-- 5 · REHBER -->
+<section class="wrap"><div class="slide">
+  <div style="display:grid;grid-template-columns:480px 1fr;gap:48px">
+    <div>
+      <div class="eyebrow">Mezun Rehberi</div>
+      <h2 style="font-size:38px">Kim, nerede, ne yapıyor?</h2>
+      <ul class="ticks" style="margin-top:28px">
+        <li><span class="ico" data-i="search"></span><span><b>Detaylı arama:</b> mezuniyet yılı, üniversite, meslek, şehir ve ülkeye göre.</span></li>
+        <li><span class="ico" data-i="pin"></span><span><b>Kişisel ana sayfa:</b> "Seninle aynı üniversitede / şehirde / ülkede N mezun" karoları.</span></li>
+        <li><span class="ico" data-i="sparkle"></span><span><b>Yeni katılanlar</b> öne çıkar: "Son 1 haftada katıldı".</span></li>
+        <li><span class="ico" data-i="link"></span><span><b>Sosyal hesaplar</b> @kullanıcıadı olarak; LinkedIn, Instagram, X'e tek tık.</span></li>
+        <li><span class="ico" data-i="list"></span><span><b>Temiz veri:</b> ülke, şehir ve üniversite listeden seçilir; yazım farkları birikmez.</span></li>
+      </ul>
+    </div>
+    <div class="browser" style="margin-top:8px">
+      <div class="bar"><i></i><i></i><i></i><div class="url">Mezun Ağı · Rehber</div></div>
+      <div style="padding:18px;background:var(--soft)">
+        <div style="display:flex;gap:8px">
+          <div style="flex:1;height:36px;border-radius:9px;background:#fff;border:1px solid var(--line);display:flex;align-items:center;gap:8px;padding:0 12px;font-size:13px;color:#94a3b8"><span class="ico" data-i="search" style="width:15px;height:15px"></span>İsim, meslek veya şirket ara…</div>
+          <div class="btn ghost" style="height:36px">Mezuniyet: 2005</div>
+          <div class="btn ghost" style="height:36px">Şehir: İstanbul</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px" id="memberCards"></div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>Mezun Ağı Platformu</span><span>5</span></div>
+</div></section>
+
+<!-- 6 · ETKİNLİKLER -->
+<section class="wrap"><div class="slide">
+  <div style="display:grid;grid-template-columns:1fr 460px;gap:48px">
+    <div>
+      <div class="eyebrow">Etkinlikler</div>
+      <h2 style="font-size:38px">Duyur, katılımı topla, bilet sat</h2>
+      <ul class="ticks" style="margin-top:28px">
+        <li><span class="ico" data-i="calendar"></span><span><b>Dernek etkinlikleri</b> platformda oluşturulur; mezunlar tek tıkla katılım bildirir.</span></li>
+        <li><span class="ico" data-i="ticket"></span><span><b>Fonzip'teki biletli etkinlikler</b> otomatik listelenir, "Bilet Al" ile doğrudan satın alma sayfasına gidilir.</span></li>
+        <li><span class="ico" data-i="share"></span><span><b>Paylaşılabilir sayfalar:</b> etkinlik, haber ve galeri giriş yapmadan görüntülenebilir; link WhatsApp'ta rahatça dolaşır.</span></li>
+        <li><span class="ico" data-i="bell"></span><span><b>Bildirimler:</b> yeni etkinlik ve güncellemeler uygulama içinden duyurulur.</span></li>
+      </ul>
+    </div>
+    <div style="display:grid;gap:14px;margin-top:10px">
+      <div class="card" style="padding:0;overflow:hidden;box-shadow:0 14px 34px rgba(15,23,42,.10)">
+        <div style="height:92px;background:linear-gradient(135deg,#1e3a8a,#2563eb 60%,#60a5fa)"></div>
+        <div style="padding:16px 18px">
+          <div style="display:flex;gap:8px"><span class="pill" style="background:var(--blue-50);color:var(--blue)">Dernek etkinliği</span><span class="pill" style="background:var(--green-50);color:var(--green)">84 katılımcı</span></div>
+          <div style="font-size:18px;font-weight:750;margin-top:10px">Yeni Yıl Mezun Buluşması</div>
+          <div class="muted" style="font-size:13px;margin-top:4px">14 Aralık · 19:30 · Beşiktaş</div>
+          <div style="display:flex;gap:8px;margin-top:14px"><span class="btn">Katılıyorum</span><span class="btn ghost">Paylaş</span></div>
+        </div>
+      </div>
+      <div class="card" style="padding:16px 18px;display:flex;gap:14px;align-items:center">
+        <div style="width:54px;text-align:center;background:#fef3c7;border-radius:10px;padding:8px 0"><div style="font-size:10px;color:#b45309;font-weight:700">OCA</div><div style="font-size:20px;font-weight:800;color:#b45309">25</div></div>
+        <div style="flex:1"><div style="font-size:15px;font-weight:700">Burs Yararına Gala Gecesi</div><div class="muted" style="font-size:12px;margin-top:2px">Fonzip üzerinden biletli</div></div>
+        <span class="btn" style="background:var(--amber)">Bilet Al</span>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>Mezun Ağı Platformu</span><span>6</span></div>
+</div></section>
+
+<!-- 7 · TOPLULUK -->
+<section class="wrap"><div class="slide">
+  <div class="eyebrow">Topluluk</div>
+  <h2>Mezunlar arasında kalıcı bağlar</h2>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:36px">
+    <div class="card" style="padding:26px">
+      <div class="iconbox"><span class="ico" data-i="group"></span></div>
+      <div style="font-size:22px;font-weight:750;margin-top:18px">Gruplar</div>
+      <ul class="ticks" style="margin-top:14px;gap:10px">
+        <li style="font-size:15px"><span class="ico" data-i="dot"></span>Dönem, şehir, meslek ve ilgi alanı grupları</li>
+        <li style="font-size:15px"><span class="ico" data-i="dot"></span>Açık ya da özel grup; özel grubun içeriğini yalnızca üyeleri görür</li>
+        <li style="font-size:15px"><span class="ico" data-i="dot"></span>Mevcut WhatsApp / Telegram grubuna "Gruba Bağlan" butonu</li>
+      </ul>
+    </div>
+    <div class="card" style="padding:26px">
+      <div class="iconbox"><span class="ico" data-i="cap"></span></div>
+      <div style="font-size:22px;font-weight:750;margin-top:18px">Mentorluk</div>
+      <ul class="ticks" style="margin-top:14px;gap:10px">
+        <li style="font-size:15px"><span class="ico" data-i="dot"></span>Deneyimli mezunlar mentor olarak listelenir</li>
+        <li style="font-size:15px"><span class="ico" data-i="dot"></span>Genç mezun ya da öğrenci talep gönderir</li>
+        <li style="font-size:15px"><span class="ico" data-i="dot"></span>Mentor kabul eder, süreç platformda izlenir</li>
+      </ul>
+    </div>
+    <div class="card" style="padding:26px">
+      <div class="iconbox"><span class="ico" data-i="msg"></span></div>
+      <div style="font-size:22px;font-weight:750;margin-top:18px">Mesajlar &amp; Bildirimler</div>
+      <ul class="ticks" style="margin-top:14px;gap:10px">
+        <li style="font-size:15px"><span class="ico" data-i="dot"></span>Mezunlar arası birebir mesajlaşma</li>
+        <li style="font-size:15px"><span class="ico" data-i="dot"></span>Uygulama içi bildirim merkezi</li>
+        <li style="font-size:15px"><span class="ico" data-i="dot"></span>Puan ve rozetler: "İlk Bağlantı", "Ağ Kurucusu", "Yükselen Yıldız"</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot"><span>Mezun Ağı Platformu</span><span>7</span></div>
+</div></section>
+
+<!-- 8 · KARİYER & İÇERİK -->
+<section class="wrap"><div class="slide">
+  <div class="eyebrow">Kariyer ve içerik</div>
+  <h2>"Mezun, mezunu işe alır." Hikâyeler de burada yaşar.</h2>
+  <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:24px;margin-top:34px">
+    <div class="card" style="padding:26px;background:linear-gradient(180deg,#fff, #f8fbff)">
+      <div style="display:flex;gap:14px;align-items:center"><div class="iconbox"><span class="ico" data-i="brief"></span></div><div style="font-size:22px;font-weight:750">Kariyer / İK ilanları</div></div>
+      <p class="muted" style="font-size:16px;line-height:1.55;margin-top:14px">Mezunlar kendi şirketlerindeki pozisyonları yayınlar; diğer mezunlar platform üzerinden başvurur. Staj ilanları öğrencilere ve yeni mezunlara köprü olur.</p>
+      <div style="display:grid;gap:10px;margin-top:20px">
+        <div class="tile" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px"><div><div style="font-size:14px;font-weight:700">Kıdemli Yazılım Mühendisi</div><div class="muted" style="font-size:12px">Fintech · İstanbul · Hibrit</div></div><span class="btn">Başvur</span></div>
+        <div class="tile" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px"><div><div style="font-size:14px;font-weight:700">Yaz Stajyeri – Finans</div><div class="muted" style="font-size:12px">Holding · İstanbul</div></div><span class="btn">Başvur</span></div>
+      </div>
+    </div>
+    <div style="display:grid;gap:14px">
+      <div class="card" style="display:flex;gap:16px;align-items:flex-start"><div class="iconbox"><span class="ico" data-i="news"></span></div><div><div style="font-size:18px;font-weight:700">Haberler</div><p class="muted" style="font-size:15px;line-height:1.5;margin-top:4px">Dernek duyuruları, mezun başarıları, okul haberleri.</p></div></div>
+      <div class="card" style="display:flex;gap:16px;align-items:flex-start"><div class="iconbox"><span class="ico" data-i="image"></span></div><div><div style="font-size:18px;font-weight:700">Galeri</div><p class="muted" style="font-size:15px;line-height:1.5;margin-top:4px">Etkinlik fotoğrafları ve videoları tek arşivde.</p></div></div>
+      <div class="card" style="display:flex;gap:16px;align-items:flex-start"><div class="iconbox"><span class="ico" data-i="quote"></span></div><div><div style="font-size:18px;font-weight:700">Bir Mezun Bir Hikâye</div><p class="muted" style="font-size:15px;line-height:1.5;margin-top:4px">İlham veren mezun hikâyeleri; okul ile mezun arasındaki bağı güçlendirir.</p></div></div>
+    </div>
+  </div>
+  <div class="foot"><span>Mezun Ağı Platformu</span><span>8</span></div>
+</div></section>
+
+<!-- 9 · AVANTAJLAR -->
+<section class="wrap"><div class="slide">
+  <div class="eyebrow">Avantajlar</div>
+  <h2>Mezun Store ve anlaşmalı marka indirimleri</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:32px">
+    <div class="card" style="padding:26px">
+      <div style="display:flex;gap:14px;align-items:center"><div class="iconbox"><span class="ico" data-i="bag"></span></div><div style="font-size:22px;font-weight:750">Mezun Store</div></div>
+      <ul class="ticks" style="margin-top:18px;gap:11px">
+        <li style="font-size:15.5px"><span class="ico" data-i="check"></span><span>Okul logolu ürünler, hediyelik eşya, <b>mezuniyet yılına özel</b> seçenekler</span></li>
+        <li style="font-size:15.5px"><span class="ico" data-i="check"></span><span>Kategori ve <b>beden bazında stok</b> takibi</span></li>
+        <li style="font-size:15.5px"><span class="ico" data-i="check"></span><span>Sepet, sipariş ve sipariş durumu takibi</span></li>
+        <li style="font-size:15.5px"><span class="ico" data-i="check"></span><span>Bugün <b>havale / EFT</b>; iyzico ve ödeme linki altyapısı hazır, anlaşma sonrası açılır</span></li>
+      </ul>
+    </div>
+    <div class="card" style="padding:26px">
+      <div style="display:flex;gap:14px;align-items:center"><div class="iconbox"><span class="ico" data-i="tag"></span></div><div style="font-size:22px;font-weight:750">İndirimli Markalar</div></div>
+      <ul class="ticks" style="margin-top:18px;gap:11px">
+        <li style="font-size:15.5px"><span class="ico" data-i="check"></span><span>Markanın kendi kodu ya da oranından üretilen kod (ör. <b>%10 → KBT10</b>)</span></li>
+        <li style="font-size:15.5px"><span class="ico" data-i="check"></span><span>Herkese ortak kod veya <b>kişiye özel tek kullanımlık</b> kod (KBT10-7F3K2A)</span></li>
+        <li style="font-size:15.5px"><span class="ico" data-i="check"></span><span>Geçerlilik tarihi ve kullanım limiti; mağazada <b>QR üye kartı</b> ile personel onayı</span></li>
+        <li style="font-size:15.5px"><span class="ico" data-i="check"></span><span>Kodlar yalnızca <b>aidatını ödemiş dernek üyelerine</b> görünür</span></li>
+      </ul>
+    </div>
+  </div>
+  <div style="margin-top:22px;display:flex;align-items:center;gap:14px;font-size:16px;color:var(--ink-2)">
+    <span class="ico" data-i="spark2" style="color:var(--amber);width:22px;height:22px"></span>
+    Markalar mezun kitlesine ulaşır, mezun indirim kazanır, dernek aidat için somut bir gerekçe sunar.
+  </div>
+  <div class="foot"><span>Mezun Ağı Platformu</span><span>9</span></div>
+</div></section>
+
+<!-- 10 · ÜYELİK MODELİ -->
+<section class="wrap"><div class="slide">
+  <div class="eyebrow">Üyelik modeli</div>
+  <h2>Aidat ödemek somut bir ayrıcalığa dönüşür</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1.05fr;gap:18px;margin-top:30px">
+    <div class="card" style="padding:22px">
+      <span class="pill" style="background:#f1f5f9;color:var(--ink-2);font-size:11px">MEZUN ÜYE</span>
+      <div style="font-size:19px;font-weight:750;margin-top:10px">Kayıtlı her mezun</div>
+      <ul class="ticks" style="margin-top:14px;gap:8px">
+        <li style="font-size:14.5px"><span class="ico" data-i="check"></span>Mezun rehberi ve profil</li>
+        <li style="font-size:14.5px"><span class="ico" data-i="check"></span>Etkinlikler, haberler, galeri</li>
+        <li style="font-size:14.5px"><span class="ico" data-i="check"></span>Gruplara katılım</li>
+        <li style="font-size:14.5px"><span class="ico" data-i="check"></span>Mentor listesi, iş ilanları</li>
+        <li style="font-size:14.5px"><span class="ico" data-i="check"></span>Mezun Store</li>
+      </ul>
+    </div>
+    <div class="card" style="padding:22px;border:2px solid var(--blue);background:linear-gradient(180deg,#f5f9ff,#fff)">
+      <span class="pill" style="background:var(--blue);color:#fff;font-size:11px">DERNEK ÜYESİ</span>
+      <div style="font-size:19px;font-weight:750;margin-top:10px">Aidatını ödeyen mezun</div>
+      <ul class="ticks" style="margin-top:14px;gap:8px">
+        <li style="font-size:14.5px"><span class="ico" data-i="plus"></span><span>Mezun Üye'nin <b>tüm</b> imkânları</span></li>
+        <li style="font-size:14.5px"><span class="ico" data-i="plus"></span>Birebir mesajlaşma</li>
+        <li style="font-size:14.5px"><span class="ico" data-i="plus"></span>İndirimli markalar ve kodlar</li>
+        <li style="font-size:14.5px"><span class="ico" data-i="plus"></span>Mentorluk talebi gönderme</li>
+        <li style="font-size:14.5px"><span class="ico" data-i="plus"></span>İş ilanı ve grup açma</li>
+      </ul>
+    </div>
+    <div class="card" style="padding:22px;background:var(--soft);border-color:transparent">
+      <div style="font-size:13px;font-weight:700;color:var(--ink-3);letter-spacing:.08em">OTOMATİK DOĞRULAMA</div>
+      <ol style="list-style:none;margin-top:14px;display:grid;gap:12px" id="flow"></ol>
+    </div>
+  </div>
+  <p class="muted" style="font-size:14px;margin-top:18px">Kısıtlı bir sayfaya gelen mezun "Dernek Üyesi Ol" ekranıyla üyelik başvurusu, aidat ödeme ve bağış sayfalarına yönlendirilir. Hangi özelliğin hangi üyelik tipine açık olacağı derneğin tercihine göre ayarlanır.</p>
+  <div class="foot"><span>Mezun Ağı Platformu</span><span>10</span></div>
+</div></section>
+
+<!-- 11 · YÖNETİM PANELİ -->
+<section class="wrap"><div class="slide">
+  <div class="eyebrow">Yönetim paneli</div>
+  <h2>Dernek ekibi teknik bilgi olmadan yönetir</h2>
+  <div class="browser" style="margin-top:28px">
+    <div class="bar"><i></i><i></i><i></i><div class="url">Mezun Ağı · Yönetim Paneli</div></div>
+    <div style="padding:16px 20px;background:#fff">
+      <div style="display:flex;gap:6px;background:#f1f5f9;border-radius:10px;padding:5px;width:max-content" id="adminTabs"></div>
+      <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:18px;margin-top:16px">
+        <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden">
+          <div style="display:grid;grid-template-columns:1.5fr .7fr 1fr 1fr;font-size:11px;font-weight:700;color:var(--ink-3);background:var(--soft);padding:9px 14px"><span>MEZUN</span><span>YIL</span><span>ÜYELİK</span><span>ROL</span></div>
+          <div id="adminRows"></div>
+        </div>
+        <div style="display:grid;gap:10px;align-content:start">
+          <div class="tile" style="display:flex;gap:12px;align-items:center;padding:12px 14px"><span class="ico" data-i="refresh" style="color:var(--blue)"></span><div><div style="font-size:13px;font-weight:700">Fonzip'ten yeniden kontrol</div><div class="muted" style="font-size:11.5px">Üyelik tipini tek tıkla güncelle</div></div></div>
+          <div class="tile" style="display:flex;gap:12px;align-items:center;padding:12px 14px"><span class="ico" data-i="pin" style="color:var(--blue)"></span><div><div style="font-size:13px;font-weight:700">Konum &amp; üniversite senkronu</div><div class="muted" style="font-size:11.5px">Önizlemeli toplu içe aktarma</div></div></div>
+          <div class="tile" style="display:flex;gap:12px;align-items:center;padding:12px 14px"><span class="ico" data-i="qr" style="color:var(--blue)"></span><div><div style="font-size:13px;font-weight:700">İndirim kodu kullanımı onayla</div><div class="muted" style="font-size:11.5px">Her kullanım kayıt altında</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;margin-top:18px">
+    <span class="chip"><span class="ico" data-i="shield"></span>Admin</span>
+    <span class="chip"><span class="ico" data-i="shield"></span>Moderatör</span>
+    <span class="chip" style="background:#f1f5f9;color:var(--ink-2)"><span class="ico" data-i="users"></span>Üye</span>
+    <span style="font-size:14px;color:var(--ink-3);align-self:center;margin-left:6px">Yetki rolleri üyelik tipinden bağımsızdır: resmî içeriği yalnızca yetkili ekip yayınlar.</span>
+  </div>
+  <div class="foot"><span>Mezun Ağı Platformu</span><span>11</span></div>
+</div></section>
+
+<!-- 12 · GÜVENLİK -->
+<section class="wrap"><div class="slide">
+  <div style="display:grid;grid-template-columns:400px 1fr;gap:56px">
+    <div>
+      <div class="eyebrow">Güvenlik ve KVKK</div>
+      <h2 style="font-size:38px">Mezun verisi, en değerli emanet</h2>
+      <p class="lead" style="font-size:17px">Kişisel veriler yalnızca arayüzde değil, doğrudan veritabanı seviyesinde korunur. Bir mezun, başka bir mezunun bilgisini değiştiremez; kendi üyelik tipini yükseltemez.</p>
+      <div style="margin-top:28px;display:flex;align-items:center;gap:14px">
+        <div style="width:64px;height:64px;border-radius:18px;background:var(--navy);color:#93b4ff;display:flex;align-items:center;justify-content:center"><span class="ico" data-i="shield" style="width:32px;height:32px"></span></div>
+        <div style="font-size:15px;color:var(--ink-2);line-height:1.45">Veriler derneğin kendi<br>veritabanında tutulur.</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px" id="secGrid"></div>
+  </div>
+  <div class="foot"><span>Mezun Ağı Platformu</span><span>12</span></div>
+</div></section>
+
+<!-- 13 · TEKNOLOJİ -->
+<section class="wrap"><div class="slide">
+  <div class="eyebrow">Teknoloji</div>
+  <h2>Modern, yaygın ve bakımı kolay bir altyapı</h2>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:34px">
+    <div class="card"><div style="font-size:13px;color:var(--ink-3);font-weight:600">Uygulama</div><div style="font-size:20px;font-weight:750;margin-top:6px">Next.js 15</div><p class="muted" style="font-size:14px;line-height:1.5;margin-top:6px">TypeScript ile yazılmış hızlı web uygulaması</p></div>
+    <div class="card"><div style="font-size:13px;color:var(--ink-3);font-weight:600">Veri ve oturum</div><div style="font-size:20px;font-weight:750;margin-top:6px">Supabase</div><p class="muted" style="font-size:14px;line-height:1.5;margin-top:6px">PostgreSQL veritabanı, kimlik doğrulama, dosya depolama</p></div>
+    <div class="card"><div style="font-size:13px;color:var(--ink-3);font-weight:600">Barındırma</div><div style="font-size:20px;font-weight:750;margin-top:6px">Vercel</div><p class="muted" style="font-size:14px;line-height:1.5;margin-top:6px">Sunucu yönetimi gerekmez, trafikle birlikte ölçeklenir</p></div>
+    <div class="card"><div style="font-size:13px;color:var(--ink-3);font-weight:600">Entegrasyon</div><div style="font-size:20px;font-weight:750;margin-top:6px">Fonzip</div><p class="muted" style="font-size:14px;line-height:1.5;margin-top:6px">Üyelik, aidat ve biletli etkinlik bilgisi</p></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:22px">
+    <div style="background:var(--navy);color:#fff;border-radius:16px;padding:24px 26px"><div style="font-size:44px;font-weight:800;letter-spacing:-.03em">20+</div><div style="font-size:15px;color:#c7d2ea;margin-top:4px">sayfa ve modül, tek uygulamada</div></div>
+    <div style="background:var(--navy);color:#fff;border-radius:16px;padding:24px 26px"><div style="font-size:44px;font-weight:800;letter-spacing:-.03em">53</div><div style="font-size:15px;color:#c7d2ea;margin-top:4px">sürüm kontrollü veritabanı değişikliği</div></div>
+    <div style="background:var(--navy);color:#fff;border-radius:16px;padding:24px 26px"><div style="font-size:44px;font-weight:800;letter-spacing:-.03em">PWA</div><div style="font-size:15px;color:#c7d2ea;margin-top:4px">uygulama mağazasına gerek kalmadan ana ekrana eklenir</div></div>
+  </div>
+  <div class="foot"><span>Mezun Ağı Platformu</span><span>13</span></div>
+</div></section>
+
+<!-- 14 · KABATAŞ'A UYARLAMA -->
+<section class="wrap"><div class="slide">
+  <div class="eyebrow">Kabataş'a uyarlama</div>
+  <h2>Aynı altyapı, Kabataş'ın kimliği ve verisiyle</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 28px;margin-top:28px" id="adapt"></div>
+  <div style="margin-top:26px">
+    <div style="font-size:13px;font-weight:700;color:var(--ink-3);letter-spacing:.08em">ÖNERİLEN SÜREÇ</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:12px" id="steps"></div>
+  </div>
+  <div class="foot"><span>Mezun Ağı Platformu</span><span>14</span></div>
+</div></section>
+
+<!-- 15 · KAPANIŞ -->
+<section class="wrap"><div class="slide dark" style="padding:0">
+  <div style="position:absolute;left:72px;top:96px;width:760px">
+    <div class="eyebrow">Sonraki adım</div>
+    <h1 style="margin-top:20px;font-size:60px">Kabataşlıları tek adreste buluşturalım.</h1>
+    <p class="lead" style="font-size:21px;margin-top:22px;max-width:640px">Platformu canlı bir demoda birlikte gezelim; derneğinizin ihtiyaçlarını dinleyip uyarlama planını netleştirelim.</p>
+    <div style="display:grid;grid-template-columns:repeat(3,auto);gap:14px;margin-top:44px;width:max-content">
+      <div style="border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:16px 20px"><div style="font-size:12px;color:#93b4ff;font-weight:700">1</div><div style="font-size:16px;font-weight:650;margin-top:4px">Canlı demo</div></div>
+      <div style="border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:16px 20px"><div style="font-size:12px;color:#93b4ff;font-weight:700">2</div><div style="font-size:16px;font-weight:650;margin-top:4px">İhtiyaç görüşmesi</div></div>
+      <div style="border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:16px 20px"><div style="font-size:12px;color:#93b4ff;font-weight:700">3</div><div style="font-size:16px;font-weight:650;margin-top:4px">Pilot kurulum</div></div>
+    </div>
+  </div>
+  <div style="position:absolute;right:-80px;bottom:-120px;width:520px;height:520px;border-radius:50%;border:1px solid rgba(147,180,255,.18)"></div>
+  <div style="position:absolute;right:20px;bottom:-20px;width:320px;height:320px;border-radius:50%;border:1px solid rgba(147,180,255,.25)"></div>
+  <div style="position:absolute;right:120px;bottom:80px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#60a5fa,#1d4ed8);box-shadow:0 0 80px rgba(37,99,235,.6)"></div>
+  <div class="foot"><span>Mezun Ağı Platformu</span><span>Teşekkürler</span></div>
+</div></section>
+
+</main>
+
+<script>
+/* ---------- icons (Lucide-style line icons) ---------- */
+const I = {
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  dot:'<circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/>',
+  home:'<path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2h-4v-7H9v7H5a2 2 0 0 1-2-2z"/>',
+  users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  group:'<circle cx="12" cy="7" r="3"/><circle cx="5" cy="11" r="2.3"/><circle cx="19" cy="11" r="2.3"/><path d="M7 20a5 5 0 0 1 10 0"/><path d="M1.5 19a3.6 3.6 0 0 1 4.5-3.4M22.5 19a3.6 3.6 0 0 0-4.5-3.4"/>',
+  calendar:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  msg:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  cap:'<path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>',
+  news:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/>',
+  image:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+  quote:'<path d="M7 7h4v4c0 3-2 5-4 6M15 7h4v4c0 3-2 5-4 6"/>',
+  brief:'<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
+  bag:'<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18M16 10a4 4 0 0 1-8 0"/>',
+  tag:'<path d="M12 2H2v10l9.29 9.29a1 1 0 0 0 1.41 0l8.59-8.59a1 1 0 0 0 0-1.41z"/><circle cx="7" cy="7" r="1.5"/>',
+  qr:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM21 14v.01M14 21h.01M17 21h4v-4"/>',
+  award:'<circle cx="12" cy="8" r="6"/><path d="M15.5 13 17 22l-5-3-5 3 1.5-9"/>',
+  shield:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+  lock:'<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  key:'<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M17 6l3 3M14.5 8.5l2 2"/>',
+  mail:'<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 6-10 7L2 6"/>',
+  file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/>',
+  upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
+  server:'<rect x="2" y="3" width="20" height="8" rx="2"/><rect x="2" y="13" width="20" height="8" rx="2"/><path d="M6 7h.01M6 17h.01"/>',
+  card:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
+  wallet:'<path d="M20 7H5a2 2 0 0 1 0-4h13v4"/><path d="M3 5v14a2 2 0 0 0 2 2h15V7"/><path d="M16 14h.01"/>',
+  eyeoff:'<path d="M9.9 4.2A10 10 0 0 1 12 4c7 0 10 8 10 8a17 17 0 0 1-3.2 4.3M6.6 6.6A17 17 0 0 0 2 12s3 8 10 8a9.7 9.7 0 0 0 5.4-1.6"/><path d="M14.1 14.1a3 3 0 1 1-4.2-4.2M2 2l20 20"/>',
+  phone:'<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/>',
+  moon:'<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>',
+  globe:'<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+  pin:'<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>',
+  sparkle:'<path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8"/>',
+  spark2:'<path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4-6.2-4.6-6.2 4.6 2.4-7.4L2 9.4h7.6z"/>',
+  link:'<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
+  list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  ticket:'<path d="M2 9a3 3 0 0 0 0 6v3a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3a3 3 0 0 0 0-6V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/><path d="M13 5v2M13 17v2M13 11v2"/>',
+  share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/>',
+  refresh:'<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
+  palette:'<circle cx="13.5" cy="6.5" r="1"/><circle cx="17.5" cy="10.5" r="1"/><circle cx="8.5" cy="7.5" r="1"/><circle cx="6.5" cy="12.5" r="1"/><path d="M12 2a10 10 0 0 0 0 20c1 0 1.7-.8 1.7-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.8-1.7 1.7-1.7H16a6 6 0 0 0 6-6c0-4.9-4.5-8.4-10-8.4z"/>',
+  db:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/>',
+  hash:'<path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/>',
+  doc:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+};
+document.querySelectorAll('[data-i]').forEach(el=>{
+  el.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+I[el.dataset.i]+'</svg>';
+});
+const ic = n => '<span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+I[n]+'</svg></span>';
+
+/* ---------- slide 4: feature grid ---------- */
+const features = [
+  ['users','Mezun Rehberi','Yıl, üniversite, meslek, şehre göre arama'],
+  ['calendar','Etkinlikler','Katılım bildirimi, biletli etkinlikler'],
+  ['group','Gruplar','Dönem ve ilgi alanı toplulukları'],
+  ['cap','Mentorluk','Mentor – mentee eşleştirme'],
+  ['msg','Mesajlar','Mezunlar arası birebir iletişim'],
+  ['brief','Kariyer / İK','İş ve staj ilanları, başvuru'],
+  ['news','Haberler','Dernek ve mezun duyuruları'],
+  ['image','Galeri','Fotoğraf ve video arşivi'],
+  ['quote','Bir Mezun Bir Hikâye','İlham veren mezun hikâyeleri'],
+  ['bag','Mezun Store','Logolu ürünler, sepet, sipariş'],
+  ['tag','İndirimli Markalar','Ortak ve kişiye özel kodlar'],
+  ['qr','QR Üye Kartı','Mağazada hızlı doğrulama'],
+  ['award','Puan &amp; Rozetler','Katılımı ödüllendiren oyunlaştırma'],
+  ['bell','Bildirimler','Uygulama içi bildirim merkezi'],
+  ['refresh','Fonzip Entegrasyonu','Üyelik ve aidat durumu otomatik'],
+  ['server','Yönetim Paneli','İçerik, ürün, sipariş, roller'],
+];
+document.getElementById('featureGrid').innerHTML = features.map(([i,t,d])=>
+  `<div style="display:flex;gap:12px;align-items:flex-start;background:var(--soft);border-radius:14px;padding:14px 14px">
+     <div class="iconbox" style="width:38px;height:38px;border-radius:10px;flex:none;background:#fff">${ic(i)}</div>
+     <div><div style="font-size:15.5px;font-weight:700">${t}</div><div class="muted" style="font-size:12.5px;line-height:1.4;margin-top:3px">${d}</div></div>
+   </div>`).join('');
+
+/* ---------- slide 5: member cards ---------- */
+const members = [
+  ['AY','#2563eb','Ayşe Yılmaz','2005 · Boğaziçi Üniversitesi','Ürün Yöneticisi','İstanbul'],
+  ['MK','#7c3aed','Mehmet Kaya','2005 · ODTÜ','İnşaat Mühendisi','İstanbul'],
+  ['ZD','#059669','Zeynep Demir','2005 · İTÜ','Mimar','İstanbul'],
+  ['CA','#d97706','Can Arslan','2005 · Koç Üniversitesi','Avukat','İstanbul'],
+  ['EŞ','#db2777','Elif Şahin','2005 · Bilkent Üniversitesi','Doktor','İstanbul'],
+  ['BÖ','#0891b2','Burak Öztürk','2005 · Sabancı Üniversitesi','Yatırım Analisti','İstanbul'],
+];
+document.getElementById('memberCards').innerHTML = members.map(([a,c,n,y,j,city])=>
+  `<div class="tile" style="display:flex;gap:12px;align-items:center;padding:12px">
+     <div class="av" style="background:${c}">${a}</div>
+     <div style="min-width:0;flex:1"><div style="font-size:14px;font-weight:700">${n}</div>
+       <div class="muted" style="font-size:11.5px;margin-top:1px">${y}</div>
+       <div style="font-size:11.5px;color:var(--ink-2);margin-top:1px">${j} · ${city}</div></div>
+     <div style="display:flex;gap:4px;color:#94a3b8">${ic('link')}</div>
+   </div>`).join('') +
+  `<div style="grid-column:1/-1;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:4px">
+     <div class="tile" style="background:var(--blue-50);border-color:var(--blue-100)"><div class="n" style="color:var(--blue)">146</div><div class="l">mezun seninle aynı üniversitede</div></div>
+     <div class="tile" style="background:var(--blue-50);border-color:var(--blue-100)"><div class="n" style="color:var(--blue)">1.204</div><div class="l">mezun seninle aynı şehirde</div></div>
+     <div class="tile" style="background:var(--blue-50);border-color:var(--blue-100)"><div class="n" style="color:var(--blue)">23</div><div class="l">son 1 haftada katıldı</div></div>
+   </div>`;
+
+/* ---------- slide 10: verification flow ---------- */
+const flow = [
+  ['mail','Kayıt','E-postaya gelen doğrulama koduyla hesap açılır'],
+  ['hash','Eşleştirme','Mezuniyet yılı + okul numarasıyla Fonzip\'te bulunur; bulunamazsa e-posta / telefonla'],
+  ['check','Üyelik tipi','Fonzip etiketine göre otomatik atanır'],
+  ['refresh','Anında güncelleme','Aidatı yeni ödeyen "Üyeliğimi tekrar kontrol et" ile hemen yükselir'],
+];
+document.getElementById('flow').innerHTML = flow.map(([i,t,d],k)=>
+  `<li style="display:grid;grid-template-columns:30px 1fr;gap:10px;align-items:start">
+     <div style="width:30px;height:30px;border-radius:50%;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--blue)">${k+1}</div>
+     <div><div style="font-size:14px;font-weight:700">${t}</div><div class="muted" style="font-size:12.5px;line-height:1.4;margin-top:2px">${d}</div></div>
+   </li>`).join('');
+
+/* ---------- slide 11: admin ---------- */
+const tabs = ['Üyeler','Etkinlikler','İlanlar','Haberler','Markalar','Ürünler','Siparişler','Roller'];
+document.getElementById('adminTabs').innerHTML = tabs.map((t,k)=>
+  `<span style="font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:7px;${k===0?'background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.08);color:var(--ink)':'color:var(--ink-3)'}">${t}</span>`).join('');
+const rows = [
+  ['AY','#2563eb','Ayşe Yılmaz','2005',1,'Üye'],
+  ['MK','#7c3aed','Mehmet Kaya','1998',1,'Moderatör'],
+  ['ZD','#059669','Zeynep Demir','2012',0,'Üye'],
+  ['CA','#d97706','Can Arslan','1987',1,'Admin'],
+  ['EŞ','#db2777','Elif Şahin','2019',0,'Üye'],
+];
+document.getElementById('adminRows').innerHTML = rows.map(([a,c,n,y,d,r])=>
+  `<div style="display:grid;grid-template-columns:1.5fr .7fr 1fr 1fr;align-items:center;padding:8px 14px;border-top:1px solid var(--line);font-size:12.5px">
+     <span style="display:flex;gap:8px;align-items:center;font-weight:600"><span class="av" style="width:26px;height:26px;font-size:10px;background:${c}">${a}</span>${n}</span>
+     <span class="muted">${y}</span>
+     <span><span class="pill" style="${d?'background:var(--blue-50);color:var(--blue)':'background:#f1f5f9;color:var(--ink-2)'}">${d?'Dernek Üyesi':'Mezun Üye'}</span></span>
+     <span style="color:var(--ink-2)">${r}</span>
+   </div>`).join('');
+
+/* ---------- slide 12: security ---------- */
+const sec = [
+  ['mail','Doğrulama kodu','Kayıt ve şifre sıfırlamada e-postaya tek kullanımlık kod'],
+  ['db','Satır bazlı yetki','Her mezun yalnızca kendi profilini düzenleyebilir; kural veritabanında'],
+  ['lock','Korunan alanlar','Üyelik tipi ve mezuniyet yılı mezunun kendisi tarafından değiştirilemez'],
+  ['eyeoff','Kolon bazlı gizlilik','Hassas profil alanları yalnızca yetkili kişilere açılır'],
+  ['key','Sunucu tarafı kontrol','Yönetim işlemleri sunucuda yetki doğrulamasından geçer'],
+  ['upload','Güvenli yükleme','Dosya türü ve boyut sınırı depolama katmanında zorlanır'],
+  ['card','Güvenli ödeme','Tutar her zaman sunucudan alınır; mükerrer ödeme bildirimi işlenmez'],
+  ['doc','KVKK','Aydınlatma metni ve çerez politikası sayfaları hazır'],
+];
+document.getElementById('secGrid').innerHTML = sec.map(([i,t,d])=>
+  `<div class="card" style="padding:16px 18px;display:flex;gap:14px;align-items:flex-start">
+     <div class="iconbox" style="width:38px;height:38px;border-radius:10px;flex:none">${ic(i)}</div>
+     <div><div style="font-size:15.5px;font-weight:700">${t}</div><div class="muted" style="font-size:13px;line-height:1.45;margin-top:3px">${d}</div></div>
+   </div>`).join('');
+
+/* ---------- slide 14: adaptation ---------- */
+const adapt = [
+  ['palette','Kimlik','Ad, logo, renkler, menüler ve derneğin kendi alan adı'],
+  ['refresh','Üyelik doğrulama','Fonzip kullanılıyorsa aynı entegrasyon; kullanılmıyorsa üyelik tipi panelden atanır ya da derneğin aidat sistemine bağlanır'],
+  ['hash','Okul numarası düzeni','Mezuniyet yılı ve okul numarası eşleşmesi Kabataş\'ın numaralandırmasına göre ayarlanır'],
+  ['db','Ayrı kurulum, ayrı veri','Kabataş için bağımsız veritabanı; veriler yalnızca derneğe ait'],
+  ['doc','Metinler','KVKK, çerez politikası, iletişim ve "Neden üye olmalıyım?" içerikleri'],
+  ['card','Ödeme ve markalar','Banka bilgileri, istenirse sanal POS; anlaşmalı marka listesi'],
+];
+document.getElementById('adapt').innerHTML = adapt.map(([i,t,d])=>
+  `<div style="display:flex;gap:14px;align-items:flex-start;padding:4px 0">
+     <div class="iconbox" style="width:38px;height:38px;border-radius:10px;flex:none">${ic(i)}</div>
+     <div><div style="font-size:16px;font-weight:700">${t}</div><div class="muted" style="font-size:13.5px;line-height:1.45;margin-top:2px">${d}</div></div>
+   </div>`).join('');
+const steps = ['Tanışma ve canlı demo','İhtiyaç ve marka bilgileri','Kurulum ve veri aktarımı','Pilot: yönetim + küçük mezun grubu','Lansman ve duyuru'];
+document.getElementById('steps').innerHTML = steps.map((s,k)=>
+  `<div style="background:${k===steps.length-1?'var(--navy)':'var(--soft)'};color:${k===steps.length-1?'#fff':'var(--ink)'};border-radius:12px;padding:12px 14px">
+     <div style="font-size:12px;font-weight:800;color:${k===steps.length-1?'#93b4ff':'var(--blue)'}">${String(k+1).padStart(2,'0')}</div>
+     <div style="font-size:14px;font-weight:650;margin-top:4px;line-height:1.35">${s}</div>
+   </div>`).join('');
+
+/* ---------- scaling + present mode ---------- */
+const wraps=[...document.querySelectorAll('.wrap')];
+function fit(){
+  wraps.forEach(w=>{const s=w.clientWidth/1280; w.querySelector('.slide').style.setProperty('--s',s||1);});
+}
+let cur=0;
+function show(i){cur=Math.max(0,Math.min(wraps.length-1,i));wraps.forEach((w,k)=>w.classList.toggle('active',k===cur));fitPresent();}
+function fitPresent(){
+  if(!document.body.classList.contains('present'))return fit();
+  const s=Math.min(innerWidth/1280,innerHeight/720);
+  wraps.forEach(w=>{w.style.width=(1280*s)+'px';w.style.height=(720*s)+'px';w.style.aspectRatio='auto';w.querySelector('.slide').style.setProperty('--s',s);});
+}
+function exitPresent(){document.body.classList.remove('present');wraps.forEach(w=>{w.style.width='';w.style.height='';w.style.aspectRatio='';w.classList.remove('active');});fit();}
+document.getElementById('presentBtn').onclick=()=>{
+  document.body.classList.add('present');
+  const top=wraps.findIndex(w=>w.getBoundingClientRect().bottom>80);
+  show(top<0?0:top);
+  document.documentElement.requestFullscreen?.().catch(()=>{});
+};
+document.getElementById('printBtn').onclick=()=>window.print();
+addEventListener('keydown',e=>{
+  if(!document.body.classList.contains('present')){ if(e.key==='f'||e.key==='F')document.getElementById('presentBtn').click(); return; }
+  if(['ArrowRight','PageDown',' ','Enter'].includes(e.key)){e.preventDefault();show(cur+1);}
+  else if(['ArrowLeft','PageUp','Backspace'].includes(e.key)){e.preventDefault();show(cur-1);}
+  else if(e.key==='Home')show(0); else if(e.key==='End')show(wraps.length-1);
+  else if(e.key==='Escape'){exitPresent();document.fullscreenElement&&document.exitFullscreen();}
+});
+addEventListener('click',e=>{ if(document.body.classList.contains('present')) show(cur+(e.clientX>innerWidth/3?1:-1)); });
+document.addEventListener('fullscreenchange',()=>{ if(!document.fullscreenElement&&document.body.classList.contains('present')) exitPresent(); });
+addEventListener('resize',fitPresent);
+addEventListener('beforeprint',()=>wraps.forEach(w=>w.querySelector('.slide').style.setProperty('--s',1)));
+addEventListener('afterprint',fit);
+fit();
+</script>
+</body>
+</html>

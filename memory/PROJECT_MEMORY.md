@@ -747,6 +747,13 @@ davranışın aynısını alıyor: boş küme.
 
 ## Oturum günlüğü
 
+### 2026-11-21 — Admin paneli: Etkinlikler / İş İlanları / Haberler sekmeleri boştu
+
+- **Sebep**: Bu üç `TabsTrigger` ilk sürümden beri vardı ama karşılık gelen `TabsContent` hiç yazılmamıştı (Markalar dersindeki durumun tersi). Sekmeye tıklayınca ekran boş kalıyordu.
+- **Çözüm**: `src/components/admin/AdminContentTab.tsx` + `src/services/adminContentService.ts`. Liste, görüntüle, yayına al/kaldır (`events.is_approved`, `job_postings.is_active`, `news.published`), sil (onaylı) ve "Yeni ..." butonu (mevcut `/…/create` sayfaları). `admin.tsx`'teki ölü `newsItems`/`loadNews`/`handleDeleteNews` kaldırıldı.
+- **RLS**: prod'da staff için SELECT/UPDATE/DELETE politikası YOKTU (yalnız sahip bazlı + "görünür satırlar" SELECT). Bu yüzden yazmalar `.select("id")` ile geri okunuyor; 0 satır = "yetki yok" uyarısı (PostgREST bunu hata saymaz). Ek politikalar: `20261121150000_staff_content_moderation.sql` (yalnız ekleme, `DROP` yok, geri alma betiği dosyada). Silme: `event_attendees`, `job_applications`, `job_referrals` CASCADE.
+- **Prod'a uygulandı (2026-11-21, kullanıcı onayıyla)**: `staff_content_moderation`. `pg_policies` ile doğrulandı: 9 `staff_*` politikası var (3 tablo × SELECT/UPDATE/DELETE). 3 admin'in hepsi için `is_staff()` true. O an tablolarda 0 etkinlik, 2 ilan, 1 haber vardı ve hepsi zaten görünürdü; yani uygulama anında hiçbir kaydın görünürlüğü değişmedi.
+
 ### 2026-10-22 — Ana sayfa konum/üniversite istatistikleri (PR #47, devam ediyor)
 
 Plan: `docs/superpowers/plans/2026-10-22-home-stats-location-university.md` (kararlar, fazlar, Fonzip bulguları orada).
